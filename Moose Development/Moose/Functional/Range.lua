@@ -310,34 +310,39 @@ function RANGE:AddBombingTargetsByName(unitnames, goodhitrange, static)
   for _,name in pairs(unitnames) do
     local _unit
     local _static
-    if static then 
+    
+    if static then
+     
+      -- Add static object. Workaround since cargo objects are not yet in database because DCS function does not add those.
       local _DCSstatic=StaticObject.getByName(name)
-      if _DCSstatic then
+      if _DCSstatic and _DCSstatic:isExist() then
         env.info("DCS static exists")
         _DATABASE:AddStatic(name)
       else
         env.info("DCS static DOES NOT exist")
       end
+      
+      -- Now we can find it
       _static=STATIC:FindByName(name)
       if _static then
         self:AddBombingTargetUnit(_static, goodhitrange)
         env.info(RANGE.id.."Adding static bombing target "..name.." with hit range "..goodhitrange)
+      else
+        env.info(RANGE.id.."ERROR! Cound not find static bombing target "..name)
       end
+      
     else
+    
       _unit=UNIT:FindByName(name)
       if _unit then
         self:AddBombingTargetUnit(_unit, goodhitrange)
         env.info(RANGE.id.."Adding bombing target "..name.." with hit range "..goodhitrange)
+      else
+        env.info(RANGE.id.."ERROR! Could not find bombing target "..name)
       end
+      
     end
---[[    
-    if _unit then
-      self:AddBombingTargetUnit(_unit, goodhitrange)
-      env.info(RANGE.id.."Adding bombing target "..name.." with hit range "..goodhitrange)
-    else
-      env.info(RANGE.id.."Could not find bombing target "..name)
-    end
-]]
+
   end
 end
 
@@ -932,7 +937,7 @@ function RANGE:RangeInfo(_unitname)
       -- Message text.
       text=text..string.format("Information on %s:\n", self.rangename)
       text=text..string.format("--------------------------------------------------\n")
-      text=text..string.format("Bearing %s, Range %.1f km.", Bs, range/1000)
+      text=text..string.format("Bearing %s, Range %.1f km.\n", Bs, range/1000)
       text=text..string.format("# of strafe targets: %d\n", self.nstrafetargets)
       text=text..string.format("# of bomb targets: %d\n", self.nbombtargets)
       text=text..textbomb
