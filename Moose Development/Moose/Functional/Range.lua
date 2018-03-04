@@ -129,7 +129,7 @@ function RANGE:New(name)
   self:HandleEvent(EVENTS.Hit,   self._OnHit)
   self:HandleEvent(EVENTS.Shot,  self._OnShot)
   
-  self.Eventhandler=world.addEventHandler(self)
+  --self.Eventhandler=world.addEventHandler(self)
   
   -- Return object.
   return self
@@ -569,9 +569,6 @@ function RANGE:_OnShot(EventData)
         
     -- Function monitoring the position of a bomb until impact.
     local function trackBomb(_previousPos)
-
-      --local _unit = Unit.getByName(_unitName)
-      --local _playername=_unit:getPlayerName()
       
       -- Get player unit and name.
       local _unit, _playername = self:_GetPlayerUnitAndName(_unitName)
@@ -763,7 +760,6 @@ function RANGE:DisplayStrafePitResults(_unitName)
   
     -- Add top 10 results.
     for _i = 1, math.min(#_playerResults, 10) do
-      --_message = _message.."\n[".._i.."]"..
       _message = _message..string.format("\n[%d] %s", _i, _playerResults[_i].msg)
     end
   
@@ -870,8 +866,6 @@ function RANGE:DisplayBombingResults(_unitName)
   
     -- Loop over player results.
     for _i = 1, math.min(#_playerResults, 10) do  
-      -- Message text.
-      --_message = _message.."\n[".._i.."] "..
       _message = _message..string.format("\n[%d] %s", _i, _playerResults[_i].msg)
     end
   
