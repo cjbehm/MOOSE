@@ -60,7 +60,7 @@
 -- @field #table PlayerSettings Indiviual player settings.
 -- @field #number dtBombtrack Time step [sec] used for tracking released bomb/rocket positions. Default 0.005 seconds.
 -- @field #number Tmsg Time [sec] messages to players are displayed. Default 30 sec.
--- @field #number strafemaxalt Maximum altitude above ground for registering for a strafe run. Default is 500 m = 1650 ft. 
+-- @field #number strafemaxalt Maximum altitude above ground for registering for a strafe run. Default is 610 m = 2000 ft. 
 -- @field #number ndisplayresult Number of (player) results that a displayed. Default is 10.
 -- @extends Core.Base#BASE
 
@@ -80,7 +80,7 @@
 -- @field #RANGE
 RANGE={
   ClassName = "RANGE",
-  Debug=false,
+  Debug=true,
   rangename=nil,
   location=nil,
   strafeTargets={},
@@ -95,7 +95,7 @@ RANGE={
   PlayerSettings = {},
   dtBombtrack=0.005,
   Tmsg=30,
-  strafemaxalt=500,
+  strafemaxalt=610,
   ndisplayresult=10,
 }
 
@@ -448,6 +448,7 @@ function RANGE:onEvent(Event)
     EventData.TgtDCSGroup  = Event.target:getGroup()
     EventData.TgtGroupName = Event.target:getGroup():getName()
     EventData.TgtGroup     = GROUP:FindByName(EventData.TgtGroupName)
+    EventData.TgtUnit      = UNIT:FindByName(EventData.TgtUnitName)
   end
   
   if Event.weapon then
@@ -525,7 +526,7 @@ function RANGE:_OnBirth(EventData)
   
     -- Start check in zone timer.
     if self.planes[_uid] ~= true then
-      SCHEDULER:New(nil,self.CheckInZone, {self, EventData.IniUnitName}, 1, 1)
+      SCHEDULER:New(nil,self._CheckInZone, {self, EventData.IniUnitName}, 1, 1)
       self.planes[_uid] = true
     end
   
@@ -1111,16 +1112,17 @@ function RANGE:_CheckInZone(_unitName)
       -- Get the current approach zone and check if player is inside.
       local zone=_currentStrafeRun.zone.polygon  --Core.Zone#ZONE_POLYGON_BASE
       
-      local unitheading = _unit:GetHeading()
-      local pitheading  = _currentStrafeRun.zone.heading - 180
-      local towardspit  = math.abs(unitheading-pitheading)<=90
+      local unitheading  = _unit:GetHeading()
+      local pitheading   = _currentStrafeRun.zone.heading - 180
+      local deltaheading = unitheading-pitheading
+      local towardspit   = math.abs(deltaheading)<=90 or math.abs(deltaheading-360)<=90
       local unitalt=_unit:GetHeight()-_unit:GetCoordinate():GetLandHeight()       
       
       -- Check if unit is inside zone and below max height AGL.
       local unitinzone=_unit:IsInZone(zone) and unitalt <= self.strafemaxalt and towardspit
       
       if self.Debug then
-        local text=string.format("Checking zone. Unit = %s, player = %s in zone = %s", _unitName, _playername, tostring(unitinzone))
+        local text=string.format("Checking stil in zone. Unit = %s, player = %s in zone = %s. alt = %d, delta heading = %d", _unitName, _playername, tostring(unitinzone), unitalt, deltaheading)
         env.info(RANGE.id..text)
       end
     
@@ -1191,16 +1193,17 @@ function RANGE:_CheckInZone(_unitName)
         -- Check if player is in zone and below
         --local unitinzone=_unit:IsInZone(zone) and _unit:GetHeight()-_unit:GetCoordinate():GetLandHeight() <= self.strafemaxalt
         
-        local unitheading = _unit:GetHeading()
-        local pitheading  = _targetZone.heading - 180
-        local towardspit  = math.abs(unitheading-pitheading)<=90
-        local unitalt=_unit:GetHeight()-_unit:GetCoordinate():GetLandHeight()       
+        local unitheading  = _unit:GetHeading()
+        local pitheading   = _targetZone.heading - 180
+        local deltaheading = unitheading-pitheading
+        local towardspit   = math.abs(deltaheading)<=90 or math.abs(deltaheading-360)<=90
+        local unitalt      =_unit:GetHeight()-_unit:GetCoordinate():GetLandHeight()       
       
         -- Check if unit is inside zone and below max height AGL.
         local unitinzone=_unit:IsInZone(zone) and unitalt <= self.strafemaxalt and towardspit
            
         if self.Debug then
-          local text=string.format("Checking zone %s. Unit = %s, player = %s in zone = %s", _targetZone.name, _unitName, _playername, tostring(unitinzone))
+          local text=string.format("Checking zone %s. Unit = %s, player = %s in zone = %s. alt = %d, delta heading = %d", _targetZone.name, _unitName, _playername, tostring(unitinzone), unitalt, deltaheading)
           --MESSAGE:New(text, 10):ToAllIf(self.Debug)
           env.info(RANGE.id..text)
         end
@@ -1263,8 +1266,8 @@ function RANGE:_AddF10Commands(_unitName)
         --TODO: Convert to MOOSE menu.
         -- Commands
         missionCommands.addCommandForGroup(_gid, "Mark On Map",         _smokePath, self._MarkTargetsOnMap, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Illuminate Range",    _smokePath, self._IlluminateBombTargets, self)        
-        missionCommands.addCommandForGroup(_gid, "Smoke Strafe Pits",   _smokePath, self._SmokeStrafeTargetBoxes, self)        
+        missionCommands.addCommandForGroup(_gid, "Illuminate Range",    _smokePath, self._IlluminateBombTargets, self, _unitName)        
+        missionCommands.addCommandForGroup(_gid, "Smoke Strafe Pits",   _smokePath, self._SmokeStrafeTargetBoxes, self, _unitName)        
         missionCommands.addCommandForGroup(_gid, "Smoke Straf Tgts",    _smokePath, self._SmokeStrafeTargets, self, _unitName)
         missionCommands.addCommandForGroup(_gid, "Smoke Bomb Tgts",     _smokePath, self._SmokeBombTargets, self, _unitName)
         missionCommands.addCommandForGroup(_gid, "All Strafe Results",  _statsPath, self._DisplayStrafePitResults, self, _unitName)
@@ -1445,7 +1448,7 @@ function RANGE:_SmokeBombTargets(unitname)
   if unitname then
     local unit, playername = self:_GetPlayerUnitAndName(unitname)
     local text=string.format("%s, bombing targets are now marked with red smoke.", self.rangename)
-    self:DisplayMessageToGroup(unit, text, 5)
+    self:_DisplayMessageToGroup(unit, text, 5)
   end
 end
 
@@ -1461,8 +1464,8 @@ function RANGE:_SmokeStrafeTargets(unitname)
   end
   if unitname then
     local unit, playername = self:_GetPlayerUnitAndName(unitname)
-    local text=string.format("%s, strafing tragets are now marked with green smoke.", self.rangename)
-    self:DisplayMessageToGroup(unit, text, 5)
+    local text=string.format("%s, %s, strafing tragets are now marked with green smoke.", self.rangename, tostring(playername))
+    self:_DisplayMessageToGroup(unit, text, 5)
   end
 end
 
