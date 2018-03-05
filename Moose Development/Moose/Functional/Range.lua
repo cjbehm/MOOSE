@@ -61,6 +61,7 @@
 -- @field #number dtBombtrack Time step [sec] used for tracking released bomb/rocket positions. Default 0.005 seconds.
 -- @field #number Tmsg Time [sec] messages to players are displayed. Default 30 sec.
 -- @field #number strafemaxalt Maximum altitude above ground for registering for a strafe run. Default is 500 m = 1650 ft. 
+-- @field #number ndisplayresult Number of (player) results that a displayed. Default is 10.
 -- @extends Core.Base#BASE
 
 ---# RANGE class, extends @{Base#BASE}
@@ -95,6 +96,7 @@ RANGE={
   dtBombtrack=0.005,
   Tmsg=30,
   strafemaxalt=500,
+  ndisplayresult=10,
 }
 
 --- Some ID to identify who we are in output of the DCS.log file.
@@ -105,13 +107,13 @@ RANGE.id="RANGE | "
 -- @field #number id
 RANGE.version="0.7.0"
 
---TODO
--- Add statics.
--- Add user function.
--- Rename private functions, i.e. start with _functionname.
--- Make number of displayed results variable.
--- Add tire option for strafe pits.
--- Check that menu texts are short enough to be correctly displayed in VR.
+--TODO list
+--TODO: Add statics.
+--TODO: Add user function.
+--TODO: Rename private functions, i.e. start with _functionname.
+--DONE: number of displayed results variable.
+--TODO: Add tire option for strafe pits. ==> No really feasible since tires are very small and cannot be seen.
+--TODO: Check that menu texts are short enough to be correctly displayed in VR.
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -200,7 +202,9 @@ end
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- User Functions
 
---- Add a unit as strafe target. For a strafe target hits from guns are counted. 
+--- Add a unit as strafe target. For a strafe target hits from guns are counted. One pit can consist of several units.
+-- Note, an approach is only valid, if the player enters a zone in front of the pit defined by boxlength and boxheading.
+-- Also the player must not be too heigh and fly in the direction of the pit to make a valid target apporoach.
 -- @param #RANGE self
 -- @param #table Table of unit names defining the strafe targets. The first target in the list determines the approach zone (heading and box).
 -- @param #number boxlength (Optional) Length of the approach box in meters. Default is 3000 m.
@@ -288,6 +292,9 @@ function RANGE:AddStrafeTarget(unitnames, boxlength, boxwidth, heading, inverseh
   
   -- Create polygon zone.
   local _polygon=ZONE_POLYGON_BASE:New(_name, pv2)
+  
+  -- Create tires
+  --_polygon:BoundZone()
     
   -- Add zone to table.
   table.insert(self.strafeTargets, {name=_name, polygon=_polygon, goodPass=goodpass, targets=_targets, foulline=foulline, smokepoints=p, heading=heading})
@@ -303,8 +310,8 @@ end
 --- Add bombing target(s) to range using their unit names.
 -- @param #RANGE self
 -- @param #table unitnames Table containing the unit names acting as bomb targets.
--- @param #number goodhitrange Max distance from target unit (in meters) which is considered as a good hit. Default is 20 m.
--- @param #boolean static Target is static. Default false.
+-- @param #number goodhitrange (Optional) Max distance from target unit (in meters) which is considered as a good hit. Default is 20 m.
+-- @param #boolean static (Optional) Target is static. Default false.
 function RANGE:AddBombingTargetsByName(unitnames, goodhitrange, static)
 
   -- Create a table if necessary.
@@ -388,7 +395,7 @@ end
 -- @param #RANGE self
 function RANGE:onEvent(Event)
 
-  if Event == nil or Event.initiator == nil then
+  if Event == nil or Event.initiator == nil or Unit.getByName(Event.initiator:getName()) == nil then
     return true
   end
 
@@ -725,7 +732,7 @@ function RANGE:DisplayMyStrafePitResults(_unitName)
   if _unit and _playername then
   
     -- Message header.
-    local _message = "My Top 10 Strafe Pit Results:\n"
+    local _message = string.format("My Top %d Strafe Pit Results:\n", self.ndisplayresult)
   
     -- Get player results.
     local _results = self.strafePlayerResults[_playername]
@@ -756,7 +763,7 @@ function RANGE:DisplayMyStrafePitResults(_unitName)
         end
   
         -- 10 runs
-        if _count == 10 then
+        if _count == self.ndisplayresult then
             break
         end
     
@@ -788,7 +795,7 @@ function RANGE:DisplayStrafePitResults(_unitName)
     local _playerResults = {}
   
     -- Message text.
-    local _message = "Strafe Pit Results - Top 10 Players:\n"
+    local _message = string.format("Strafe Pit Results - Top %d Players:\n", self.ndisplayresult)
   
     -- Loop over player results.
     for _playerName,_results in pairs(self.strafePlayerResults) do
@@ -814,7 +821,7 @@ function RANGE:DisplayStrafePitResults(_unitName)
     table.sort(_playerResults,_sort)
   
     -- Add top 10 results.
-    for _i = 1, math.min(#_playerResults, 10) do
+    for _i = 1, math.min(#_playerResults, self.ndisplayresult) do
       _message = _message..string.format("\n[%d] %s", _i, _playerResults[_i].msg)
     end
   
@@ -834,7 +841,7 @@ function RANGE:DisplayMyBombingResults(_unitName)
   if _unit and _playername then
   
     -- Init message.
-    local _message = "My Top 10 Bombing Results:\n"
+    local _message = string.format("My Top %d Bombing Results:\n", self.ndisplayresult)
   
     -- Results from player.
     local _results = self.bombPlayerResults[_playername]
@@ -862,7 +869,7 @@ function RANGE:DisplayMyBombingResults(_unitName)
         end
   
         -- Best 10 runs only.
-        if _count == 10 then
+        if _count == self.ndisplayresult then
           break
         end
   
@@ -894,7 +901,7 @@ function RANGE:DisplayBombingResults(_unitName)
   if _unit and _player then
   
     -- Message header.
-    local _message = "Bombing Results - Top 10 Players:\n"
+    local _message = string.format("Bombing Results - Top %d Players:\n", self.ndisplayresult)
   
     -- Loop over players.
     for _playerName,_results in pairs(self.bombPlayerResults) do
@@ -920,7 +927,7 @@ function RANGE:DisplayBombingResults(_unitName)
     table.sort(_playerResults,_sort)
   
     -- Loop over player results.
-    for _i = 1, math.min(#_playerResults, 10) do  
+    for _i = 1, math.min(#_playerResults, self.ndisplayresult) do  
       _message = _message..string.format("\n[%d] %s", _i, _playerResults[_i].msg)
     end
   

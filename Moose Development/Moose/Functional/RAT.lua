@@ -1283,6 +1283,14 @@ function RAT:NoRespawn()
   self.norespawn=true
 end
 
+--- Number of tries to respawn an aircraft in case it has accitentally been spawned on runway.
+-- @param #RAT self
+-- @param #number n Number of retries. Default is 3.
+function RAT:SetMaxRespawnTriedWhenSpawnedOnRunway(n)
+  n=n or 3
+  self.rbug_maxretry=n
+end
+
 --- Aircraft will be respawned directly after take-off.
 -- @param #RAT self
 function RAT:RespawnAfterTakeoff()
@@ -3075,28 +3083,35 @@ end
 -- @param #string status Status of group.
 function RAT:_SetStatus(group, status)
 
-  -- Get index from groupname.
-  local index=self:GetSpawnIndexFromGroup(group)
-  
-  if self.Debug or self.reportstatus then
-    env.info(RAT.id..string.format("Group %s has status %s, spawnindex = %d", group:GetName(), status, index))
+  if group and group:IsAlive() then
+
+    -- Get index from groupname.
+    local index=self:GetSpawnIndexFromGroup(group)
+    
+    if self.Debug or self.reportstatus then
+      env.info(RAT.id..string.format("Group %s has status %s, spawnindex = %d", group:GetName(), status, index))
+    end
+    
+    if self.ratcraft[index] then
+    
+      -- Set new status.
+      self.ratcraft[index].status=status
+      
+      -- No status update message for "first waypoint", "holding"
+      local no1 = status==RAT.status.Departure
+      local no2 = status==RAT.status.EventBirthAir
+      local no3 = status==RAT.status.Holding
+      
+      local text=string.format("Flight %s: %s.", group:GetName(), status)
+      self:T(RAT.id..text)
+      
+      if (not (no1 or no2 or no3)) then
+        MESSAGE:New(text, 10):ToAllIf(self.reportstatus)
+      end
+      
+    end
+    
   end
-  
-  -- Set new status.
-  self.ratcraft[index].status=status
-  
-  -- No status update message for "first waypoint", "holding"
-  local no1 = status==RAT.status.Departure
-  local no2 = status==RAT.status.EventBirthAir
-  local no3 = status==RAT.status.Holding
-  
-  local text=string.format("Flight %s: %s.", group:GetName(), status)
-  self:T(RAT.id..text)
-  
-  if (not (no1 or no2 or no3)) then
-    MESSAGE:New(text, 10):ToAllIf(self.reportstatus)
-  end
-  
 end
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -3136,6 +3151,7 @@ function RAT:_OnBirth(EventData)
                
         -- Get some info ablout this flight. 
         local i=self:GetSpawnIndexFromGroup(SpawnGroup)
+        --env.info("FF Spawnindex "..tostring(i))
         local _departure=self.ratcraft[i].departure:GetName()
         local _destination=self.ratcraft[i].destination:GetName()
         local _nrespawn=self.ratcraft[i].nrespawn
@@ -3175,7 +3191,7 @@ function RAT:_OnBirth(EventData)
             env.info(RAT.id..text)
             
             -- Spawn new group.
-            self:_SpawnWithRoute(nil,nil,nil,nil,nil,nil,_nrespawn)
+            self:_SpawnWithRoute(nil, nil, nil, nil, nil, nil, _nrespawn)
           else
             -- This will respawn the same fight (maybe with a different route) but already in the air.l
             -- Note: We could also try to spawn already on the runway but this might also lead to problems.
@@ -3514,7 +3530,9 @@ function RAT:_Despawn(group)
     if index ~= nil then
     
       self.ratcraft[index].group=nil
+      self.ratcraft[index]["status"]="Dead"
       
+      --[[
       --self.ratcraft[index]["group"]=group
       self.ratcraft[index]["destination"]=nil
       self.ratcraft[index]["departure"]=nil
@@ -3535,7 +3553,8 @@ function RAT:_Despawn(group)
       self.ratcraft[index].livery=nil
       self.ratcraft[index].despawnme=nil
       self.ratcraft[index].nrespawn=nil
-    
+      ]]
+      
       -- Remove ratcraft table entry.
       --TODO: Somehow this causes issues.
       --table.remove(self.ratcraft, index)
@@ -4704,7 +4723,7 @@ function RATMANAGER:New(ntot)
   self.ntot=ntot or 1
   
   -- Debug info
-  env.info(string.format(RATMANAGER.id.."Creating manager for %d groups.", ntot))
+  env.info(RATMANAGER.id..string.format("Creating manager for %d groups.", ntot))
   
   return self
 end
