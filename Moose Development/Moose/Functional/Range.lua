@@ -146,7 +146,7 @@ function RANGE:New(name)
   else
     env.info(RANGE.id.."Events are handled by DCS.")
     -- Events are handled directly by DCS.
-    self.Eventhandler=world.addEventHandler(self)
+    world.addEventHandler(self)
   end
   
   -- Return object.
@@ -1272,8 +1272,8 @@ function RANGE:_AddF10Commands(_unitName)
         missionCommands.addCommandForGroup(_gid, "My Strafe Results",   _statsPath, self._DisplayMyStrafePitResults, self, _unitName)
         missionCommands.addCommandForGroup(_gid, "My Bomb Results",     _statsPath, self._DisplayMyBombingResults, self, _unitName)
         missionCommands.addCommandForGroup(_gid, "Reset Stats",         _statsPath, self._ResetRangeStats, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Range Information",   _rangePath, self._RangeInfo, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Range Weather",       _rangePath, self._RangeWeather, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Range Information",   _rangePath, self._DisplayRangeInfo, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Range Weather",       _rangePath, self._DisplayRangeWeather, self, _unitName)
         missionCommands.addCommandForGroup(_gid, "Smoke Impact On/Off", _rangePath, self._SmokeBombImpactOnOff, self, _unitName)
         missionCommands.addCommandForGroup(_gid, "Flare Hits On/Off",   _rangePath, self._FlareDirectHitsOnOff, self, _unitName)
       end

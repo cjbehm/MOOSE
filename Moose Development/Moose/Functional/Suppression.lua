@@ -661,6 +661,7 @@ function SUPPRESSION:onafterStart(Controllable, From, Event, To)
     
   -- Add event handler.
   self.mooseevents=false
+  
   if self.mooseevents then
     self:HandleEvent(EVENTS.Hit, self._OnEventHit)
     self:HandleEvent(EVENTS.Dead, self._OnEventDead)

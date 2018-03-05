@@ -95,7 +95,7 @@ PSEUDOATC.id="PseudoATC | "
 --- PSEUDOATC version.
 -- @field #list
 PSEUDOATC.version={
-  version = "0.4.0",
+  version = "0.5.0",
   print = true,
 }
 
@@ -111,6 +111,8 @@ function PSEUDOATC:New()
   -- Debug info
   env.info(PSEUDOATC.id..string.format("Creating PseudoATC object. PseudoATC version %s", PSEUDOATC.version.version))
   
+  self.MooseEventHandling=false
+  
   -- Handle events.
   if self.MooseEventHandling then
     self:HandleEvent(EVENTS.Birth, self._OnBirth)
@@ -120,7 +122,7 @@ function PSEUDOATC:New()
     --self:HandleEvent(EVENTS.Takeoff, self._PlayerTakeoff)
   else
     -- Events are handled directly by DCS.
-    self.EventHandler=world.addEventHandler(self)
+    world.addEventHandler(self)
   end
   
   -- Return object.
@@ -146,12 +148,13 @@ function PSEUDOATC:onEvent(Event)
   local _playerunit=nil
   local _playername=nil
   
-  EventData.IniUnitName  = Event.initiator:getName()
-  EventData.IniDCSGroup  = Event.initiator:getGroup()
-  EventData.IniGroupName = Event.initiator:getGroup():getName()
-  
-  -- Get player unit and name. This returns nil,nil if the event was not fired by a player unit. And these are the only events we are interested in. 
-  _playerunit, _playername = self:_GetPlayerUnitAndName(EventData.IniUnitName)  
+  if Event.initiator then
+    EventData.IniUnitName  = Event.initiator:getName()
+    EventData.IniDCSGroup  = Event.initiator:getGroup()
+    EventData.IniGroupName = Event.initiator:getGroup():getName()  
+    -- Get player unit and name. This returns nil,nil if the event was not fired by a player unit. And these are the only events we are interested in. 
+    _playerunit, _playername = self:_GetPlayerUnitAndName(EventData.IniUnitName)  
+  end
 
   if Event.place then
     EventData.Place=Event.place
@@ -731,7 +734,7 @@ function PSEUDOATC:LocalAirports(id)
 end
 
 --- Returns the unit of a player and the player name. If the unit does not belong to a player, nil is returned. 
--- @param #RANGE self
+-- @param #PSEUDOATC self
 -- @param #string _unitName Name of the player unit.
 -- @return Wrapper.Unit#UNIT Unit of player.
 -- @return #string Name of the player.
