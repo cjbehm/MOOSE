@@ -46,17 +46,17 @@
 -- @type RANGE
 -- @field #string ClassName Name of the Class.
 -- @field #boolean Debug If true, print debug info to dcs.log file.
+-- @field #string rangename Name of the range.
+-- @field Core.Point#COORDINATE location Coordinate of the range.
 -- @field #table strafeTargets Table of strafing targets.
 -- @field #table bombingTargets Table of targets to bomb.
--- @field #table addTo Table for monitoring which players already got an F10 menu.
+-- @field #number nbombtargets Number of bombing targets.
+-- @field #number nstrafetargets Number of strafing targets.
+-- @field #table MenuAddedTo Table for monitoring which players already got an F10 menu.
+-- @field #table planes Table for administration.
 -- @field #table strafeStatus Table containing the current strafing target a player as assigned to.
 -- @field #table strafePlayerResults Table containing the strafing results of each player.
 -- @field #table bombPlayerResults Table containing the bombing results of each player.
--- @field #table planes Table for administration.
--- @field Core.Point#COORDINATE location Coordinate of the range.
--- @field #string rangename Name of the range.
--- @field #number nbombtargets Number of bombing targets.
--- @field #number nstrafetargets Number of strafing targets.
 -- @field #table PlayerSettings Indiviual player settings.
 -- @field #number dtBombtrack Time step [sec] used for tracking released bomb/rocket positions. Default 0.005 seconds.
 -- @field #number Tmsg Time [sec] messages to players are displayed. Default 30 sec.
@@ -109,11 +109,11 @@ RANGE.version="0.7.0"
 
 --TODO list
 --TODO: Add statics.
---TODO: Add user function.
---TODO: Rename private functions, i.e. start with _functionname.
+--DONE: Add user function.
+--DONE: Rename private functions, i.e. start with _functionname.
 --DONE: number of displayed results variable.
---TODO: Add tire option for strafe pits. ==> No really feasible since tires are very small and cannot be seen.
---TODO: Check that menu texts are short enough to be correctly displayed in VR.
+--DONE: Add tire option for strafe pits. ==> No really feasible since tires are very small and cannot be seen.
+--DONE: Check that menu texts are short enough to be correctly displayed in VR.
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -201,6 +201,34 @@ end
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- User Functions
+
+--- Set maximal strafing altitude. Player entering a strafe pit above that altitude are not registered for a valid pass.
+-- @param #RANGE self
+-- @param #number maxalt Maximum altitude AGL in meters.
+function RANGE:SetMaxStrafeAlt(maxalt)
+  self.strafemaxalt=maxalt
+end
+
+--- Set time interval for tracking bombs. A smaller time step increases accuary but needs more CPU time.
+-- @param #RANGE self
+-- @param #number dt Time interval in seconds. Default is 0.005 s.
+function RANGE:SetBombtrackTimestep(dt)
+  self.dtBombtrack=dt
+end
+
+--- Set time how long messages are displayed.
+-- @param #RANGE self
+-- @param #number dt Time in seconds. Default is 30 s.
+function RANGE:SetBombtrackTimestep(time)
+  self.Tmsg=time
+end
+
+--- Set max number of player results that are displayed.
+-- @param #RANGE self
+-- @param #number nmax Number of results. Default is 10.
+function RANGE:SetBombtrackTimestep(nmax)
+  self.ndisplayresult=nmax
+end
 
 --- Add a unit as strafe target. For a strafe target hits from guns are counted. One pit can consist of several units.
 -- Note, an approach is only valid, if the player enters a zone in front of the pit defined by boxlength and boxheading.
@@ -488,7 +516,7 @@ function RANGE:_OnBirth(EventData)
     self.strafeStatus[_uid] = nil
   
     -- Add Menu commands.
-    self:AddF10Commands(_unitName)
+    self:_AddF10Commands(_unitName)
     
     -- By default, some bomb impact points and do not flare each hit on target.
     self.PlayerSettings[_playername]={}
@@ -559,7 +587,7 @@ function RANGE:_OnHit(EventData)
           if _currentTarget.pastfoulline==false and _unit and _playername then 
             local _d=_currentTarget.zone.foulline           
             local text=string.format("%s, Invalid hit!\nYou already passed foul line distance of %d m for target %s.", self:_myname(_unitName), _d, targetname)
-            self:DisplayMessageToGroup(_unit, text, 10)
+            self:_DisplayMessageToGroup(_unit, text, 10)
             env.info(RANGE.id..text)
             _currentTarget.pastfoulline=true
           end
@@ -699,11 +727,11 @@ function RANGE:_OnShot(EventData)
             local _message = string.format("%s, impact %i m from bullseye of target %s.", _callsign, _distance, _closetTarget.name)
 
             -- Sendmessage.
-            self:DisplayMessageToGroup(_unit, _message, nil, true)
+            self:_DisplayMessageToGroup(_unit, _message, nil, true)
           else
             -- Sendmessage
             local _message=string.format("%s, weapon fell more than 1 km away from nearest range target. No score.", _callsign)
-            self:DisplayMessageToGroup(_unit, _message, nil, true)
+            self:_DisplayMessageToGroup(_unit, _message, nil, true)
           end
   
         end -- _status
@@ -724,7 +752,7 @@ end
 --- Display best 10 stafing results of a specific player.
 -- @param #RANGE self
 -- @param #string _unitName Name of the player unit.
-function RANGE:DisplayMyStrafePitResults(_unitName)
+function RANGE:_DisplayMyStrafePitResults(_unitName)
   
   -- Get player unit and name
   local _unit,_playername = self:_GetPlayerUnitAndName(_unitName)
@@ -764,7 +792,7 @@ function RANGE:DisplayMyStrafePitResults(_unitName)
   
         -- 10 runs
         if _count == self.ndisplayresult then
-            break
+          break
         end
     
         -- Increase counter
@@ -776,14 +804,14 @@ function RANGE:DisplayMyStrafePitResults(_unitName)
     end
 
     -- Send message to group.  
-    self:DisplayMessageToGroup(_unit, _message, nil, true)
+    self:_DisplayMessageToGroup(_unit, _message, nil, true)
   end
 end
 
 --- Display top 10 strafing results of all players.
 -- @param #RANGE self
 -- @param #string _unitName Name fo the player unit.
-function RANGE:DisplayStrafePitResults(_unitName)
+function RANGE:_DisplayStrafePitResults(_unitName)
   
   -- Get player unit and name.
   local _unit, _playername = self:_GetPlayerUnitAndName(_unitName)
@@ -826,14 +854,14 @@ function RANGE:DisplayStrafePitResults(_unitName)
     end
   
     -- Send message.
-    self:DisplayMessageToGroup(_unit, _message, nil, true)
+    self:_DisplayMessageToGroup(_unit, _message, nil, true)
   end
 end
 
 --- Display last 20 bombing run results of specific player.
 -- @param #RANGE self
 -- @param #string _unitName Name of the player unit.
-function RANGE:DisplayMyBombingResults(_unitName)
+function RANGE:_DisplayMyBombingResults(_unitName)
 
   -- Get player unit and name.  
   local _unit, _playername = self:_GetPlayerUnitAndName(_unitName)
@@ -882,14 +910,14 @@ function RANGE:DisplayMyBombingResults(_unitName)
     end
   
     -- Send message.
-    self:DisplayMessageToGroup(_unit, _message, nil, true)
+    self:_DisplayMessageToGroup(_unit, _message, nil, true)
   end
 end
 
 --- Display best bombing results of top 10 players.
 -- @param #RANGE self
 -- @param #string _unitName Name of player unit.
-function RANGE:DisplayBombingResults(_unitName)
+function RANGE:_DisplayBombingResults(_unitName)
   
   -- Results table.
   local _playerResults = {}
@@ -932,14 +960,14 @@ function RANGE:DisplayBombingResults(_unitName)
     end
   
     -- Send message.
-    self:DisplayMessageToGroup(_unit, _message, nil, true)
+    self:_DisplayMessageToGroup(_unit, _message, nil, true)
   end
 end
 
 --- Report information like bearing and range from player unit to range.
 -- @param #RANGE self
 -- @param #string _unitname Name of the player unit.
-function RANGE:RangeInfo(_unitname)
+function RANGE:_DisplayRangeInfo(_unitname)
 
   -- Get player unit and player name.
   local unit, playername = self:_GetPlayerUnitAndName(_unitname)
@@ -990,7 +1018,7 @@ function RANGE:RangeInfo(_unitname)
       text=text..textbomb
       
       -- Send message to player group.
-      self:DisplayMessageToGroup(unit, text, nil, true)
+      self:_DisplayMessageToGroup(unit, text, nil, true)
       
       if self.Debug then
         env.info(RANGE.id..text)
@@ -1003,7 +1031,7 @@ end
 --- Report weather conditions at range.
 -- @param #RANGE self
 -- @param #string _unitname Name of the player unit.
-function RANGE:RangeWeather(_unitname)
+function RANGE:_DisplayRangeWeather(_unitname)
 
   -- Get player unit and player name.
   local unit, playername = self:_GetPlayerUnitAndName(_unitname)
@@ -1045,7 +1073,7 @@ function RANGE:RangeWeather(_unitname)
     end
     
     -- Send message to player group.
-    self:DisplayMessageToGroup(unit, text, nil, true)
+    self:_DisplayMessageToGroup(unit, text, nil, true)
     
     if self.Debug then
       env.info(RANGE.id..text)
@@ -1061,7 +1089,7 @@ end
 --- Check if player is inside a strafing zone. If he is, we start looking for hits. If he was and left the zone again, the result is stored.
 -- @param #RANGE self
 -- @param #string _unitName Name of player unit.
-function RANGE:CheckInZone(_unitName)
+function RANGE:_CheckInZone(_unitName)
 
   -- Get player unit and name.
   local _unit, _playername = self:_GetPlayerUnitAndName(_unitName)
@@ -1112,7 +1140,7 @@ function RANGE:CheckInZone(_unitName)
           local _msg = string.format("%s left strafing zone %s too quickly. No Score.", _playername, _currentStrafeRun.zone.name)
           
           -- Send message.
-          self:DisplayMessageToGroup(_unit, _msg, nil, true)
+          self:_DisplayMessageToGroup(_unit, _msg, nil, true)
           
         else
         
@@ -1134,7 +1162,7 @@ function RANGE:CheckInZone(_unitName)
           local _text=string.format("%s, %s with %d hits on target %s.", self:_myname(_unitName), _result.text, _result.hits, _result.zone.name)
           
           -- Send message.
-          self:DisplayMessageToGroup(_unit, _text)
+          self:_DisplayMessageToGroup(_unit, _text)
     
           -- Set strafe status to nil.
           self.strafeStatus[_unitID] = nil
@@ -1182,8 +1210,8 @@ function RANGE:CheckInZone(_unitName)
           -- Rolling in!
           local _msg=string.format("%s, rolling in on strafe pit %s.", self:_myname(_unitName), _targetZone.name)
           
-          -- TODO: MOOSE message.
-          self:DisplayMessageToGroup(_unit, _msg, 10, true)
+          -- Send message.
+          self:_DisplayMessageToGroup(_unit, _msg, 10, true)
 
           -- We found our player. Skip remaining checks.
           break
@@ -1202,7 +1230,7 @@ end
 --- Add menu commands for player.
 -- @param #RANGE self
 -- @param #string _unitName Name of player unit.
-function RANGE:AddF10Commands(_unitName)
+function RANGE:_AddF10Commands(_unitName)
   
   -- Get player unit and name.
   local _unit, playername = self:_GetPlayerUnitAndName(_unitName)
@@ -1230,20 +1258,20 @@ function RANGE:AddF10Commands(_unitName)
 
         --TODO: Convert to MOOSE menu.
         -- Commands
-        missionCommands.addCommandForGroup(_gid, "Mark On Map",         _smokePath, self.MarkTargetsOnMap, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Illuminate Range",    _smokePath, self.IlluminateBombTargets, self)        
-        missionCommands.addCommandForGroup(_gid, "Smoke Strafe Pits",    _smokePath, self.SmokeStrafeTargetBoxes, self)        
-        missionCommands.addCommandForGroup(_gid, "Smoke Straf Tgts",   _smokePath, self.SmokeStrafeTargets, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Smoke Bomb Tgts",  _smokePath, self.SmokeBombTargets, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "All Strafe Results",  _statsPath, self.DisplayStrafePitResults, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "All Bombing Results", _statsPath, self.DisplayBombingResults, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "My Strafe Results",   _statsPath, self.DisplayMyStrafePitResults, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "My Bomb Results",  _statsPath, self.DisplayMyBombingResults, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Reset Stats",         _statsPath, self.ResetRangeStats, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Range Information",   _rangePath, self.RangeInfo, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Range Weather",       _rangePath, self.RangeWeather, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Smoke Impact On/Off", _rangePath, self.SmokeBombImpactOnOff, self, _unitName)
-        missionCommands.addCommandForGroup(_gid, "Flare Hits On/Off",   _rangePath, self.FlareDirectHitsOnOff, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Mark On Map",         _smokePath, self._MarkTargetsOnMap, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Illuminate Range",    _smokePath, self._IlluminateBombTargets, self)        
+        missionCommands.addCommandForGroup(_gid, "Smoke Strafe Pits",   _smokePath, self._SmokeStrafeTargetBoxes, self)        
+        missionCommands.addCommandForGroup(_gid, "Smoke Straf Tgts",    _smokePath, self._SmokeStrafeTargets, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Smoke Bomb Tgts",     _smokePath, self._SmokeBombTargets, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "All Strafe Results",  _statsPath, self._DisplayStrafePitResults, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "All Bombing Results", _statsPath, self._DisplayBombingResults, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "My Strafe Results",   _statsPath, self._DisplayMyStrafePitResults, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "My Bomb Results",     _statsPath, self._DisplayMyBombingResults, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Reset Stats",         _statsPath, self._ResetRangeStats, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Range Information",   _rangePath, self._RangeInfo, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Range Weather",       _rangePath, self._RangeWeather, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Smoke Impact On/Off", _rangePath, self._SmokeBombImpactOnOff, self, _unitName)
+        missionCommands.addCommandForGroup(_gid, "Flare Hits On/Off",   _rangePath, self._FlareDirectHitsOnOff, self, _unitName)
       end
     else
       env.info(RANGE.id.."ERROR! Could not find group or group ID in AddF10Menu() function. Unit name: ".._unitName)
@@ -1260,7 +1288,7 @@ end
 --- Mark targets on F10 map.
 -- @param #RANGE self
 -- @param #string _unitName Name of the player unit.
-function RANGE:MarkTargetsOnMap(_unitName)
+function RANGE:_MarkTargetsOnMap(_unitName)
   -- Get group.
   local group=UNIT:FindByName(_unitName):GetGroup()
 
@@ -1286,7 +1314,7 @@ end
 --- Illuminate targets. Fires illumination bombs at one random bomb and one random strafe target at a random altitude between 400 and 800 m.
 -- @param #RANGE self
 -- @param #string _unitName (Optional) Name of the player unit.
-function RANGE:IlluminateBombTargets(_unitName)
+function RANGE:_IlluminateBombTargets(_unitName)
 
   local bomb={}
 
@@ -1321,14 +1349,14 @@ function RANGE:IlluminateBombTargets(_unitName)
   if _unitName then
     local _unit, _playername = self:_GetPlayerUnitAndName(_unitName)
     local text=string.format("%s, range targets are illuminated.", self.rangename)
-    self:DisplayMessageToGroup(_unit, text, 5)
+    self:_DisplayMessageToGroup(_unit, text, 5)
   end
 end
 
 --- Reset statistics.
 -- @param #RANGE self
 -- @param #string _unitName Name of the player unit.
-function RANGE:ResetRangeStats(_unitName)
+function RANGE:_ResetRangeStats(_unitName)
 
   -- Get player unit and name.  
   local _unit, _playername = self:_GetPlayerUnitAndName(_unitName)
@@ -1347,7 +1375,7 @@ end
 -- @param #string _text Message text.
 -- @param #number _time Duration how long the message is displayed.
 -- @param #boolean _clear Clear up old messages.
-function RANGE:DisplayMessageToGroup(_unit, _text, _time, _clear)
+function RANGE:_DisplayMessageToGroup(_unit, _text, _time, _clear)
   
   _time=_time or self.Tmsg
   if _clear==nil then
@@ -1369,7 +1397,7 @@ end
 --- Toggle status of smoking bomb impact points.
 -- @param #RANGE self
 -- @param #string unitname Name of the player unit.
-function RANGE:SmokeBombImpactOnOff(unitname)
+function RANGE:_SmokeBombImpactOnOff(unitname)
   local unit, playername = self:_GetPlayerUnitAndName(unitname)
   if unit and playername then
     local text
@@ -1380,14 +1408,14 @@ function RANGE:SmokeBombImpactOnOff(unitname)
       self.PlayerSettigs[playername].smokebombimpact=true
       text=string.format("%s, smoking impact points of bombs is now ON.", self.rangename)
     end
-    self:DisplayMessageToGroup(unit, text, 5)
+    self:_DisplayMessageToGroup(unit, text, 5)
   end
 end
 
 --- Toggle status of flaring direct hits of range targets.
 -- @param #RANGE self
 -- @param #string unitname Name of the player unit.
-function RANGE:FlareDirectHitsOnOff(unitname)
+function RANGE:_FlareDirectHitsOnOff(unitname)
   local unit, playername = self:_GetPlayerUnitAndName(unitname)
   if unit and playername then
     local text
@@ -1398,14 +1426,14 @@ function RANGE:FlareDirectHitsOnOff(unitname)
       self.PlayerSettings[playername].flaredirecthits=true
       text=string.format("%s, flaring direct hits is now ON.", self.rangename)
     end
-    self:DisplayMessageToGroup(unit, text, 5)
+    self:_DisplayMessageToGroup(unit, text, 5)
   end
 end
 
 --- Get distance in meters assuming a Flat world.
 -- @param #RANGE self
 -- @param #string unitname Name of the player unit.
-function RANGE:SmokeBombTargets(unitname)
+function RANGE:_SmokeBombTargets(unitname)
   for _,_target in pairs(self.bombingTargets) do
     local coord = _target.point --Core.Point#COORDINATE
     coord:SmokeRed()
@@ -1420,7 +1448,7 @@ end
 --- Get distance in meters assuming a Flat world.
 -- @param #RANGE self
 -- @param #string unitname Name of the player unit.
-function RANGE:SmokeStrafeTargets(unitname)
+function RANGE:_SmokeStrafeTargets(unitname)
   for _,_target in pairs(self.strafeTargets) do
     for _,_unit in pairs(_target.targets) do
       local coord = _unit:GetCoordinate() --Core.Point#COORDINATE
@@ -1437,7 +1465,7 @@ end
 --- Smoke approach boxes of strafe targets.
 -- @param #RANGE self
 -- @param #string unitname Name of the player unit.
-function RANGE:SmokeStrafeTargetBoxes(unitname)
+function RANGE:_SmokeStrafeTargetBoxes(unitname)
   for _,_target in pairs(self.strafeTargets) do
     local zone=_target.polygon --Core.Zone#ZONE
     zone:SmokeZone(SMOKECOLOR.White)
@@ -1448,7 +1476,7 @@ function RANGE:SmokeStrafeTargetBoxes(unitname)
   if unitname then
     local unit, playername = self:_GetPlayerUnitAndName(unitname)
     local text=string.format("%s, strafing pit approach boxes are now marked with white smoke.", self.rangename)
-    self:DisplayMessageToGroup(unit, text, 5)
+    self:_DisplayMessageToGroup(unit, text, 5)
   end  
 end
 

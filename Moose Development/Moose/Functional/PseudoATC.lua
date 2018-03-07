@@ -95,7 +95,7 @@ PSEUDOATC.id="PseudoATC | "
 --- PSEUDOATC version.
 -- @field #list
 PSEUDOATC.version={
-  version = "0.3.0",
+  version = "0.4.0",
   print = true,
 }
 
@@ -112,14 +112,16 @@ function PSEUDOATC:New()
   env.info(PSEUDOATC.id..string.format("Creating PseudoATC object. PseudoATC version %s", PSEUDOATC.version.version))
   
   -- Handle events.
-  --self:HandleEvent(EVENTS.PlayerEnterUnit, self._PlayerEntered)
-  self:HandleEvent(EVENTS.PlayerLeaveUnit, self._PlayerLeft)
-  --self:HandleEvent(EVENTS.PilotDead, self._PlayerLeft)
-  self:HandleEvent(EVENTS.Land, self._PlayerLanded)
-  --self:HandleEvent(EVENTS.Takeoff, self._PlayerTakeoff)
-  
-  -- event handler when players enter or leave (multiplayer)
-  world.addEventHandler(self)
+  if self.MooseEventHandling then
+    self:HandleEvent(EVENTS.Birth, self._OnBirth)
+    self:HandleEvent(EVENTS.PlayerLeaveUnit, self._PlayerLeft)
+    --self:HandleEvent(EVENTS.PilotDead, self._PlayerLeft)
+    self:HandleEvent(EVENTS.Land, self._PlayerLanded)
+    --self:HandleEvent(EVENTS.Takeoff, self._PlayerTakeoff)
+  else
+    -- Events are handled directly by DCS.
+    self.EventHandler=world.addEventHandler(self)
+  end
   
   -- Return object.
   return self
@@ -131,89 +133,73 @@ end
 --- Event handler for suppressed groups.
 --@param #PSEUDOATC self
 --@param #table event Event data table. Holds event.id, event.initiator and event.target etc.
-function PSEUDOATC:onEvent(event)
-  env.info(PSEUDOATC.id.."Event captured by DCS event handler.")
-  self:E(event)
-    
-  -- Event Player Entered Unit
-  if event.id == world.event.S_EVENT_PLAYER_ENTER_UNIT then
+function PSEUDOATC:onEvent(Event)
+  if Event == nil or Event.initiator == nil or Unit.getByName(Event.initiator:getName()) == nil then
+    return true
+  end
+
+  local DCSiniunit  = Event.initiator
+  local DCSplace    = Event.place
+  local DCSsubplace = Event.subplace
+
+  local EventData={}
+  local _playerunit=nil
+  local _playername=nil
   
-    local DCSunit=event.initiator
+  EventData.IniUnitName  = Event.initiator:getName()
+  EventData.IniDCSGroup  = Event.initiator:getGroup()
+  EventData.IniGroupName = Event.initiator:getGroup():getName()
+  
+  -- Get player unit and name. This returns nil,nil if the event was not fired by a player unit. And these are the only events we are interested in. 
+  _playerunit, _playername = self:_GetPlayerUnitAndName(EventData.IniUnitName)  
 
-    if DCSunit and DCSunit:isExist() then
-      
-      local name=DCSunit:getName()  
-      env.info(PSEUDOATC.id..string.format("Some player just entered unit %s", name))
-            
-      local unit=UNIT:FindByName(name)      
-      if not unit then
-        local client=CLIENT:FindByName(name, '', true)
-        if client then
-          unit=client:GetClientGroupUnit()
-          
-          -- Try to get the group. This sometimes fails depending on SP/MP.
-          local group=unit:GetGroup()
-      
-          if not group then
-            env.info(PSEUDOATC.id.."ERROR Could not find player group. Cannot call PlayerEntered function!")
-          else
-            self:PlayerEntered(unit)
-          end
-          
-        end
-      end
-      
-
-      
-    end
+  if Event.place then
+    EventData.Place=Event.place
+    EventData.PlaceName=Event.place:getName()
+  end
+  if Event.subplace then
+    EventData.SubPlace=Event.subplace
+    EventData.SubPlaceName=Event.subplace:getName()
   end
   
-  if event.id == world.event.S_EVENT_LAND then
+  -- Event info.
+  if self.Debug then
+    env.info(PSEUDOATC.id..string.format("EVENT: Event in onEvent with ID = %s", tostring(Event.id)))
+    env.info(PSEUDOATC.id..string.format("EVENT: Ini unit   = %s" , tostring(EventData.IniUnitName)))
+    env.info(PSEUDOATC.id..string.format("EVENT: Ini group  = %s" , tostring(EventData.IniGroupName)))
+    env.info(PSEUDOATC.id..string.format("EVENT: Ini player = %s" , tostring(_playername)))
+    env.info(PSEUDOATC.id..string.format("EVENT: Place      = %s" , tostring(EventData.PlaceName)))
+    env.info(PSEUDOATC.id..string.format("EVENT: SubPlace   = %s" , tostring(EventData.SubPlaceName)))
+  end
   
-    local DCSunit=event.initiator
-    local DCSplace=event.place
+  -- Event birth.
+  if Event.id == world.event.S_EVENT_BIRTH and _playername then
+    self:_OnBirth(EventData)
+  end
   
-    if DCSunit and DCSunit:getGroup() and DCSunit:getPlayerName() then
-      local name=DCSunit:getName()  
-      local unit=UNIT:FindByName(name)      
-      if not unit then
-        local client=CLIENT:FindByName(name, '', true)
-        if client then
-          unit=client:GetClientGroupUnit()
-        end
-      end
-      
-      local base
-      if DCSplace then
-        base=AIRBASE:Find(DCSplace)
-      end
-      
-      self:PlayerLanded(unit, base)
-
-    end
-    
-  end             
+  -- Event land.
+  if Event.id == world.event.S_EVENT_LAND and _playername and EventData.Place then
+    self:_PlayerLanded(EventData)
+  end
+  
+  -- Event player left unit
+  if Event.id == world.event.S_EVENT_PLAYER_LEAVE_UNIT and _playername then
+    self:_PlayerLeft(EventData)
+  end
   
 end
-
---[[
--- get player unit (single player case)
-local PlayerUnit=world.getPlayer()
-if PlayerUnit then
-  PSEUDOATC:PlayerEntered(PlayerUnit)
-end
-]]
 
 --- Function called my MOOSE event handler when a player enters a unit.
 -- @param #PSEUDOATC self
 -- @param Core.Event#EVENTDATA EventData
-function PSEUDOATC:_PlayerEntered(EventData)
+function PSEUDOATC:_OnBirth(EventData)
   env.info(PSEUDOATC.id.."PlayerEntered event caught my MOOSE.")
-
-  local unit=EventData.IniUnit --Wrapper.Unit#UNIT
   
-  if unit then
-    self:PlayerEntered(unit)
+  local _unitName=EventData.IniUnitName  
+  local _unit, _playername=self:_GetPlayerUnitAndName(_unitName)
+  
+  if _unit and _playername then
+    self:PlayerEntered(_unit)
   end               
  
 end
@@ -223,10 +209,11 @@ end
 -- @param Core.Event#EVENTDATA EventData
 function PSEUDOATC:_PlayerLeft(EventData)
 
-  local unit=EventData.IniUnit --Wrapper.Unit#UNIT
+  local _unitName=EventData.IniUnitName  
+  local _unit, _playername=self:_GetPlayerUnitAndName(_unitName)
   
-  if unit then
-    self:PlayerLeft(unit)
+  if _unit and _playername then
+    self:PlayerLeft(_unit)
   end
 end
 
@@ -235,15 +222,15 @@ end
 -- @param Core.Event#EVENTDATA EventData
 function PSEUDOATC:_PlayerLanded(EventData)
 
-  local unit=EventData.IniUnit --Wrapper.Unit#UNIT
-  --local place=EventData.
+  local _unitName=EventData.IniUnitName  
+  local _unit, _playername=self:_GetPlayerUnitAndName(_unitName)
+  local _base=EventData.Place
+  local _baseName=EventData.PlaceName
   
-  if unit then
-    self:PlayerLanded(unit, base)
+  if _unit and _playername and _base  then
+    self:PlayerLanded(_unit, _baseName)
   end
 end
-
-
 
 -----------------------------------------------------------------------------------------------------------------------------------------
 -- Menu Functions
@@ -261,11 +248,7 @@ function PSEUDOATC:PlayerEntered(unit)
   local UnitName=unit:GetName()
   local CallSign=unit:GetCallsign()
   
-  env.info(PSEUDOATC.id.."Group ID = "..GID)
-  env.info(PSEUDOATC.id.."Group name = "..GroupName)
-  BASE:E(group)
-  BASE:E(self.player)
-  
+  -- Init player table.  
   self.player[GID]={}
   self.player[GID].group=group
   self.player[GID].unit=unit
@@ -303,22 +286,21 @@ end
 --- Function called when a player has landed.
 -- @param #PSEUDOATC self
 -- @param Wrapper.Unit#UNIT unit Unit of player which has landed.
--- @param Wrapper.Airbase#AIRBASE base The airbase the player has landed on.
-function PSEUDOATC:PlayerLanded(unit, base)
-  self:F2({unit=unit, base=base})
+-- @param #string place Name of the place the player landed at.
+function PSEUDOATC:PlayerLanded(unit, place)
+  self:F2({unit=unit, place=place})
   
   -- Gather some information.
   local group=unit:GetGroup()
   local id=group:GetID()
   local PlayerName=self.player[id].playername
   local UnitName=self.player[id].playername
-  local BaseName=base:GetName()
   local GroupName=self.player[id].groupname
   local CallSign=self.player[id].callsign
   
   -- Debug message.
   if self.Debug then
-    local text=string.format("Player %s (%s) from group %s with ID %d landed at %s", PlayerName, UnitName, GroupName, BaseName)
+    local text=string.format("Player %s (%s) from group %s with ID %d landed at %s", PlayerName, UnitName, GroupName, place)
     MESSAGE:New(text,30):ToAll()
     env.info(PSEUDOATC.id..text)
   end
@@ -327,8 +309,8 @@ function PSEUDOATC:PlayerLanded(unit, base)
   self:AltidudeStopTimer(id)
   
   -- Welcome message.
-  if base then
-    local text=string.format("Touchdown! Welcome to %s. Have a nice day!", BaseName)
+  if place then
+    local text=string.format("Touchdown! Welcome to %s. Have a nice day!", place)
     MESSAGE:New(text, self.mdur):ToGroup(group)
   end
 
@@ -360,6 +342,9 @@ function PSEUDOATC:PlayerLeft(unit)
     
   -- Remove main menu
   missionCommands.removeItem(self.player[id].menu_main)
+  
+  -- Remove player array.
+  self.player[id]=nil
                
 end
 
@@ -744,4 +729,27 @@ function PSEUDOATC:LocalAirports(id)
   table.sort(self.player[id].airports, compare)
   
 end
+
+--- Returns the unit of a player and the player name. If the unit does not belong to a player, nil is returned. 
+-- @param #RANGE self
+-- @param #string _unitName Name of the player unit.
+-- @return Wrapper.Unit#UNIT Unit of player.
+-- @return #string Name of the player.
+-- @return nil If player does not exist.
+function PSEUDOATC:_GetPlayerUnitAndName(_unitName)
+
+  if _unitName ~= nil then
+    local DCSunit=Unit.getByName(_unitName)
+    local playername=DCSunit:getPlayerName()
+    local unit=UNIT:Find(DCSunit)
+    
+    if DCSunit and unit and playername then
+      return unit, playername
+    end
+  end
+    
+  return nil,nil
+end
+
+
 
