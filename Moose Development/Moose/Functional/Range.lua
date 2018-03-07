@@ -783,11 +783,13 @@ function RANGE:_DisplayMyStrafePitResults(_unitName)
       for _,_result in pairs(_results) do
   
         -- Message text.
-        _message = _message..string.format("\n[%d] %s - Hits %i - %s", _count, _result.zone.name, _result.hits, _result.text)
+        --_message = _message..string.format("\n[%d] %s - Hits %i - %s", _count, _result.zone.name, _result.hits, _result.text)
+        _message = _message..string.format("\n[%d] Hits %i - %s - %s", _count, _result.hits, _result.zone.name, _result.text)
       
         -- Best result.
         if _bestMsg == "" then 
-          _bestMsg = string.format("%s - Hits %i - %s", _result.zone.name, _result.hits, _result.text)
+          --_bestMsg = string.format("%s - Hits %i - %s", _result.zone.name, _result.hits, _result.text)
+          _bestMsg = string.format("Hits %i - %s - %s", _result.hits, _result.zone.name, _result.text)
         end
   
         -- 10 runs
@@ -838,7 +840,8 @@ function RANGE:_DisplayStrafePitResults(_unitName)
   
       -- Add best result to table. 
       if _best ~= nil then
-        local text=string.format("%s: %s - Hits %i - %s", _playerName, _best.zone.name, _best.hits, _best.text)
+        --local text=string.format("%s: %s - Hits %i - %s", _playerName, _best.zone.name, _best.hits, _best.text)
+        local text=string.format("%s: Hits %i - %s - %s", _playerName, _best.hits, _best.zone.name, _best.text)
         table.insert(_playerResults,{msg = text, hits = _best.hits})
       end
   
@@ -889,11 +892,11 @@ function RANGE:_DisplayMyBombingResults(_unitName)
       for _,_result in pairs(_results) do
   
         -- Message with name, weapon and distance.
-        _message = _message.."\n"..string.format("[%d] %s - %s - %i m", _count, _result.name, _result.weapon, _result.distance)
+        _message = _message.."\n"..string.format("[%d] %i m - %s - %s", _count, _result.distance, _result.name, _result.weapon)
   
         -- Store best/first result.
         if _bestMsg == "" then
-            _bestMsg = string.format("%s - %s - %i m",_result.name,_result.weapon,_result.distance)
+            _bestMsg = string.format("%i m - %s - %s",_result.distance,_result.name,_result.weapon)
         end
   
         -- Best 10 runs only.
@@ -944,7 +947,8 @@ function RANGE:_DisplayBombingResults(_unitName)
   
       -- Put best result of player into table.
       if _best ~= nil then
-        local bestres=string.format("%s: %s - %s - %i m", _playerName, _best.name, _best.weapon, _best.distance)
+        --local bestres=string.format("%s: %s - %s - %i m", _playerName, _best.name, _best.weapon, _best.distance)
+        local bestres=string.format("%s: %i m - %s - %s", _playerName, _best.distance, _best.name, _best.weapon)
         table.insert(_playerResults, {msg = bestres, distance = _best.distance})
       end
   
@@ -995,9 +999,9 @@ function RANGE:_DisplayRangeInfo(_unitname)
       
       local textbomb
       if self.PlayerSettings[playername].smokebombimpact then
-        textbomb=string.format("Smoke bomb impact points: ON\n")
+        textbomb=string.format("Smoke bomb impact points: ON")
       else
-        textbomb=string.format("Smoke bomb impact points: OFF\n")
+        textbomb=string.format("Smoke bomb impact points: OFF")
       end
       local texthit
       if self.PlayerSettings[playername].flaredirecthits then
@@ -1010,7 +1014,7 @@ function RANGE:_DisplayRangeInfo(_unitname)
       text=text..string.format("Information on %s:\n", self.rangename)
       text=text..string.format("--------------------------------------------------\n")
       text=text..string.format("Bearing %s, Range %.1f km.\n", Bs, range/1000)
-      text=text..string.format("Range altitude ASL: %d m", rangealt)
+      text=text..string.format("Range altitude ASL: %d m = %d ft\n", rangealt, UTILS.MetersToFeet(rangealt))
       text=text..string.format("Max strafing alt: %d m\n", self.strafemaxalt)
       text=text..string.format("# of strafe targets: %d\n", self.nstrafetargets)
       text=text..string.format("# of bomb targets: %d\n", self.nbombtargets)

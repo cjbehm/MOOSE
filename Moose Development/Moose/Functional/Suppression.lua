@@ -301,6 +301,23 @@ function SUPPRESSION:New(group)
   self:AddTransition("FallingBack", "FightBack", "CombatReady")  
   self:AddTransition("*",           "Dead",      "*")
   
+  --- Retreat Handler OnBefore for SUPPRESSION
+  -- @function [parent=#SUPPRESSION] OnBeforeRetreat
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable
+  -- @param #string From
+  -- @param #string Event
+  -- @param #string To
+  -- @return #boolean
+  
+  --- Retreat Handler OnAfter for SUPPRESSION.
+  -- @function [parent=#SUPPRESSION] OnAfterRetreat
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable
+  -- @param #string From
+  -- @param #string Event
+  -- @param #string To
+  
   return self
 end
 
@@ -1369,6 +1386,7 @@ end
 function SUPPRESSION:_SearchHideout()
   -- We search objects in a zone with radius ~300 m around the group.
   local Zone = ZONE_GROUP:New("Zone_Hiding", self.Controllable, self.TakecoverRange)
+  local gpos = self.Controllable:GetCoordinate()
 
   -- Scan for Scenery objects to run/drive to.
   Zone:Scan(Object.Category.SCENERY)
@@ -1381,6 +1399,12 @@ function SUPPRESSION:_SearchHideout()
     
       local SceneryObject = SceneryObject -- Wrapper.Scenery#SCENERY
       
+      -- Position of the scenery object.
+      local spos=SceneryObject:GetCoordinate()
+      
+      -- Distance from group to hideout.
+      local distance= spos:Get2DDistance(gpos)
+      
       if self.Debug then
         -- Place markers on every possible scenery object.
         local MarkerID=SceneryObject:GetCoordinate():MarkToAll(string.format("%s scenery object %s", self.Controllable:GetName(),SceneryObject:GetTypeName()))
@@ -1388,7 +1412,7 @@ function SUPPRESSION:_SearchHideout()
         env.info(SUPPRESSION.id..text)
       end
       
-      table.insert(hideouts, SceneryObject)
+      table.insert(hideouts, {object=SceneryObject, distance=distance})
       -- TODO: Add check if scenery name matches a specific type like tree or building. This might be tricky though!
       
     end
@@ -1402,8 +1426,15 @@ function SUPPRESSION:_SearchHideout()
       env.info(SUPPRESSION.id.."Number of hideouts "..#hideouts)
     end
     
+    -- Sort results table wrt number of hits.
+    local _sort = function(a,b) return a.distance < b.distance end
+    table.sort(hideouts,_sort)
+    
     -- Pick a random location.
-    Hideout=hideouts[math.random(#hideouts)]
+    --Hideout=hideouts[math.random(#hideouts)].object
+    
+    -- Pick closest location.
+    Hideout=hideouts[1].object
     
   else
     env.error(SUPPRESSION.id.."No hideouts found!")
