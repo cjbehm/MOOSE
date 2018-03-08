@@ -70,7 +70,8 @@
 -- @field Utilities.Utils#SMOKECOLOR StrafePitSmokeColor Color id used to smoke strafe pit approach boxes. 
 -- @field #number illuminationminalt Minimum altitude AGL in meters at which illumination bombs are fired. Default is 400 m.
 -- @field #number illuminationmaxalt Maximum altitude AGL in meters at which illumination bombs are fired. Default is 800 m.
--- @field #number scorebombdistance Distance from closest target up to which bomb hits are counted. Default 1000 m. 
+-- @field #number scorebombdistance Distance from closest target up to which bomb hits are counted. Default 1000 m.
+-- @field #number TdelaySmoke Time delay in seconds between impact of bomb and starting the smoke. Default 3 seconds.
 -- @extends Core.Base#BASE
 
 ---# RANGE class, extends @{Base#BASE}
@@ -87,7 +88,7 @@
 -- @field #RANGE
 RANGE={
   ClassName = "RANGE",
-  Debug=true,
+  Debug=false,
   rangename=nil,
   location=nil,
   rangeradius=10000,
@@ -111,6 +112,7 @@ RANGE={
   illuminationminalt=400,
   illuminationmaxalt=800,
   scorebombdistance=1000,
+  TdelaySmoke=3.0,
 }
 
 --- Some ID to identify who we are in output of the DCS.log file.
@@ -119,7 +121,7 @@ RANGE.id="RANGE | "
 
 --- Range script version.
 -- @field #number id
-RANGE.version="0.8.0"
+RANGE.version="0.9.0"
 
 --TODO list
 --TODO: Add statics for strafe pits.
@@ -274,6 +276,25 @@ end
 -- @param Utilities.Utils#SMOKECOLOR colorid Color id. Default SMOKECOLOR.White.
 function RANGE:SetStrafePitSmokeColor(colorid)
   self.StrafePitSmokeColor=colorid or SMOKECOLOR.White
+end
+
+--- Set time delay between bomb impact and starting to smoke the impact point.
+-- @param #RANGE self
+-- @param #number delay Time delay in seconds. Default is 3 seconds.
+function RANGE:SetSmokeTimeDelay(delay)
+  self.TdelaySmoke=delay or 3.0
+end
+
+--- Enable debug modus.
+-- @param #RANGE self
+function RANGE:DebugON()
+  self.Debug=true
+end
+
+--- Disable debug modus.
+-- @param #RANGE self
+function RANGE:DebugOFF()
+  self.Debug=false
 end
 
 
@@ -575,6 +596,7 @@ function RANGE:_OnBirth(EventData)
     self.PlayerSettings[_playername].flaredirecthits=false
     self.PlayerSettings[_playername].smokecolor=SMOKECOLOR.Blue
     self.PlayerSettings[_playername].flarecolor=FLARECOLOR.Red
+    self.PlayerSettings[_playername].delaysmoke=true
   
     -- Start check in zone timer.
     if self.planes[_uid] ~= true then
@@ -748,10 +770,12 @@ function RANGE:_OnShot(EventData)
           local impactdist=impactcoord:Get2DDistance(self.location)
           
           -- Smoke impact point of bomb.
-          if self.PlayerSettings[_playername].smokebombimpact and impactdist<self.rangeradius then  
-            impactcoord:Smoke(self.PlayerSettings[_playername].smokecolor)
-            --TODO: Need to test if we can do a delayed smoke. Dont want to spoil the nice explosion effects.
-            --timer.scheduleFunction(impactcoord.Smoke, {self, self.PlayerSettings[_playername].smokecolor}, timer.getTime() + 1)
+          if self.PlayerSettings[_playername].smokebombimpact and impactdist<self.rangeradius then
+            if self.PlayerSettings[_playername].delaysmoke then
+              timer.scheduleFunction(self._DelayedSmoke, {coord=impactcoord, color=self.PlayerSettings[_playername].smokecolor}, timer.getTime() + self.TdelaySmoke)
+            else
+              impactcoord:Smoke(self.PlayerSettings[_playername].smokecolor)
+            end
           end
               
           -- Loop over defined bombing targets.
@@ -811,6 +835,12 @@ end
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- Display Messages
+
+--- Start smoking a coordinate with a delay.
+-- @param #table _args Argements passed.
+function RANGE._DelayedSmoke(_args)
+  trigger.action.smoke(_args.coord:GetVec3(), _args.color)
+end
 
 --- Display top 10 stafing results of a specific player.
 -- @param #RANGE self
@@ -1075,22 +1105,28 @@ function RANGE:_DisplayRangeInfo(_unitname)
       -- Bearing string.
       local Bs=string.format('%03d°', angle)
       
-      local textbomb
-      if self.PlayerSettings[playername].smokebombimpact then
-        textbomb=string.format("Smoke bomb impact points: ON (smoke color %s)", self:_smokecolor2text(self.PlayerSettings[playername].smokecolor))
-      else
-        textbomb=string.format("Smoke bomb impact points: OFF")
-      end
       local texthit
       if self.PlayerSettings[playername].flaredirecthits then
         texthit=string.format("Flare direct hits: ON (flare color %s)\n", self:_flarecolor2text(self.PlayerSettings[playername].flarecolor))
       else
         texthit=string.format("Flare direct hits: OFF\n")
       end
+      local textbomb
+      if self.PlayerSettings[playername].smokebombimpact then
+        textbomb=string.format("Smoke bomb impact points: ON (smoke color %s)\n", self:_smokecolor2text(self.PlayerSettings[playername].smokecolor))
+      else
+        textbomb=string.format("Smoke bomb impact points: OFF\n")
+      end
+      local textdelay
+      if self.PlayerSettings[playername].delaysmoke then
+        textdelay=string.format("Smoke bomb delay: ON (delay %.1f seconds)", self.TdelaySmoke)
+      else
+        textdelay=string.format("Smoke bomb delay: OFF")
+      end
       
       -- Message.
       text=text..string.format("Information on %s:\n", self.rangename)
-      text=text..string.format("--------------------------------------------------\n")
+      text=text..string.format("-------------------------------------------------------\n")
       text=text..string.format("Bearing %s, Range %.1f km.\n", Bs, range/1000)
       text=text..string.format("Altitude ASL: %d m = %d ft\n", rangealt, UTILS.MetersToFeet(rangealt))
       text=text..string.format("Max strafing alt AGL: %d m\n", self.strafemaxalt)
@@ -1098,6 +1134,7 @@ function RANGE:_DisplayRangeInfo(_unitname)
       text=text..string.format("# of bomb targets: %d\n", self.nbombtargets)
       text=text..texthit
       text=text..textbomb
+      text=text..textdelay
       
       -- Send message to player group.
       self:_DisplayMessageToGroup(unit, text, nil, true)
@@ -1372,6 +1409,7 @@ function RANGE:_AddF10Commands(_unitName)
         missionCommands.addCommandForGroup(_gid, "White Flares",        _myflarePath, self._playerflarecolor, self, _unitName, FLARECOLOR.White)
         missionCommands.addCommandForGroup(_gid, "Yellow Flares",       _myflarePath, self._playerflarecolor, self, _unitName, FLARECOLOR.Yellow)
         -- F10/On the Range/My Settings/
+        missionCommands.addCommandForGroup(_gid, "Smoke Delay On/Off",  _settingsPath, self._SmokeBombDelayOnOff, self, _unitName)
         missionCommands.addCommandForGroup(_gid, "Smoke Impact On/Off",  _settingsPath, self._SmokeBombImpactOnOff, self, _unitName)
         missionCommands.addCommandForGroup(_gid, "Flare Hits On/Off",    _settingsPath, self._FlareDirectHitsOnOff, self, _unitName)        
         -- F10/On the Range/
@@ -1527,6 +1565,27 @@ function RANGE:_SmokeBombImpactOnOff(unitname)
     else
       self.PlayerSettigs[playername].smokebombimpact=true
       text=string.format("%s, %s, smoking impact points of bombs is now ON.", self.rangename, playername)
+    end
+    self:_DisplayMessageToGroup(unit, text, 5)
+  end
+  
+end
+
+--- Toggle status of time delay for smoking bomb impact points
+-- @param #RANGE self
+-- @param #string unitname Name of the player unit.
+function RANGE:_SmokeBombDelayOnOff(unitname)
+  self:F(unitname)
+  
+  local unit, playername = self:_GetPlayerUnitAndName(unitname)
+  if unit and playername then
+    local text
+    if self.PlayerSettings[playername].delaysmoke==true then
+      self.PlayerSettings[playername].delaysmoke=false
+      text=string.format("%s, %s, delayed smoke of bombs is now OFF.", self.rangename, playername)
+    else
+      self.PlayerSettigs[playername].delaysmoke=true
+      text=string.format("%s, %s, delayed smoke of bombs is now ON.", self.rangename, playername)
     end
     self:_DisplayMessageToGroup(unit, text, 5)
   end
