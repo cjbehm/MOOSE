@@ -62,7 +62,7 @@
 -- @field #boolean TakecoverON If true, group can hide at a nearby scenery object.
 -- @field #number TakecoverWait Time in seconds the group will hide before it will resume its mission.
 -- @field #number TakecoverRange Range in which the group will search for scenery objects to hide at.
--- @field Wrapper.Scenery#SCENERY hideout Scenery object where the group will try to take cover.
+-- @field Core.Point#COORDINATE hideout Coordinate/place where the group will try to take cover.
 -- @field #number PminFlee Minimum probability in percent that a group will flee (fall back or take cover) at each hit event. Default is 10 %.
 -- @field #number PmaxFlee Maximum probability in percent that a group will flee (fall back or take cover) at each hit event. Default is 90 %.
 -- @field Core.Zone#ZONE RetreatZone Zone to which a group retreats.
@@ -72,6 +72,7 @@
 -- @field #string CurrentROE ROE the group currently has.
 -- @field #string DefaultAlarmState Alarm state the group will go to when it is changed back from another state. Default is "Auto".
 -- @field #string DefaultROE ROE the group will get once suppression is over. Default is "Free".
+-- @field #boolean eventmoose If true, events are handled by MOOSE. If false, events are handled directly by DCS eventhandler. Default true.
 -- @extends Core.Fsm#FSM_CONTROLLABLE
 -- 
 
@@ -170,9 +171,9 @@
 -- @field #SUPPRESSION
 SUPPRESSION={
   ClassName = "SUPPRESSION",
-  Debug = true,
-  flare = true,
-  smoke = true,
+  Debug = false,
+  flare = false,
+  smoke = false,
   DCSdesc = nil,
   Type = nil,
   IsInfantry=nil,
@@ -185,7 +186,7 @@ SUPPRESSION={
   Nhit = 0,
   Formation = "Off Road",
   Speed = 4,
-  MenuON = true,
+  MenuON = false,
   FallbackON = false,
   FallbackWait = 60,
   FallbackDist = 100,
@@ -203,6 +204,7 @@ SUPPRESSION={
   CurrentROE = "unknown",
   DefaultAlarmState = "Auto",
   DefaultROE = "Weapon Free",
+  eventmoose = true,
 }
 
 --- Enumerator of possible rules of engagement.
@@ -296,28 +298,129 @@ function SUPPRESSION:New(group)
   self:AddTransition("Suppressed",  "Recovered", "CombatReady")
   self:AddTransition("Suppressed",  "TakeCover", "TakingCover")
   self:AddTransition("Suppressed",  "FallBack",  "FallingBack")
-  self:AddTransition("Suppressed",  "Retreat",   "Retreating")
+  --self:AddTransition("Suppressed",  "Retreat",   "Retreating")
+  self:AddTransition("*",           "Retreat",   "Retreating")
   self:AddTransition("TakingCover", "FightBack", "CombatReady")
   self:AddTransition("FallingBack", "FightBack", "CombatReady")  
   self:AddTransition("*",           "Dead",      "*")
   
-  --- Retreat Handler OnBefore for SUPPRESSION
+
+  --- User function for OnBefore "Hit" event.
+  -- @function [parent=#SUPPRESSION] OnBeforeHit
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @param Wrapper.Unit#UNIT Unit Unit that was hit.
+  -- @param Wrapper.Unit#UNIT AttackUnit Unit that attacked.
+  -- @return #boolean
+
+  --- User function for OnAfer "Hit" event.
+  -- @function [parent=#SUPPRESSION] OnAfterHit
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @param Wrapper.Unit#UNIT Unit Unit that was hit.
+  -- @param Wrapper.Unit#UNIT AttackUnit Unit that attacked.
+  
+
+  --- User function for OnBefore "Recovered" event.
+  -- @function [parent=#SUPPRESSION] OnBeforeRecovered
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @return #boolean  
+
+  --- User function for OnAfter "Recovered" event.
+  -- @function [parent=#SUPPRESSION] OnAfterRecovered
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+
+
+  --- User function for OnBefore "TakeCover" event.
+  -- @function [parent=#SUPPRESSION] OnBeforeTakeCover
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @param Core.Point#COORDINATE Hideout Place where the group will hide.
+  -- @return #boolean
+
+  --- User function for OnAfter "TakeCover" event.
+  -- @function [parent=#SUPPRESSION] OnAfterTakeCover
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @param Core.Point#COORDINATE Hideout Place where the group will hide.
+
+
+  --- User function for OnBefore "FallBack" event.
+  -- @function [parent=#SUPPRESSION] OnBeforeFallBack
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @param Wrapper.Unit#UNIT AttackUnit Attacking unit. We will move away from this.
+  -- @return #boolean
+
+  --- User function for OnAfter "FallBack" event.
+  -- @function [parent=#SUPPRESSION] OnAfterFallBack
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @param Wrapper.Unit#UNIT AttackUnit Attacking unit. We will move away from this.
+
+
+  --- User function for OnBefore "Retreat" event.
   -- @function [parent=#SUPPRESSION] OnBeforeRetreat
   -- @param #SUPPRESSION self
-  -- @param Wrapper.Controllable#CONTROLLABLE Controllable
-  -- @param #string From
-  -- @param #string Event
-  -- @param #string To
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
   -- @return #boolean
   
-  --- Retreat Handler OnAfter for SUPPRESSION.
+  --- User function for OnAfter "Retreat" event.
   -- @function [parent=#SUPPRESSION] OnAfterRetreat
   -- @param #SUPPRESSION self
-  -- @param Wrapper.Controllable#CONTROLLABLE Controllable
-  -- @param #string From
-  -- @param #string Event
-  -- @param #string To
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+
+
+  --- User function for OnBefore "FlightBack" event.
+  -- @function [parent=#SUPPRESSION] OnBeforeFightBack
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @return #boolean
   
+  --- User function for OnAfter "FlightBack" event.
+  -- @function [parent=#SUPPRESSION] OnAfterFightBack
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+
+
   return self
 end
 
@@ -440,7 +543,7 @@ end
 
 --- Set hideout place explicitly.
 -- @param #SUPPRESSION self
--- @param Wrapper.Scenery#SCENERY Hideout Place where the group will hide after the TakeCover event.
+-- @param Core.Point#COORDINATE Hideout Place where the group will hide after the TakeCover event.
 function SUPPRESSION:SetTakecoverRange(Hideout)
   self.hideout=Hideout
 end
@@ -660,9 +763,7 @@ function SUPPRESSION:onafterStart(Controllable, From, Event, To)
   env.info(SUPPRESSION.id..text)
     
   -- Add event handler.
-  self.mooseevents=false
-  
-  if self.mooseevents then
+  if self.eventmoose then
     self:HandleEvent(EVENTS.Hit, self._OnEventHit)
     self:HandleEvent(EVENTS.Dead, self._OnEventDead)
   else
@@ -681,6 +782,7 @@ end
 -- @param #string To To state.
 -- @param Wrapper.Unit#UNIT Unit Unit that was hit.
 -- @param Wrapper.Unit#UNIT AttackUnit Unit that attacked.
+-- @return boolean
 function SUPPRESSION:onbeforeHit(Controllable, From, Event, To, Unit, AttackUnit)
   self:_EventFromTo("onbeforeHit", Event, From, To)
   
@@ -797,6 +899,7 @@ end
 -- @param #string From From state.
 -- @param #string Event Event.
 -- @param #string To To state.
+-- @return #boolean
 function SUPPRESSION:onbeforeRecovered(Controllable, From, Event, To)
   self:_EventFromTo("onbeforeRecovered", Event, From, To)
   
@@ -869,6 +972,7 @@ end
 -- @param #string Event Event.
 -- @param #string To To state.
 -- @param Wrapper.Unit#UNIT AttackUnit Attacking unit. We will move away from this.
+-- @return #boolean
 function SUPPRESSION:onbeforeFallBack(Controllable, From, Event, To, AttackUnit)
   self:_EventFromTo("onbeforeFallBack", Event, From, To)
   
@@ -936,7 +1040,8 @@ end
 -- @param #string From From state.
 -- @param #string Event Event.
 -- @param #string To To state.
--- @param Wrapper.Scenery#SCENERY Hideout Place where the group will hide.
+-- @param Core.Point#COORDINATE Hideout Place where the group will hide.
+-- @return #boolean
 function SUPPRESSION:onbeforeTakeCover(Controllable, From, Event, To, Hideout)
   self:_EventFromTo("onbeforeTakeCover", Event, From, To)
   
@@ -960,22 +1065,17 @@ end
 -- @param #string From From state.
 -- @param #string Event Event.
 -- @param #string To To state.
--- @param Wrapper.Scenery#SCENERY Hideout Place where the group will hide.
+-- @param Core.Point#COORDINATE Hideout Place where the group will hide.
 function SUPPRESSION:onafterTakeCover(Controllable, From, Event, To, Hideout)
   self:_EventFromTo("onafterTakeCover", Event, From, To)
-      
-  local Coord=Hideout:GetCoordinate()
-  
+     
   if self.Debug then
-    local MarkerID=Coord:MarkToAll(string.format("Hideout place (%s) for group %s", Hideout:GetTypeName(), Controllable:GetName()))
-    local text=string.format("Group %s is taking cover at %s!", Controllable:GetName(), Hideout:GetTypeName())
-    MESSAGE:New(text, 10):ToAll()
-    env.info(SUPPRESSION.id..text)
+    local MarkerID=Hideout:MarkToAll(string.format("Hideout for group %s", Controllable:GetName()))
   end
   
   -- Smoke place of hideout.
   if self.smoke or self.Debug then
-    Coord:SmokeBlue()
+    Hideout:SmokeBlue()
   end
   
   -- Set ROE to weapon hold.
@@ -985,7 +1085,7 @@ function SUPPRESSION:onafterTakeCover(Controllable, From, Event, To, Hideout)
   self:_SetAlarmState(SUPPRESSION.AlarmState.Green)
   
   -- Make the group run away.
-  self:_Run(Coord, self.Speed, self.Formation, self.TakecoverWait)
+  self:_Run(Hideout, self.Speed, self.Formation, self.TakecoverWait)
     
 end
 
@@ -1382,7 +1482,7 @@ end
 
 --- Search a place to hide. This is any scenery object in the vicinity.
 --@param #SUPPRESSION self
---@return Wrapper.Scenery#SCENERY Hideout scenery object.
+--@return Core.Point#COORDINATE Coordinate of the hideout place.
 --@return nil If no scenery object is within search radius.
 function SUPPRESSION:_SearchHideout()
   -- We search objects in a zone with radius ~300 m around the group.
@@ -1435,7 +1535,7 @@ function SUPPRESSION:_SearchHideout()
     --Hideout=hideouts[math.random(#hideouts)].object
     
     -- Pick closest location.
-    Hideout=hideouts[1].object
+    Hideout=hideouts[1].object:GetCoordinate()
     
   else
     env.error(SUPPRESSION.id.."No hideouts found!")

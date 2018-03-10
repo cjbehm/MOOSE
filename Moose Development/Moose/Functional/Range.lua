@@ -72,6 +72,7 @@
 -- @field #number illuminationmaxalt Maximum altitude AGL in meters at which illumination bombs are fired. Default is 800 m.
 -- @field #number scorebombdistance Distance from closest target up to which bomb hits are counted. Default 1000 m.
 -- @field #number TdelaySmoke Time delay in seconds between impact of bomb and starting the smoke. Default 3 seconds.
+-- @field #boolean eventmoose If true, events are handled by MOOSE. If false, events are handled directly by DCS eventhandler. Default true. 
 -- @extends Core.Base#BASE
 
 ---# RANGE class, extends @{Base#BASE}
@@ -113,6 +114,7 @@ RANGE={
   illuminationmaxalt=800,
   scorebombdistance=1000,
   TdelaySmoke=3.0,
+  eventmoose=true,
 }
 
 --- Some ID to identify who we are in output of the DCS.log file.
@@ -152,18 +154,16 @@ function RANGE:New(rangename)
   env.info(RANGE.id..text)
   MESSAGE:New(text, 10):ToAllIf(self.Debug)
   
-  -- Who handles the events.
-  self.eventmoose=false
   
   -- Event handling.
   if self.eventmoose then
-    env.info(RANGE.id.."Events are handled by MOOSE.")
+    self:T(RANGE.id.."Events are handled by MOOSE.")
     -- Events are handled my MOOSE.
     self:HandleEvent(EVENTS.Birth, self._OnBirth)
     self:HandleEvent(EVENTS.Hit,   self._OnHit)
     self:HandleEvent(EVENTS.Shot,  self._OnShot)
   else
-    env.info(RANGE.id.."Events are handled directly by DCS.")
+    self:T(RANGE.id.."Events are handled directly by DCS.")
     -- Events are handled directly by DCS.
     world.addEventHandler(self)
   end
@@ -207,8 +207,8 @@ function RANGE:Start()
   self.location=_location
   
   if self.location==nil then
-    local text=string.format("ERROR! No range location found. Number of strafe targets = %d. Number of bomb targets = %d.", self.rangename, self.nstrafetargets, self.nbombtargets)
-    env.info(RANGE.id..text)
+    local text=string.format("No range location found. Number of strafe targets = %d. Number of bomb targets = %d.", self.rangename, self.nstrafetargets, self.nbombtargets)
+    env.error(RANGE.id..text)
     return nil
   end
   
@@ -335,8 +335,8 @@ function RANGE:AddStrafePit(unitnames, boxlength, boxwidth, heading, inversehead
       end
       ntargets=ntargets+1
     else
-      local text=string.format("ERROR! Could not find strafe target with name %s.", _name)
-      env.info(RANGE.id..text)
+      local text=string.format("Could not find strafe target with name %s.", _name)
+      env.error(RANGE.id..text)
       MESSAGE:New(text, 10):ToAllIf(self.Debug)
     end
     
@@ -434,19 +434,19 @@ function RANGE:AddBombingTargets(unitnames, goodhitrange, static)
       -- Add static object. Workaround since cargo objects are not yet in database because DCS function does not add those.
       local _DCSstatic=StaticObject.getByName(name)
       if _DCSstatic and _DCSstatic:isExist() then
-        self:T(RANGE.id.."Adding DCS static to database. Name="..name)
+        self:T(RANGE.id..string.format("Adding DCS static to database. Name = %s.", name))
         _DATABASE:AddStatic(name)
       else
-        env.error(RANGE.id.."DCS static DOES NOT exist! Name = "..name)
+        env.error(RANGE.id..string.format("DCS static DOES NOT exist! Name = %s.", name))
       end
       
       -- Now we can find it...
       _static=STATIC:FindByName(name)
       if _static then
         self:AddBombingTargetUnit(_static, goodhitrange)
-        env.info(RANGE.id.."Adding static bombing target "..name.." with hit range "..goodhitrange)
+        env.info(RANGE.id..string.format("Adding static bombing target %s with hit range %d.", name, goodhitrange))
       else
-        env.error(RANGE.id.."Cound not find static bombing target "..name)
+        env.error(RANGE.id..string.format("Cound not find static bombing target %s.", name))
       end
       
     else
@@ -454,7 +454,7 @@ function RANGE:AddBombingTargets(unitnames, goodhitrange, static)
       _unit=UNIT:FindByName(name)
       if _unit then
         self:AddBombingTargetUnit(_unit, goodhitrange)
-        env.info(RANGE.id.."Adding bombing target "..name.." with hit range "..goodhitrange)
+        env.info(RANGE.id..string.format("Adding bombing target %s with hit range %d.", name, goodhitrange))
       else
         env.error(RANGE.id.."Could not find bombing target "..name)
       end
@@ -811,7 +811,7 @@ function RANGE:_OnShot(EventData)
             table.insert(_results, {name=_closetTarget.name, distance =_distance, weapon = _weaponName, quality=_hitquality })
 
             -- Send message to player.
-            local _message = string.format("%s, impact %i m from bullseye of target %s. %s hit.", _callsign, _distance, _closetTarget.name, _hitquality)
+            local _message = string.format("%s, impact %d m from bullseye of target %s. %s hit.", _callsign, _distance, _closetTarget.name, _hitquality)
 
             -- Sendmessage.
             self:_DisplayMessageToGroup(_unit, _message, nil, true)
@@ -1124,12 +1124,23 @@ function RANGE:_DisplayRangeInfo(_unitname)
         textdelay=string.format("Smoke bomb delay: OFF")
       end
       
+      -- Player unit settings.
+      local settings=_DATABASE:GetPlayerSettings(playername) or _SETTINGS --Core.Settings#SETTINGS
+      local trange=string.format("%.1f km", range/1000)
+      local trangealt=string.format("%d m", rangealt)
+      local tstrafemaxalt=string.format("%d m", self.strafemaxalt)
+      if settings:IsImperial() then
+        trange=string.format("%.1f NM", UTILS.MetersToNM(range))
+        trangealt=string.format("%d feet", UTILS.MetersToFeet(rangealt))
+        tstrafemaxalt=string.format("%d feet", UTILS.MetersToFeet(self.strafemaxalt))
+      end
+            
       -- Message.
       text=text..string.format("Information on %s:\n", self.rangename)
       text=text..string.format("-------------------------------------------------------\n")
-      text=text..string.format("Bearing %s, Range %.1f km.\n", Bs, range/1000)
-      text=text..string.format("Altitude ASL: %d m = %d ft\n", rangealt, UTILS.MetersToFeet(rangealt))
-      text=text..string.format("Max strafing alt AGL: %d m\n", self.strafemaxalt)
+      text=text..string.format("Bearing %s, Range %s\n", Bs, trange)
+      text=text..string.format("Altitude ASL: %s\n", trangealt)
+      text=text..string.format("Max strafing alt AGL: %s\n", tstrafemaxalt)
       text=text..string.format("# of strafe targets: %d\n", self.nstrafetargets)
       text=text..string.format("# of bomb targets: %d\n", self.nbombtargets)
       text=text..texthit
@@ -1181,13 +1192,24 @@ function RANGE:_DisplayRangeWeather(_unitname)
       
       local hPa2inHg=0.0295299830714
       local hPa2mmHg=0.7500615613030
+      
+      local settings=_DATABASE:GetPlayerSettings(playername) or _SETTINGS --Core.Settings#SETTINGS
+      local tT=string.format("%d°C",T)
+      local tW=string.format("%.1f m/s", Ws)
+      local tP=string.format("%.1f mmHg", P*hPa2mmHg)
+      if settings:IsImperial() then
+        tT=string.format("%d°F", UTILS.CelciusToFarenheit(T))
+        tW=string.format("%.1f knots", UTILS.MpsToKnots(Ws))
+        tP=string.format("%.2f inHg", P*hPa2inHg)      
+      end
+      
              
       -- Message text.
       text=text..string.format("Weather Report at %s:\n", self.rangename)
       text=text..string.format("--------------------------------------------------\n")
-      text=text..string.format("Temperature %s\n", Ts)
-      text=text..string.format("Wind from %s at %.1f m/s (%s)\n", WD, Ws, Bd)
-      text=text..string.format("QFE %.1f hPa = %.1f mmHg = %.2f inHg\n", P, P*hPa2mmHg, P*hPa2inHg)
+      text=text..string.format("Temperature %s\n", tT)
+      text=text..string.format("Wind from %s at %s (%s)\n", WD, tW, Bd)
+      text=text..string.format("QFE %.1f hPa = %s", P, tP)
     else
       text=string.format("No range location defined for range %s.", self.rangename)
     end
