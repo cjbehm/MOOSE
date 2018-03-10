@@ -338,6 +338,13 @@ function CARGO:IsUnLoaded()
   return self:Is( "UnLoaded" )
 end
 
+--- Check if cargo is boarding.
+-- @param #CARGO self
+-- @return #boolean true if boarding
+function CARGO:IsBoarding()
+  return self:Is( "Boarding" )
+end
+
 --- Check if cargo is alive.
 -- @param #CARGO self
 -- @return #boolean true if unloaded
@@ -944,7 +951,7 @@ do -- CARGO_UNIT
         else
           self:__Boarding( -1, CargoCarrier, NearRadius, ... )
           self.RunCount = self.RunCount + 1
-          if self.RunCount >= 20 then
+          if self.RunCount >= 60 then
             self.RunCount = 0
             local Speed = 90
             local Angle = 180
@@ -1282,7 +1289,10 @@ function CARGO_GROUP:onafterBoarding( From, Event, To, CargoCarrier, NearRadius,
   -- For each Cargo object within the CARGO_GROUP, route each object to the CargoLoadPointVec2
   for CargoID, Cargo in pairs( self.CargoSet:GetSet() ) do
     self:T( { Cargo:GetName(), Cargo.current } )
-    if not Cargo:is( "Loaded" ) then
+    
+    
+    if not Cargo:is( "Loaded" ) 
+    and (not Cargo:is( "Destroyed" )) then -- If one or more units of a group defined as CARGO_GROUP died, the CARGO_GROUP:Board() command does not trigger the CARGO_GRUOP:OnEnterLoaded() function.
       Boarded = false
     end
     
