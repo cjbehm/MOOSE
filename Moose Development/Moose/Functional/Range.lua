@@ -123,11 +123,11 @@ RANGE.id="RANGE | "
 
 --- Range script version.
 -- @field #number id
-RANGE.version="0.9.0"
+RANGE.version="1.0.0"
 
 --TODO list
 --TODO: Add statics for strafe pits.
---TODO: Convert env.info() to self:T()
+--DONE: Convert env.info() to self:T()
 --DONE: Add user functions.
 --DONE: Rename private functions, i.e. start with _functionname.
 --DONE: number of displayed results variable.
@@ -150,8 +150,8 @@ function RANGE:New(rangename)
   self.rangename=rangename or "Practice Range"
   
   -- Debug info.
-  local text=string.format("Creating new RANGE object. RANGE script version %s. Range name: %s", RANGE.version, self.rangename)
-  env.info(RANGE.id..text)
+  local text=string.format("RANGE script version %s. Creating new RANGE object. Range name: %s.", RANGE.version, self.rangename)
+  self:E(RANGE.id..text)
   MESSAGE:New(text, 10):ToAllIf(self.Debug)
   
   
@@ -207,16 +207,15 @@ function RANGE:Start()
   self.location=_location
   
   if self.location==nil then
-    local text=string.format("No range location found. Number of strafe targets = %d. Number of bomb targets = %d.", self.rangename, self.nstrafetargets, self.nbombtargets)
-    env.error(RANGE.id..text)
+    local text=string.format("ERROR! No range location found. Number of strafe targets = %d. Number of bomb targets = %d.", self.rangename, self.nstrafetargets, self.nbombtargets)
+    self:E(RANGE.id..text)
     return nil
   end
   
   -- Starting range.
   local text=string.format("Starting RANGE %s. Number of strafe targets = %d. Number of bomb targets = %d.", self.rangename, self.nstrafetargets, self.nbombtargets)
-  env.info(RANGE.id..text)
+  self:E(RANGE.id..text)
   MESSAGE:New(text,10):ToAllIf(self.Debug)
-  
 end
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -324,7 +323,7 @@ function RANGE:AddStrafePit(unitnames, boxlength, boxwidth, heading, inversehead
   
   for _i,_name in ipairs(unitnames) do
   
-    env.info(RANGE.id..string.format("Adding strafe target #%d %s", _i, _name))
+    self:T(RANGE.id..string.format("Adding strafe target #%d %s", _i, _name))
     local unit=UNIT:FindByName(_name)
     
     if unit then
@@ -335,8 +334,8 @@ function RANGE:AddStrafePit(unitnames, boxlength, boxwidth, heading, inversehead
       end
       ntargets=ntargets+1
     else
-      local text=string.format("Could not find strafe target with name %s.", _name)
-      env.error(RANGE.id..text)
+      local text=string.format("ERROR! Could not find strafe target with name %s.", _name)
+      self:E(RANGE.id..text)
       MESSAGE:New(text, 10):ToAllIf(self.Debug)
     end
     
@@ -396,10 +395,8 @@ function RANGE:AddStrafePit(unitnames, boxlength, boxwidth, heading, inversehead
   table.insert(self.strafeTargets, {name=_name, polygon=_polygon, goodPass=goodpass, targets=_targets, foulline=foulline, smokepoints=p, heading=heading})
   
   -- Debug info
-  local text=string.format("Adding new strafe target %s with %d targets: heading = %03d, box_L = %.1f, box_W = %.1f, goodpass = %d, foul line = %.1f", _name, ntargets, heading, boxlength, boxwidth, goodpass, foulline)
-  if self.Debug then  
-    env.info(RANGE.id..text)
-  end
+  local text=string.format("Adding new strafe target %s with %d targets: heading = %03d, box_L = %.1f, box_W = %.1f, goodpass = %d, foul line = %.1f", _name, ntargets, heading, boxlength, boxwidth, goodpass, foulline)  
+  self:T(RANGE.id..text)
   MESSAGE:New(text, 5):ToAllIf(self.Debug)
 end
 
@@ -437,16 +434,16 @@ function RANGE:AddBombingTargets(unitnames, goodhitrange, static)
         self:T(RANGE.id..string.format("Adding DCS static to database. Name = %s.", name))
         _DATABASE:AddStatic(name)
       else
-        env.error(RANGE.id..string.format("DCS static DOES NOT exist! Name = %s.", name))
+        self:E(RANGE.id..string.format("ERROR! DCS static DOES NOT exist! Name = %s.", name))
       end
       
       -- Now we can find it...
       _static=STATIC:FindByName(name)
       if _static then
         self:AddBombingTargetUnit(_static, goodhitrange)
-        env.info(RANGE.id..string.format("Adding static bombing target %s with hit range %d.", name, goodhitrange))
+        self:T(RANGE.id..string.format("Adding static bombing target %s with hit range %d.", name, goodhitrange))
       else
-        env.error(RANGE.id..string.format("Cound not find static bombing target %s.", name))
+        self:E(RANGE.id..string.format("ERROR! Cound not find static bombing target %s.", name))
       end
       
     else
@@ -454,9 +451,9 @@ function RANGE:AddBombingTargets(unitnames, goodhitrange, static)
       _unit=UNIT:FindByName(name)
       if _unit then
         self:AddBombingTargetUnit(_unit, goodhitrange)
-        env.info(RANGE.id..string.format("Adding bombing target %s with hit range %d.", name, goodhitrange))
+        self:T(RANGE.id..string.format("Adding bombing target %s with hit range %d.", name, goodhitrange))
       else
-        env.error(RANGE.id.."Could not find bombing target "..name)
+        self:E(RANGE.id..string.fromat("ERROR! Could not find bombing target %s.", name))
       end
       
     end
@@ -492,7 +489,7 @@ end
 --- General event handler.
 -- @param #RANGE self
 function RANGE:onEvent(Event)
-  self:F(Event)
+  self:F3(Event)
 
   if Event == nil or Event.initiator == nil or Unit.getByName(Event.initiator:getName()) == nil then
     return true
@@ -529,15 +526,13 @@ function RANGE:onEvent(Event)
   end  
   
   -- Event info.
-  if self.Debug then
-    env.info(RANGE.id..string.format("EVENT: Event in onEvent with ID = %s", tostring(Event.id)))
-    env.info(RANGE.id..string.format("EVENT: Ini unit   = %s" , tostring(EventData.IniUnitName)))
-    env.info(RANGE.id..string.format("EVENT: Ini group  = %s" , tostring(EventData.IniGroupName)))
-    env.info(RANGE.id..string.format("EVENT: Ini player = %s" , tostring(_playername)))
-    env.info(RANGE.id..string.format("EVENT: Tgt unit   = %s" , tostring(EventData.TgtUnitName)))
-    env.info(RANGE.id..string.format("EVENT: Tgt group  = %s" , tostring(EventData.IniGroupName)))
-    env.info(RANGE.id..string.format("EVENT: Wpn type   = %s" , tostring(EventData.WeapoinTypeName)))
-  end
+  self:T3(RANGE.id..string.format("EVENT: Event in onEvent with ID = %s", tostring(Event.id)))
+  self:T3(RANGE.id..string.format("EVENT: Ini unit   = %s" , tostring(EventData.IniUnitName)))
+  self:T3(RANGE.id..string.format("EVENT: Ini group  = %s" , tostring(EventData.IniGroupName)))
+  self:T3(RANGE.id..string.format("EVENT: Ini player = %s" , tostring(_playername)))
+  self:T3(RANGE.id..string.format("EVENT: Tgt unit   = %s" , tostring(EventData.TgtUnitName)))
+  self:T3(RANGE.id..string.format("EVENT: Tgt group  = %s" , tostring(EventData.IniGroupName)))
+  self:T3(RANGE.id..string.format("EVENT: Wpn type   = %s" , tostring(EventData.WeapoinTypeName)))
     
   -- Call event Birth function.
   if Event.id==world.event.S_EVENT_BIRTH and _playername then
@@ -566,11 +561,9 @@ function RANGE:_OnBirth(EventData)
   local _unitName=EventData.IniUnitName  
   local _unit, _playername=self:_GetPlayerUnitAndName(_unitName)
   
-  if self.Debug then
-    env.info(RANGE.id.."BIRTH: unit   = "..tostring(EventData.IniUnitName))
-    env.info(RANGE.id.."BIRTH: group  = "..tostring(EventData.IniGroupName))
-    env.info(RANGE.id.."BIRTH: player = "..tostring(_playername)) 
-  end
+  self:T3(RANGE.id.."BIRTH: unit   = "..tostring(EventData.IniUnitName))
+  self:T3(RANGE.id.."BIRTH: group  = "..tostring(EventData.IniGroupName))
+  self:T3(RANGE.id.."BIRTH: player = "..tostring(_playername)) 
       
   if _unit and _playername then
   
@@ -581,7 +574,7 @@ function RANGE:_OnBirth(EventData)
     
     -- Debug output.
     local text=string.format("Player %s, callsign %s entered unit %s (UID %d) of group %s (GID %d)", _playername, _callsign, _unitName, _uid, _group:GetName(), _gid)
-    env.info(RANGE.id..text)
+    self:T(RANGE.id..text)
     MESSAGE:New(text, 5):ToAllIf(self.Debug)
     
     -- Reset current strafe status.
@@ -623,12 +616,10 @@ function RANGE:_OnHit(EventData)
   local targetname = EventData.TgtUnitName
   
   -- Debug info.
-  if self.Debug then
-    env.info(RANGE.id.."HIT: Ini unit   = "..tostring(EventData.IniUnitName))
-    env.info(RANGE.id.."HIT: Ini group  = "..tostring(EventData.IniGroupName))
-    env.info(RANGE.id.."HIT: Tgt target = "..tostring(EventData.TgtUnitName))
-    env.info(RANGE.id.."HIT: Tgt group  = "..tostring(EventData.TgtGroupName))
-  end
+  self:T3(RANGE.id.."HIT: Ini unit   = "..tostring(EventData.IniUnitName))
+  self:T3(RANGE.id.."HIT: Ini group  = "..tostring(EventData.IniGroupName))
+  self:T3(RANGE.id.."HIT: Tgt target = "..tostring(EventData.TgtUnitName))
+  self:T3(RANGE.id.."HIT: Tgt group  = "..tostring(EventData.TgtGroupName))
   
   -- Current strafe target of player.
   local _currentTarget = self.strafeStatus[_unitID]
@@ -662,7 +653,7 @@ function RANGE:_OnHit(EventData)
             local _d=_currentTarget.zone.foulline           
             local text=string.format("%s, Invalid hit!\nYou already passed foul line distance of %d m for target %s.", self:_myname(_unitName), _d, targetname)
             self:_DisplayMessageToGroup(_unit, text, 10)
-            env.info(RANGE.id..text)
+            self:T2(RANGE.id..text)
             _currentTarget.pastfoulline=true
           end
         end
@@ -685,7 +676,6 @@ function RANGE:_OnHit(EventData)
         -- Message to player.
         --local text=string.format("%s, direct hit on target %s.", self:_myname(_unitName), targetname)
         --self:DisplayMessageToGroup(_unit, text, 10, true)
-        --env.info(RANGE.id..text)
       
         -- Flare target.
         if self.PlayerSettings[_playername].flaredirecthits then
@@ -708,12 +698,11 @@ function RANGE:_OnShot(EventData)
   local _weaponStrArray = self:_split(_weapon,"%.")
   local _weaponName = _weaponStrArray[#_weaponStrArray]
   
-  if self.Debug then
-    env.info(RANGE.id.."EVENT SHOT: Ini unit    = "..EventData.IniUnitName)
-    env.info(RANGE.id.."EVENT SHOT: Ini group   = "..EventData.IniGroupName)
-    env.info(RANGE.id.."EVENT SHOT: Weapon type = ".._weapon)
-    env.info(RANGE.id.."EVENT SHOT: Weapon name = ".._weaponName)
-  end
+  -- Debug info.
+  self:T3(RANGE.id.."EVENT SHOT: Ini unit    = "..EventData.IniUnitName)
+  self:T3(RANGE.id.."EVENT SHOT: Ini group   = "..EventData.IniGroupName)
+  self:T3(RANGE.id.."EVENT SHOT: Weapon type = ".._weapon)
+  self:T3(RANGE.id.."EVENT SHOT: Weapon name = ".._weaponName)
   
   -- Monitor only bombs and rockets.
   if (string.match(_weapon, "weapons.bombs") or string.match(_weapon, "weapons.nurs")) then
@@ -722,7 +711,7 @@ function RANGE:_OnShot(EventData)
     local _ordnance =  EventData.weapon
 
     -- Tracking info and init of last bomb position.
-    self:T(RANGE.id.."Tracking ".._weapon.." - ".._ordnance:getName())
+    self:T(RANGE.id..string.format("Tracking %s - %s.", _weapon, _ordnance:getName()))
     
     -- Init bomb position.
     local _lastBombPos = {x=0,y=0,z=0}
@@ -737,13 +726,11 @@ function RANGE:_OnShot(EventData)
       local _unit, _playername = self:_GetPlayerUnitAndName(_unitName)
       local _callsign=self:_myname(_unitName)
 
-      -- env.info("Checking...")
       if _unit and _playername then
 
-        -- when the pcall returns a failure the weapon has hit
+        -- When the pcall returns a failure the weapon has hit.
         local _status,_bombPos =  pcall(
         function()
-          -- env.info("protected")
           return _ordnance:getPoint()
         end)
 
@@ -1150,10 +1137,8 @@ function RANGE:_DisplayRangeInfo(_unitname)
       -- Send message to player group.
       self:_DisplayMessageToGroup(unit, text, nil, true)
       
-      if self.Debug then
-        env.info(RANGE.id..text)
-      end
-
+      -- Debug output.
+      self:T2(RANGE.id..text)
     end
   end
 end
@@ -1217,11 +1202,10 @@ function RANGE:_DisplayRangeWeather(_unitname)
     -- Send message to player group.
     self:_DisplayMessageToGroup(unit, text, nil, true)
     
-    if self.Debug then
-      env.info(RANGE.id..text)
-    end
+    -- Debug output.
+    self:T2(RANGE.id..text)
   else
-    env.info(RANGE.id.."ERROR! Could not find player unit in RangeInfo! Name = ".._unitname)
+    self:T(RANGE.id..string.format("ERROR! Could not find player unit in RangeInfo! Name = %s", _unitname))
   end      
 end
 
@@ -1259,10 +1243,9 @@ function RANGE:_CheckInZone(_unitName)
       -- Check if unit is inside zone and below max height AGL.
       local unitinzone=_unit:IsInZone(zone) and unitalt <= self.strafemaxalt and towardspit
       
-      if self.Debug then
-        local text=string.format("Checking stil in zone. Unit = %s, player = %s in zone = %s. alt = %d, delta heading = %d", _unitName, _playername, tostring(unitinzone), unitalt, deltaheading)
-        env.info(RANGE.id..text)
-      end
+      -- Debug output
+      local text=string.format("Checking stil in zone. Unit = %s, player = %s in zone = %s. alt = %d, delta heading = %d", _unitName, _playername, tostring(unitinzone), unitalt, deltaheading)
+      self:T(RANGE.id..text)
     
       -- Check if player is in strafe zone and below max alt.
       if unitinzone then 
@@ -1340,11 +1323,9 @@ function RANGE:_CheckInZone(_unitName)
         -- Check if unit is inside zone and below max height AGL.
         local unitinzone=_unit:IsInZone(zone) and unitalt <= self.strafemaxalt and towardspit
            
-        if self.Debug then
-          local text=string.format("Checking zone %s. Unit = %s, player = %s in zone = %s. alt = %d, delta heading = %d", _targetZone.name, _unitName, _playername, tostring(unitinzone), unitalt, deltaheading)
-          --MESSAGE:New(text, 10):ToAllIf(self.Debug)
-          env.info(RANGE.id..text)
-        end
+        -- Debug info.
+        local text=string.format("Checking zone %s. Unit = %s, player = %s in zone = %s. alt = %d, delta heading = %d", _targetZone.name, _unitName, _playername, tostring(unitinzone), unitalt, deltaheading)
+        self:T(RANGE.id..text)
         
         -- Player is inside zone.
         if unitinzone then
