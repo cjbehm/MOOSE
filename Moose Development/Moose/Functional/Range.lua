@@ -68,8 +68,8 @@
 -- @field Utilities.Utils#SMOKECOLOR BombSmokeColor Color id used for smoking bomb targets.
 -- @field Utilities.Utils#SMOKECOLOR StrafeSmokeColor Color id used to smoke strafe targets.
 -- @field Utilities.Utils#SMOKECOLOR StrafePitSmokeColor Color id used to smoke strafe pit approach boxes. 
--- @field #number illuminationminalt Minimum altitude AGL in meters at which illumination bombs are fired. Default is 400 m.
--- @field #number illuminationmaxalt Maximum altitude AGL in meters at which illumination bombs are fired. Default is 800 m.
+-- @field #number illuminationminalt Minimum altitude AGL in meters at which illumination bombs are fired. Default is 500 m.
+-- @field #number illuminationmaxalt Maximum altitude AGL in meters at which illumination bombs are fired. Default is 1000 m.
 -- @field #number scorebombdistance Distance from closest target up to which bomb hits are counted. Default 1000 m.
 -- @field #number TdelaySmoke Time delay in seconds between impact of bomb and starting the smoke. Default 3 seconds.
 -- @field #boolean eventmoose If true, events are handled by MOOSE. If false, events are handled directly by DCS eventhandler. Default true. 
@@ -110,8 +110,8 @@ RANGE={
   BombSmokeColor=SMOKECOLOR.Red,
   StrafeSmokeColor=SMOKECOLOR.Green,
   StrafePitSmokeColor=SMOKECOLOR.White,
-  illuminationminalt=400,
-  illuminationmaxalt=800,
+  illuminationminalt=500,
+  illuminationmaxalt=1000,
   scorebombdistance=1000,
   TdelaySmoke=3.0,
   eventmoose=true,
@@ -157,14 +157,14 @@ function RANGE:New(rangename)
   
   -- Event handling.
   if self.eventmoose then
-    self:T(RANGE.id.."Events are handled by MOOSE.")
     -- Events are handled my MOOSE.
+    self:T(RANGE.id.."Events are handled by MOOSE.")
     self:HandleEvent(EVENTS.Birth, self._OnBirth)
     self:HandleEvent(EVENTS.Hit,   self._OnHit)
     self:HandleEvent(EVENTS.Shot,  self._OnShot)
   else
-    self:T(RANGE.id.."Events are handled directly by DCS.")
     -- Events are handled directly by DCS.
+    self:T(RANGE.id.."Events are handled directly by DCS.")
     world.addEventHandler(self)
   end
   
@@ -775,10 +775,14 @@ function RANGE:_OnShot(EventData)
             if _distance == nil or _temp < _distance then
                 _distance = _temp
                 _closetTarget = _bombtarget
-                if _distance <= _bombtarget.goodhitrange then
+                if _distance <= 0.5*_bombtarget.goodhitrange then
+                  _hitquality = "EXCELLENT"
+                elseif _distance <= _bombtarget.goodhitrange then
                   _hitquality = "GOOD"
-                else
+                elseif _distance <= 2*_bombtarget.goodhitrange then
                   _hitquality = "INEFFECTIVE"
+                else
+                  _hitquality = "POOR"
                 end
             end
           end
@@ -864,13 +868,11 @@ function RANGE:_DisplayMyStrafePitResults(_unitName)
       for _,_result in pairs(_results) do
   
         -- Message text.
-        --_message = _message..string.format("\n[%d] %s - Hits %i - %s", _count, _result.zone.name, _result.hits, _result.text)
-        _message = _message..string.format("\n[%d] Hits %i - %s - %s", _count, _result.hits, _result.zone.name, _result.text)
+        _message = _message..string.format("\n[%d] Hits %d - %s - %s", _count, _result.hits, _result.zone.name, _result.text)
       
         -- Best result.
         if _bestMsg == "" then 
-          --_bestMsg = string.format("%s - Hits %i - %s", _result.zone.name, _result.hits, _result.text)
-          _bestMsg = string.format("Hits %i - %s - %s", _result.hits, _result.zone.name, _result.text)
+          _bestMsg = string.format("Hits %d - %s - %s", _result.hits, _result.zone.name, _result.text)
         end
   
         -- 10 runs
@@ -922,7 +924,6 @@ function RANGE:_DisplayStrafePitResults(_unitName)
   
       -- Add best result to table. 
       if _best ~= nil then
-        --local text=string.format("%s: %s - Hits %i - %s", _playerName, _best.zone.name, _best.hits, _best.text)
         local text=string.format("%s: Hits %i - %s - %s", _playerName, _best.hits, _best.zone.name, _best.text)
         table.insert(_playerResults,{msg = text, hits = _best.hits})
       end
@@ -980,11 +981,11 @@ function RANGE:_DisplayMyBombingResults(_unitName)
       for _,_result in pairs(_results) do
   
         -- Message with name, weapon and distance.
-        _message = _message.."\n"..string.format("[%d] %i m - %s - %s", _count, _result.distance, _result.name, _result.weapon)
+        _message = _message.."\n"..string.format("[%d] %d m - %s - %s - %s hit", _count, _result.distance, _result.name, _result.weapon, _result.quality)
   
         -- Store best/first result.
         if _bestMsg == "" then
-            _bestMsg = string.format("%i m - %s - %s",_result.distance,_result.name,_result.weapon)
+            _bestMsg = string.format("%d m - %s - %s - %s hit",_result.distance,_result.name,_result.weapon, _result.quality)
         end
   
         -- Best 10 runs only.
@@ -1036,8 +1037,7 @@ function RANGE:_DisplayBombingResults(_unitName)
   
       -- Put best result of player into table.
       if _best ~= nil then
-        --local bestres=string.format("%s: %s - %s - %i m", _playerName, _best.name, _best.weapon, _best.distance)
-        local bestres=string.format("%s: %i m - %s - %s", _playerName, _best.distance, _best.name, _best.weapon)
+        local bestres=string.format("%s: %d m - %s - %s - %s hit", _playerName, _best.distance, _best.name, _best.weapon, _best.quality)
         table.insert(_playerResults, {msg = bestres, distance = _best.distance})
       end
   
@@ -1420,10 +1420,10 @@ function RANGE:_AddF10Commands(_unitName)
         missionCommands.addCommandForGroup(_gid, "Weather Report",      _rangePath, self._DisplayRangeWeather, self, _unitName)
       end
     else
-      env.error(RANGE.id.."Could not find group or group ID in AddF10Menu() function. Unit name: ".._unitName)
+      self:T(RANGE.id.."Could not find group or group ID in AddF10Menu() function. Unit name: ".._unitName)
     end
   else
-    env.error(RANGE.id.."Player unit does not exist in AddF10Menu() function. Unit name: ".._unitName)
+    self:T(RANGE.id.."Player unit does not exist in AddF10Menu() function. Unit name: ".._unitName)
   end
 
 end
