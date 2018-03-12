@@ -112,7 +112,7 @@
 -- Of course, it can also happen that a group is hit again while it is still suppressed. In that case a new random suppression time is calculated.
 -- If the new suppression time is longer than the remaining suppression of the previous hit, then the group recovers when the suppression time of the last
 -- hit has passed.
--- If the new suppression time is shorter than the remaining suppression, the group will recover after the longer time of the first suppression has passed
+-- If the new suppression time is shorter than the remaining suppression, the group will recover after the longer time of the first suppression has passed.
 -- 
 -- For example:
 -- 
@@ -134,6 +134,9 @@
 -- If the group takes a certain amount of damage, the event **Retreat** will be called and the group will start to move to the retreat zone.
 -- The group will be in the state **Retreating**, which means that its ROE is set to "Weapon Hold" and the alarm state is set to "Green".
 -- Setting the alarm state to green is necessary to enable the group to move under fire.
+-- 
+-- When the group has reached the retreat zone, the event **Retreated** is triggered and the state will change to **Retreated**. ROE and alarm state are
+-- set to "Return Fire" and "Auto", respectively. The group will stay in the retreat zone and not actively participate in the combat any more.
 -- 
 -- If no option retreat zone has been specified, the option retreat is not available.
 -- 
@@ -301,7 +304,8 @@ function SUPPRESSION:New(group)
   --self:AddTransition("Suppressed",  "Retreat",   "Retreating")
   self:AddTransition("*",           "Retreat",   "Retreating")
   self:AddTransition("TakingCover", "FightBack", "CombatReady")
-  self:AddTransition("FallingBack", "FightBack", "CombatReady")  
+  self:AddTransition("FallingBack", "FightBack", "CombatReady")
+  self:AddTransition("Retreating",  "Retreated", "Retreated")
   self:AddTransition("*",           "Dead",      "*")
   
 
@@ -395,6 +399,24 @@ function SUPPRESSION:New(group)
   -- @return #boolean
   
   --- User function for OnAfter "Retreat" event.
+  -- @function [parent=#SUPPRESSION] OnAfterRetreat
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+
+
+  --- User function for OnBefore "Retreated" event.
+  -- @function [parent=#SUPPRESSION] OnBeforeRetreat
+  -- @param #SUPPRESSION self
+  -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @return #boolean
+  
+  --- User function for OnAfter "Retreated" event.
   -- @function [parent=#SUPPRESSION] OnAfterRetreat
   -- @param #SUPPRESSION self
   -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
@@ -643,7 +665,6 @@ end
 --- Order group to take cover at a nearby scenery object.
 -- @param #SUPPRESSION self
 function SUPPRESSION:OrderTakeCover()
-  --self:TakeCover()
   -- Search place to hide or take specified one.
   local Hideout=self.hideout
   if self.hideout==nil then
@@ -790,25 +811,6 @@ function SUPPRESSION:onbeforeHit(Controllable, From, Event, To, Unit, AttackUnit
   --env.info(SUPPRESSION.id..string.format("Last hit = %s  %s", tostring(self.LastHit), tostring(Tnow)))
   
   return true
-  --[[
-  if self.LastHit==nil then
-  
-    -- First time group was hit
-    self.LastHit=Tnow
-    return true
-    
-  else
-  
-    -- Allow next hit only after a certain time has passed
-    if Tnow-self.LastHit < 3 then
-      return false
-    else
-      self.LastHit=Tnow
-      return true
-    end
-    
-  end
-  ]]
 end
 
 --- After "Hit" event.
@@ -1097,6 +1099,7 @@ end
 -- @param #string From From state.
 -- @param #string Event Event.
 -- @param #string To To state.
+-- @return #boolean True if transition is allowed, False if transition is forbidden.
 function SUPPRESSION:onbeforeRetreat(Controllable, From, Event, To)
   self:_EventFromTo("onbeforeRetreat", Event, From, To)
   
@@ -1148,6 +1151,42 @@ function SUPPRESSION:onafterRetreat(Controllable, From, Event, To)
   self:_Run(ZoneCoord, self.Speed, self.Formation, self.RetreatWait)
   
 end
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+--- Before "Retreateded" event. Check that the group is really in the retreat zone.
+-- @param #SUPPRESSION self
+-- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+-- @param #string From From state.
+-- @param #string Event Event.
+-- @param #string To To state.
+function SUPPRESSION:onbeforeRetreated(Controllable, From, Event, To)
+  self:_EventFromTo("onbeforeRetreated", Event, From, To)
+  
+  -- Check that the group is inside the zone.
+  local inzone=self.RetreatZone:IsVec3InZone(Controllable:GetVec3())
+  
+  return inzone
+end
+
+--- After "Retreateded" event. Group has reached the retreat zone. Set ROE to return fire and alarm state to auto.
+-- @param #SUPPRESSION self
+-- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
+-- @param #string From From state.
+-- @param #string Event Event.
+-- @param #string To To state.
+function SUPPRESSION:onafterRetreated(Controllable, From, Event, To)
+  self:_EventFromTo("onafterRetreated", Event, From, To)
+  
+  -- Set ROE to weapon return fire.
+  self:_SetROE(SUPPRESSION.ROE.Return)
+  
+  -- Set the ALARM STATE to GREEN. Then the unit will move even if it is under fire.
+  self:_SetAlarmState(SUPPRESSION.AlarmState.Auto)
+  
+  -- TODO: Add hold task? Move from _Run()
+end
+
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1302,8 +1341,7 @@ function SUPPRESSION:_OnEventDead(EventData)
       trigger.action.signalFlare(p, trigger.flareColor.Yellow , 0)
       env.info(SUPPRESSION.id..string.format("Flare Dead DCS unit."))
     end
-    
-    
+       
     -- Get status.
     self:Status()
     
@@ -1460,7 +1498,8 @@ function SUPPRESSION:_Run(fin, speed, formation, wait)
 end
 
 --- Function called when group is passing a waypoint. At the last waypoint we set the group back to CombatReady.
---@param #SUPPRESSION self
+--@param Wrapper.Group#GROUP group Group which is passing a waypoint.
+--@param #SUPPRESSION Fsm The suppression object.
 --@param #number i Waypoint number that has been reached.
 --@param #boolean final True if it is the final waypoint. Start Fightback.
 function SUPPRESSION._Passing_Waypoint(group, Fsm, i, final)
@@ -1473,10 +1512,15 @@ function SUPPRESSION._Passing_Waypoint(group, Fsm, i, final)
   end
   env.info(SUPPRESSION.id..text)
 
-  -- Change alarm state back to default.
   if final then
-    Fsm:FightBack()
-  end  
+    if Fsm:is("Retreating") then
+      -- Retreated-->Retreated.
+      Fsm:Retreated()
+    else
+    -- FightBack-->Combatready: Change alarm state back to default.  
+      Fsm:FightBack()
+    end
+  end
 end
 
 
