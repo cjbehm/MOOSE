@@ -76,13 +76,44 @@
 -- @extends Core.Base#BASE
 
 ---# RANGE class, extends @{Base#BASE}
--- The RANGE class
+-- The RANGE class enables a mission designer to easily set up practice ranges in DCS. A new RANGE object can be created with the @{#RANGE.New}(rangename) contructor.
+-- The parameter "rangename" defindes the name of the range. It has to be unique since this is also the name displayed in the radio menu.
 -- 
---
+-- Generally, a range consits of strafe pits and bombing targets.
+-- 
+-- A range 
 -- ## Usage
 -- 
 -- 
--- ### Coding:
+-- ### Example:
+-- This example shows hot to set up the Barry M. Goldwater range.
+-- 
+--      -- Strafe pits. Each pit can consist of multiple targets. Here we have two pits and each of the pits has two targets. These are names of the corresponding units defined in the ME.
+--      local strafepit_left={"GWR Strafe Pit Left 1", "GWR Strafe Pit Left 2"}
+--      local strafepit_right={"GWR Strafe Pit Right 1", "GWR Strafe Pit Right 2"}
+--      
+--      -- Table of bombing target names. Again these are the names of the corresponding units as defined in the ME.
+--      local bombtargets={"GWR Bomb Target Circle Left", "GWR Bomb Target Circle Right", "GWR Bomb Target Hard"}
+--      
+--      -- Create a range object.
+--      local GoldwaterRange=RANGE:New("Goldwater Range")
+--      
+--      -- Distance between foul line and strafe target. Note that this could also be done manually by simply measuring the distance between the target and the foul line in the ME.
+--      local strafe=UNIT:FindByName("GWR Strafe Pit Left 1")
+--      local foul=UNIT:FindByName("GWR Foul Line Left")
+--      local fouldist=strafe:GetCoordinate():Get2DDistance(foul:GetCoordinate())
+--      
+--      -- Add strafe pits. Each pit (left and right) consists of two targets.
+--      -- Note that a valid apporach has to fullfill certain conditions:
+--      -- - A player must enter the "approach box"
+--      GoldwaterRange:AddStrafePit(strafepit_left, 3000, 300, nil, true, 20, fouldist)
+--      GoldwaterRange:AddStrafePit(strafepit_right, 3000, 300, nil, true, 20, fouldist)
+--      
+--      -- Add bombing targets. A good hit is if the bomb falls less then 50 m from the target.
+--      GoldwaterRange:AddBombingTargets(bombtargets, 50)
+--      
+--      -- Start range.
+--      GoldwaterRange:Start()
 -- 
 -- 
 -- 
