@@ -1,7 +1,7 @@
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 --- **Functional** - Suppress fire of ground units when they get hit.
 -- 
--- ![Banner Image](..\Presentations\SUPPRESSION\SUPPRESSION.jpg)
+-- ![Banner Image](..\Presentations\SUPPRESSION\Suppression_Main.png)
 -- 
 -- ====
 -- 

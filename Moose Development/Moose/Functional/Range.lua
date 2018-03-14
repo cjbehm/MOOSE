@@ -1,26 +1,28 @@
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
---- **Functional** - RANGE
+--- **Functional** - Range Practice.
 --  
--- ![Banner Image](..\Presentations\RAT\RAT.png)
+-- ![Banner Image](..\Presentations\RANGE\RANGE_Main.png)
 -- 
 -- ====
 -- 
--- Range practice.
+-- The RANGE class enables easy set up of bombing and strafing ranges within DCS World.
 -- 
--- Implementation is based on the DCS Simple Range Script by Ciribob [see here](https://forums.eagle.ru/showthread.php?t=157991) which itself was motivated
+-- Implementation is based on the [Simple Range Script](https://forums.eagle.ru/showthread.php?t=157991) by [Ciribob](https://forums.eagle.ru/member.php?u=112175), which itself was motivated
 -- by a script by SNAFU [see here](https://forums.eagle.ru/showthread.php?t=109174).
 -- 
 -- ## Features
 --
--- * Results of all bombing and strafing runs are stored and top 10 results can be displayed. 
--- * Rocket or bomb impact point from closest range target is measured and distance reported to the player.
+-- * Bomb and rocket impact point from closest range target is measured and distance reported to the player.
 -- * Number of hits on strafing passes are counted.
--- * Range targets can be marked by smoke and on the F10 map.
+-- * Results of all bombing and strafing runs are stored and top 10 results can be displayed. 
+-- * Range targets can be marked by smoke.
 -- * Range can be illuminated by illumination bombs for night practices.
 -- * Rocket or bomb impact points can be marked by smoke.
 -- * Direct hits on targets can trigger flares.
--- * Smoke and flare colors can be adjusted for each player via the F10 menu.
--- * Range information and weather report at the range can be reported via F10 menu.
+-- * Smoke and flare colors can be adjusted for each player via radio menu.
+-- * Range information and weather report at the range can be reported via radio menu.
+-- 
+-- More information and examples can be found below.
 -- 
 -- ====
 -- 
@@ -38,7 +40,7 @@
 -- 
 -- ### Author: **[funkyfranky](https://forums.eagle.ru/member.php?u=115026)**
 -- 
--- ### Contributions: **Sven van de Velde ([FlightControl](https://forums.eagle.ru/member.php?u=89536))**
+-- ### Contributions: [FlightControl](https://forums.eagle.ru/member.php?u=89536), [Ciribob](https://forums.eagle.ru/member.php?u=112175)
 -- 
 -- ====
 -- @module Range
@@ -47,7 +49,7 @@
 --- RANGE class
 -- @type RANGE
 -- @field #string ClassName Name of the Class.
--- @field #boolean Debug If true, print debug info to dcs.log file.
+-- @field #boolean Debug If true, debug info is send as messages on the screen.
 -- @field #string rangename Name of the range.
 -- @field Core.Point#COORDINATE location Coordinate of the range.
 -- @field #number rangeradius Radius of range defining its total size for e.g. smoking bomb impact points. Default 10 km.
@@ -63,7 +65,7 @@
 -- @field #table PlayerSettings Indiviual player settings.
 -- @field #number dtBombtrack Time step [sec] used for tracking released bomb/rocket positions. Default 0.005 seconds.
 -- @field #number Tmsg Time [sec] messages to players are displayed. Default 30 sec.
--- @field #number strafemaxalt Maximum altitude above ground for registering for a strafe run. Default is 610 m = 2000 ft. 
+-- @field #number strafemaxalt Maximum altitude above ground for registering for a strafe run. Default is 914 m = 3000 ft. 
 -- @field #number ndisplayresult Number of (player) results that a displayed. Default is 10.
 -- @field Utilities.Utils#SMOKECOLOR BombSmokeColor Color id used for smoking bomb targets.
 -- @field Utilities.Utils#SMOKECOLOR StrafeSmokeColor Color id used to smoke strafe targets.
@@ -79,14 +81,77 @@
 -- The RANGE class enables a mission designer to easily set up practice ranges in DCS. A new RANGE object can be created with the @{#RANGE.New}(rangename) contructor.
 -- The parameter "rangename" defindes the name of the range. It has to be unique since this is also the name displayed in the radio menu.
 -- 
--- Generally, a range consits of strafe pits and bombing targets.
+-- Generally, a range consits of strafe pits and bombing targets. For strafe pits the number of hits for each pass is counted and tabulated.
+-- For bombing targets, the distance from the impact point of the bomb or rocket to the closest range target is measured and tabulated.
+-- Each player can display his best results via a function in the radio menu or see the best best results from all players.
 -- 
--- A range 
--- ## Usage
+-- When all targets have been defined in the script, the range is started by the @{#RANGE.Start}() command.
 -- 
+-- **IMPORTANT**
 -- 
--- ### Example:
--- This example shows hot to set up the Barry M. Goldwater range.
+-- Due to a DCS bug, it is not possible to directly monitor when a player enters a plane. So in a mission with client slots, it is vital that
+-- a player first enters as spector and **after that** jumps into the slot of his aircraft!
+-- If that is not done, the script is not started correctly. This can be checked by looking at the radio menues. If the mission was entered correctly,
+-- there should be an "On the Range" menu items in the "F10. Other..." menu. 
+-- 
+-- ## Strafe Pits
+-- Each strafe pit can consist of multiple targets. Often one findes two or three strafe targets next to each other.
+-- 
+-- A strafe pit can be added to the range by the @{#RANGE.AddStrafepit}(unitnames, boxlength, boxwidth, heading, inverseheading, goodpass, foulline) function.
+-- 
+-- The first parameter defines the target. This has to be given as a lua table which contains the unit names of the targets as defined in the mission editor.
+-- 
+-- In order to perform a valid pass on the strafe pit, the pilot has to begin his run from the correct direction. Therefore, an "approach box" is defined in front
+-- of the strafe targets. The parameters "boxlength" and "boxwidth" define the size of the box while the parameter "heading" defines its direction.
+-- If the parameter heading is passed as **nil**, the heading is automatically taken from the heading of the first target unit as defined in the ME.
+-- The parameter "inverseheading" turns the heading around by 180 degrees. This is sometimes useful, since the default heading of strafe target units point in the
+-- wrong/opposite direction.
+-- 
+-- The parameter "goodpass" defines the number of hits a pilot has to achive during a run to be judges as a good pass.
+-- 
+-- The last parameter "foulline" sets the distance from the pit targets to the foul line. Hit from closer than this line are not counted.
+-- 
+-- Finally, a valid approach has to be performed below a certain maximum altitude. The default is 914 meters (3000 ft) AGL. This is a parameter valid for all
+-- strafing pits of the range and can be adjusted by the @{#RANGE.SetMaxStrafeAlt}(maxalt) function.
+-- 
+-- ## Bombing targets
+-- One ore multiple bombing targets can be added to the range by the @{#RANGE.AddBombingTargets}(unitnames goodhitrange,static) function.
+-- 
+-- The first parameter "unitnames" has to be a lua table, which contains the names of the units as defined in the mission editor.
+-- 
+-- The parameter "goodhitrange" specifies the radius around the target. If a bomb or rocket falls at a distance smaller than this number, the hit is considered to be "good".
+-- 
+-- The final (optional) parameter "static" can be enabled (set to true) if static bomb targets are used rather than alive units.
+-- 
+-- ## Fine Tuning
+-- Many range parameters have good default values. However, the mission designer can change these settings easily with the supplied user functions:
+-- 
+-- * @{#RANGE.SetMaxStrafeAlt}() sets the max altitude for valid strafing runs.
+-- * @{#RANGE.SetMessageTimeDuration}() sets the duration how long (most) messages are displayed.
+-- * @{#RANGE.SetDisplayedMaxPlayerResults}() sets the number of results displayed.
+-- * @{#RANGE.SetRangeRadius}() defines the total range area. 
+-- * @{#RANGE.SetBombTargetSmokeColor}() sets the color used to smoke bombing targets. 
+-- * @{#RANGE.SetStrafeTargetSmokeColor}() sets the color used to smoke strafe targets.
+-- * @{#RANGE.SetStrafePitSmokeColor}() sets the color used to smoke strafe pit approach boxes.
+-- * @{#RANGE.SetSmokeTimeDelay}() sets the time delay between smoking bomb/rocket impact points after impact.
+-- 
+-- ## Radio Menu
+-- Each range gets a radio menu with various submenus where each player can adjust his individual settings or request information about the range or his scores.
+-- 
+-- The main range menu can be found at "F10. Other..." --> "Fxx. On the Range..." --> "F1. Your Range Name...".
+--
+-- The range menu contains the following submenues:
+-- 
+-- * "F1. Mark Targets": Various ways to mark targets. 
+-- * "F2. My Settings": Player specific settings.
+-- * "F3. Stats" Player: statistics and scores.
+-- * "Range Information": Information about the range, such as bearing and range. Also range and player specific settings are displayed.
+-- * "Weather Report": Temperatur, wind and QFE pressure information is provided. 
+-- 
+-- ## Examples
+-- 
+-- ### Goldwater Range
+-- This example shows hot to set up the Barry M. Goldwater range. It consists of two strafe pits each has two targets plus three bombing targets.
 -- 
 --      -- Strafe pits. Each pit can consist of multiple targets. Here we have two pits and each of the pits has two targets. These are names of the corresponding units defined in the ME.
 --      local strafepit_left={"GWR Strafe Pit Left 1", "GWR Strafe Pit Left 2"}
@@ -104,8 +169,6 @@
 --      local fouldist=strafe:GetCoordinate():Get2DDistance(foul:GetCoordinate())
 --      
 --      -- Add strafe pits. Each pit (left and right) consists of two targets.
---      -- Note that a valid apporach has to fullfill certain conditions:
---      -- - A player must enter the "approach box"
 --      GoldwaterRange:AddStrafePit(strafepit_left, 3000, 300, nil, true, 20, fouldist)
 --      GoldwaterRange:AddStrafePit(strafepit_right, 3000, 300, nil, true, 20, fouldist)
 --      
@@ -136,7 +199,7 @@ RANGE={
   PlayerSettings = {},
   dtBombtrack=0.005,
   Tmsg=30,
-  strafemaxalt=610,
+  strafemaxalt=914,
   ndisplayresult=10,
   BombSmokeColor=SMOKECOLOR.Red,
   StrafeSmokeColor=SMOKECOLOR.Green,
@@ -153,7 +216,7 @@ RANGE={
 RANGE.id="RANGE | "
 
 --- Range script version.
--- @field #number id
+-- @field #number version
 RANGE.version="1.0.0"
 
 --TODO list
@@ -167,7 +230,7 @@ RANGE.version="1.0.0"
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
---- RANGE contructor. Creates a RANGE object and starts the event handlers.
+--- RANGE contructor. Creates a new RANGE object.
 -- @param #RANGE self
 -- @param #string rangename Name of the range. Has to be unique. Will we used to create F10 menu items etc.
 -- @return #RANGE RANGE object.
@@ -184,26 +247,12 @@ function RANGE:New(rangename)
   local text=string.format("RANGE script version %s. Creating new RANGE object. Range name: %s.", RANGE.version, self.rangename)
   self:E(RANGE.id..text)
   MESSAGE:New(text, 10):ToAllIf(self.Debug)
-  
-  
-  -- Event handling.
-  if self.eventmoose then
-    -- Events are handled my MOOSE.
-    self:T(RANGE.id.."Events are handled by MOOSE.")
-    self:HandleEvent(EVENTS.Birth, self._OnBirth)
-    self:HandleEvent(EVENTS.Hit,   self._OnHit)
-    self:HandleEvent(EVENTS.Shot,  self._OnShot)
-  else
-    -- Events are handled directly by DCS.
-    self:T(RANGE.id.."Events are handled directly by DCS.")
-    world.addEventHandler(self)
-  end
-  
+    
   -- Return object.
   return self
 end
 
---- Initializes number of targets and location of the range.
+--- Initializes number of targets and location of the range. Starts the event handlers.
 -- @param #RANGE self
 function RANGE:Start()
   self:F()
@@ -247,6 +296,20 @@ function RANGE:Start()
   local text=string.format("Starting RANGE %s. Number of strafe targets = %d. Number of bomb targets = %d.", self.rangename, self.nstrafetargets, self.nbombtargets)
   self:E(RANGE.id..text)
   MESSAGE:New(text,10):ToAllIf(self.Debug)
+  
+  -- Event handling.
+  if self.eventmoose then
+    -- Events are handled my MOOSE.
+    self:T(RANGE.id.."Events are handled by MOOSE.")
+    self:HandleEvent(EVENTS.Birth, self._OnBirth)
+    self:HandleEvent(EVENTS.Hit,   self._OnHit)
+    self:HandleEvent(EVENTS.Shot,  self._OnShot)
+  else
+    -- Events are handled directly by DCS.
+    self:T(RANGE.id.."Events are handled directly by DCS.")
+    world.addEventHandler(self)
+  end
+  
 end
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -254,9 +317,9 @@ end
 
 --- Set maximal strafing altitude. Player entering a strafe pit above that altitude are not registered for a valid pass.
 -- @param #RANGE self
--- @param #number maxalt Maximum altitude AGL in meters.
+-- @param #number maxalt Maximum altitude AGL in meters. Default is 914 m= 3000 ft.
 function RANGE:SetMaxStrafeAlt(maxalt)
-  self.strafemaxalt=maxalt
+  self.strafemaxalt=maxalt or 914
 end
 
 --- Set time interval for tracking bombs. A smaller time step increases accuracy but needs more CPU time.
@@ -268,7 +331,7 @@ end
 
 --- Set time how long (most) messages are displayed.
 -- @param #RANGE self
--- @param #number dt Time in seconds. Default is 30 s.
+-- @param #number time Time in seconds. Default is 30 s.
 function RANGE:SetMessageTimeDuration(time)
   self.Tmsg=time or 30
 end
@@ -519,6 +582,7 @@ end
 
 --- General event handler.
 -- @param #RANGE self
+-- @param #table Event DCS event table.
 function RANGE:onEvent(Event)
   self:F3(Event)
 
@@ -583,7 +647,7 @@ function RANGE:onEvent(Event)
 end
 
 
---- Range event handler for envent birth.
+--- Range event handler for event birth.
 -- @param #RANGE self
 -- @param Core.Event#EVENTDATA EventData
 function RANGE:_OnBirth(EventData)
@@ -718,7 +782,7 @@ function RANGE:_OnHit(EventData)
   end
 end
 
---- Range event handler for event shot, i.e. when a unit releases a rocket or bomb (but not a fast firing gun). 
+--- Range event handler for event shot (when a unit releases a rocket or bomb (but not a fast firing gun). 
 -- @param #RANGE self
 -- @param Core.Event#EVENTDATA EventData
 function RANGE:_OnShot(EventData)
@@ -1342,9 +1406,7 @@ function RANGE:_CheckInZone(_unitName)
         local zonenname=_targetZone.name
         local zone=_targetZone.polygon  --Core.Zone#ZONE_POLYGON_BASE
       
-        -- Check if player is in zone and below
-        --local unitinzone=_unit:IsInZone(zone) and _unit:GetHeight()-_unit:GetCoordinate():GetLandHeight() <= self.strafemaxalt
-        
+        -- Check if player is in zone and below max alt and flying towards the target.
         local unitheading  = _unit:GetHeading()
         local pitheading   = _targetZone.heading - 180
         local deltaheading = unitheading-pitheading
