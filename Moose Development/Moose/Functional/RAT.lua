@@ -4730,26 +4730,26 @@ end
 -- In this example, three different @{#RAT} objects are created (but not spawned manually). The @{#RATMANAGER} takes care that at least five aircraft of each type are alive and that the total number of aircraft
 -- spawned is 25. The @{#RATMANAGER} is started after 30 seconds and stopped after two hours.
 -- 
---   local a10c=RAT:New("RAT_A10C", "A-10C managed")
---   a10c:SetDeparture({"Batumi"})
---  
---   local f15c=RAT:New("RAT_F15C", "F15C managed")
---   f15c:SetDeparture({"Sochi-Adler"})
---   f15c:DestinationZone()
---   f15c:SetDestination({"Zone C"})
---  
---   local av8b=RAT:New("RAT_AV8B", "AV8B managed")
---   av8b:SetDeparture({"Zone C"})
---   av8b:SetTakeoff("air")
---   av8b:DestinationZone()
---   av8b:SetDestination({"Zone A"})
---  
---   local manager=RATMANAGER:New(25)
---   manager:Add(a10c, 5)
---   manager:Add(f15c, 5)
---   manager:Add(av8b, 5)
---   manager:Start(30)
---   manager:Stop(7200)
+--     local a10c=RAT:New("RAT_A10C", "A-10C managed")
+--     a10c:SetDeparture({"Batumi"})
+--     
+--     local f15c=RAT:New("RAT_F15C", "F15C managed")
+--     f15c:SetDeparture({"Sochi-Adler"})
+--     f15c:DestinationZone()
+--     f15c:SetDestination({"Zone C"})
+--     
+--     local av8b=RAT:New("RAT_AV8B", "AV8B managed")
+--     av8b:SetDeparture({"Zone C"})
+--     av8b:SetTakeoff("air")
+--     av8b:DestinationZone()
+--     av8b:SetDestination({"Zone A"})
+--     
+--     local manager=RATMANAGER:New(25)
+--     manager:Add(a10c, 5)
+--     manager:Add(f15c, 5)
+--     manager:Add(av8b, 5)
+--     manager:Start(30)
+--     manager:Stop(7200)
 --
 -- @field #RATMANAGER
 RATMANAGER={

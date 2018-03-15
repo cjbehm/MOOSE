@@ -125,6 +125,8 @@
 -- Generally speaking, the suppression times are not just added on top of each other. Because this could easily lead to the situation that a group 
 -- never becomes CombatReady again before it gets destroyed.
 -- 
+-- The mission designer can capture the event **Recovered** by the function @{#SUPPRESSION.OnAfterRecovered}().
+-- 
 -- ## Flee Events and States
 -- Apart from being suppressed the groups can also flee from the enemy under certain conditions.
 -- 
@@ -135,10 +137,13 @@
 -- The group will be in the state **Retreating**, which means that its ROE is set to "Weapon Hold" and the alarm state is set to "Green".
 -- Setting the alarm state to green is necessary to enable the group to move under fire.
 -- 
--- When the group has reached the retreat zone, the event **Retreated** is triggered and the state will change to **Retreated**. ROE and alarm state are
+-- When the group has reached the retreat zone, the event **Retreated** is triggered and the state will change to **Retreated** (note that both the event and
+-- the state of the same name in this case). ROE and alarm state are
 -- set to "Return Fire" and "Auto", respectively. The group will stay in the retreat zone and not actively participate in the combat any more.
 -- 
 -- If no option retreat zone has been specified, the option retreat is not available.
+-- 
+-- The mission designer can capture the events **Retreat** and **Retreated** by the functions @{#SUPPRESSION.OnAfterRetreat}() and @{#SUPPRESSION.OnAfterRetreated}().
 -- 
 -- ### Fallback
 -- 
@@ -149,6 +154,8 @@
 -- and "Green", respectively.
 -- 
 -- At the fallback point the group will wait for 60 seconds before it resumes its normal mission.
+-- 
+-- The mission designer can capture the event **FallBack** by the function @{#SUPPRESSION.OnAfterFallBack}().
 -- 
 -- ### TakeCover
 -- 
@@ -165,10 +172,52 @@
 -- If more than one scenery object is found, the group will move to a random one.
 -- If no scenery object is near the group the **TakeCover** event is rejected and the group will not move.
 -- 
+-- The mission designer can capture the event **TakeCover** by the function @{#SUPPRESSION.OnAfterTakeCover}().
+-- 
+-- ### Choice of FallBack or TakeCover if both are enabled?
+-- 
+-- If both **FallBack** and **TakeCover** events are enabled by the functions @{#SUPPRESSION.Fallback}() and @{#SUPPRESSION.Takecover}() the algorithm does the following:
+-- 
+-- * If the attacking unit is a ground unit, then the **FallBack** event is executed.
+-- * Otherwise, i.e. if the attacker is *not* a ground unit, then the **TakeCover** event is triggered.
+-- 
+-- ### FightBack
+-- 
+-- When a group leaves the states **TakingCover** or **FallingBack** the event **FightBack** is triggered. This changes the ROE and the alarm state back to their default values.
+-- 
+-- The mission designer can capture the event **FightBack** by the function @{#SUPPRESSION.OnAfterFightBack}()
+-- 
 -- # Examples
+-- 
+-- ## Simple Suppression
+-- This example shows the basic steps to use suppressive fire for a group.
 -- 
 -- ![Process](..\Presentations\SUPPRESSION\Suppression_Example_01.png)
 -- 
+-- ## Suppression and Rescure
+-- This example shows how the event **Retreat** can be captured. Here, a transport is started which picks up the wounded troups and drives them to a safe zone.
+-- 
+-- ![Process](..\Presentations\SUPPRESSION\Suppression_Rescue.png)
+-- 
+-- # Customization and Fine Tuning
+-- The following user functions can be used to change the default values
+-- 
+-- * @{#SUPPRESSION.SetSuppressionTime}() can be used to set the time a goup gets suppressed.
+-- * @{#SUPPRESSION.SetRetreatZone}() sets the retreat zone and enables the possiblity for the group to retreat.
+-- * @{#SUPPRESSION.SetFallbackDistance}() sets a value how far the unit moves away from the attacker after the fallback event.
+-- * @{#SUPPRESSION.SetFallbackWait}() sets the time after which the group resumes its mission after a FallBack event.
+-- * @{#SUPPRESSION.SetTakecoverWait}() sets the time after which the group resumes its mission after a TakeCover event.
+-- * @{#SUPPRESSION.SetTakecoverRange}() sets the radius in which hideouts are searched.
+-- * @{#SUPPRESSION.SetTakecoverPlace}() explicitly sets the place where the group will run at a TakeCover event.
+-- * @{#SUPPRESSION.SetMinimumFleeProbability}() sets the minimum probability that a group flees (FallBack or TakeCover) after a hit. Note taht the probability increases with damage.
+-- * @{#SUPPRESSION.SetMaximumFleeProbability}() sets the maximum probability that a group flees (FallBack or TakeCover) after a hit. Default is 90%.
+-- * @{#SUPPRESSION.SetRetreatDamage}() sets the damage a group/unit can take before it is ordered to retreat.
+-- * @{#SUPPRESSION.SetRetreatWait}() sets the time a group waits in the retreat zone after a retreat.
+-- * @{#SUPPRESSION.SetDefaultAlarmState}() sets the alarm state a group gets after it becomes CombatReady again.
+-- * @{#SUPPRESSION.SetDefaultROE}() set the rules of engagement a group gets after it becomes CombatReady again.
+-- * @{#SUPPRESSION.FlareOn}() is mainly for debugging. A flare is fired when a unit is hit, gets suppressed, recovers, dies.
+-- * @{#SUPPRESSION.SmokeOn}() is mainly for debugging. Puts smoke on retreat zone, hideouts etc.
+-- * @{#SUPPRESSION.MenuON}() is mainly for debugging. Activates a radio menu item where certain functions like retreat etc. can be triggered manually.
 -- 
 -- 
 -- @field #SUPPRESSION
@@ -408,7 +457,7 @@ function SUPPRESSION:New(group)
 
 
   --- User function for OnBefore "Retreated" event.
-  -- @function [parent=#SUPPRESSION] OnBeforeRetreat
+  -- @function [parent=#SUPPRESSION] OnBeforeRetreated
   -- @param #SUPPRESSION self
   -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
   -- @param #string From From state.
@@ -417,7 +466,7 @@ function SUPPRESSION:New(group)
   -- @return #boolean
   
   --- User function for OnAfter "Retreated" event.
-  -- @function [parent=#SUPPRESSION] OnAfterRetreat
+  -- @function [parent=#SUPPRESSION] OnAfterRetreated
   -- @param #SUPPRESSION self
   -- @param Wrapper.Controllable#CONTROLLABLE Controllable Controllable of the group.
   -- @param #string From From state.
@@ -564,7 +613,7 @@ end
 --- Set hideout place explicitly.
 -- @param #SUPPRESSION self
 -- @param Core.Point#COORDINATE Hideout Place where the group will hide after the TakeCover event.
-function SUPPRESSION:SetTakecoverRange(Hideout)
+function SUPPRESSION:SetTakecoverPlace(Hideout)
   self.hideout=Hideout
 end
 
@@ -578,7 +627,7 @@ end
 --- Set maximum probability that a group flees (falls back or takes cover) after a hit event. Default is 90%.
 -- @param #SUPPRESSION self
 -- @param #number probability Probability in percent.
-function SUPPRESSION:SetMinimumFleeProbability(probability)
+function SUPPRESSION:SetMaximumFleeProbability(probability)
   self.PmaxFlee=probability or 90
 end
 
@@ -588,14 +637,14 @@ end
 -- @param #SUPPRESSION self
 -- @param #number damage Damage in percent. If group gets damaged above this value, the group will retreat. Default 50 %.
 function SUPPRESSION:SetRetreatDamage(damage)
-  self.RetreatDamage=damage
+  self.RetreatDamage=damage or 50
 end
 
 --- Set time a group waits in the retreat zone before it resumes its mission. Default is two hours.
 -- @param #SUPPRESSION self
--- @param #number time Time in seconds. Default 7200 seconds.
+-- @param #number time Time in seconds. Default 7200 seconds = 2 hours.
 function SUPPRESSION:SetRetreatWait(time)
-  self.RetreatWait=time
+  self.RetreatWait=time or 7200
 end
 
 --- Set alarm state a group will get after it returns from a fall back or take cover.

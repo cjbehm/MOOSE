@@ -1,7 +1,7 @@
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 --- **Functional** - Pseudo ATC.
 --  
--- ![Banner Image](..\Presentations\RAT\RAT.png)
+-- ![Banner Image](..\Presentations\PSEUDOATC\PSEUDOATC_Main.jpg)
 -- 
 -- ====
 -- 
@@ -52,19 +52,17 @@
 -- @field #boolean Debug If true, print debug info to dcs.log file.
 -- @field #table player Table comprising the player info.
 -- @field #number mdur Duration in seconds how low messages to the player are displayed.
+-- @field #boolean eventsmoose If true, events are handled by MOOSE. If false, events are handled directly by DCS eventhandler.
 -- @extends Core.Base#BASE
 
 ---# PSEUDOATC class, extends @{Base#BASE}
--- The PSEUDOATC class
+-- The PSEUDOATC class adds some rudimentary ATC functionality via the radio menu.
 -- 
---
--- ## Usage
+-- ## Scripting:
 -- 
--- ![Process](..\Presentations\RAT\RAT_Airport_Selection.png)
+-- Scripting is almost trivial. Just add the following line to your script:
 -- 
--- ### Coding:
--- 
--- * Simply write PSEUDOATC:New() anywhere into your script.
+--     PSEUDOATC:Start()
 -- 
 -- 
 -- @field #PSEUDOATC
@@ -79,7 +77,7 @@ PSEUDOATC={
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
---- RAT unit conversions.
+--- PSEUDOATC unit conversions.
 -- @list unit
 PSEUDOATC.unit={
   hPa2inHg=0.0295299830714,
@@ -100,10 +98,10 @@ PSEUDOATC.version={
 }
 
 
---- PSEUDOATC contructor.
+--- PSEUDOATC contructor. Starts the PseudoATC.
 -- @param #PSEUDOATC self
 -- @return #PSEUDOATC Returns a PSEUDOATC object.
-function PSEUDOATC:New()
+function PSEUDOATC:Start()
 
   -- Inherit BASE.
   local self=BASE:Inherit(self, BASE:New()) -- #PSEUDOATC
@@ -111,10 +109,8 @@ function PSEUDOATC:New()
   -- Debug info
   env.info(PSEUDOATC.id..string.format("Creating PseudoATC object. PseudoATC version %s", PSEUDOATC.version.version))
   
-  self.MooseEventHandling=false
-  
   -- Handle events.
-  if self.MooseEventHandling then
+  if self.eventsmoose then
     self:HandleEvent(EVENTS.Birth, self._OnBirth)
     self:HandleEvent(EVENTS.PlayerLeaveUnit, self._PlayerLeft)
     --self:HandleEvent(EVENTS.PilotDead, self._PlayerLeft)
@@ -134,7 +130,7 @@ end
 
 --- Event handler for suppressed groups.
 --@param #PSEUDOATC self
---@param #table event Event data table. Holds event.id, event.initiator and event.target etc.
+--@param #table Event Event data table. Holds event.id, event.initiator and event.target etc.
 function PSEUDOATC:onEvent(Event)
   if Event == nil or Event.initiator == nil or Unit.getByName(Event.initiator:getName()) == nil then
     return true
@@ -358,6 +354,7 @@ end
 -- @param #PSEUDOATC self.
 -- @param #number id Group id of player unit. 
 function PSEUDOATC:MenuRefresh(id)
+  self:F(id)
 
   if self.Debug then
     local text=string.format("Refreshing menues for player %s in group %s.", self.player[id].playername, self.player[id].groupname)
@@ -383,6 +380,7 @@ end
 -- @param #PSEUDOATC self.
 -- @param #number id Group id of player unit. 
 function PSEUDOATC:MenuClear(id)
+  self:F(id)
 
   if self.Debug then
     local text=string.format("Clearing menues for player %s in group %s.", self.player[id].playername, self.player[id].groupname)
@@ -423,6 +421,7 @@ end
 -- @param #PSEUDOATC self
 -- @param #number id Group id of player unit for which menues are created. 
 function PSEUDOATC:MenuAirports(id)
+  self:F(id)
 
   -- Table for menu entries.
   self.player[id].menu_airports={}
@@ -460,6 +459,7 @@ end
 -- @param #PSEUDOATC self
 -- @param #number id Group id of player unit for which menues are created. 
 function PSEUDOATC:MenuAircraft(id)
+  self:F(id)
 
   -- Table for menu entries.
   self.player[id].menu_aircraft={}
@@ -524,6 +524,7 @@ end
 -- @param Core.Point#COORDINATE position Coordinates at which the pressure is measured.
 -- @param #string location Name of the location at which the pressure is measured.
 function PSEUDOATC:ReportPressure(id, Qcode, position, location)
+  self:F({id=id, Qcode=Qcode, position=position, location=location})
 
   -- Get pressure in hPa.  
   local P
@@ -550,6 +551,7 @@ end
 -- @param Core.Point#COORDINATE position Coordinates at which the pressure is measured.
 -- @param #string location Name of the location at which the pressure is measured.
 function PSEUDOATC:ReportTemperature(id, position, location)
+  self:F({id=id, position=position, location=location})
 
   --- convert celsius to fahrenheit
   local function celsius2fahrenheit(degC)
@@ -576,6 +578,7 @@ end
 -- @param Core.Point#COORDINATE position Coordinates at which the pressure is measured.
 -- @param #string location Name of the location at which the pressure is measured.
 function PSEUDOATC:ReportWind(id, position, location)
+  self:F({id=id, position=position, location=location})
 
   -- Get wind direction and speed.
   local Dir,Vel=position:GetWind()
@@ -599,6 +602,7 @@ end
 -- @param Core.Point#COORDINATE position Coordinates at which the pressure is measured.
 -- @param #string location Name of the location at which the pressure is measured.
 function PSEUDOATC:ReportBR(id, position, location)
+  self:F({id=id, position=position, location=location})
 
   -- Current coordinates.
   local unit=self.player[id].unit --Wrapper.Unit#UNIT
@@ -625,6 +629,7 @@ end
 -- @param #number dt (Optional) Duration the message is displayed.
 -- @return #number Altuitude above ground.
 function PSEUDOATC:ReportHeight(id, dt)
+  self:F({id=id, dt=dt})
 
   local dt = dt or self.mdur
 
@@ -658,6 +663,7 @@ end
 -- @param #PSEUDOATC self.
 -- @param #number id Group id of player unit. 
 function PSEUDOATC:AltidudeStartTimer(id)
+  self:F(id)
   
   -- Debug info.
   if self.Debug then
@@ -696,6 +702,7 @@ end
 -- @param #PSEUDOATC self
 -- @param #number id Group id of player unit.
 function PSEUDOATC:LocalAirports(id)
+  self:F(id)
 
   -- Airports table.  
   self.player[id].airports=nil
@@ -740,6 +747,7 @@ end
 -- @return #string Name of the player.
 -- @return nil If player does not exist.
 function PSEUDOATC:_GetPlayerUnitAndName(_unitName)
+  self:F(_unitName)
 
   if _unitName ~= nil then
     local DCSunit=Unit.getByName(_unitName)
