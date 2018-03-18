@@ -495,6 +495,12 @@ RAT.version={
   print = true,
 }
 
+--- RAT parking spots data base.
+-- @list version
+RAT.parking={
+  airport={},
+}
+
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 --TODO list:
@@ -750,13 +756,13 @@ function RAT:Spawn(naircraft)
   
   -- Handle events.
   self:HandleEvent(EVENTS.Birth,          self._OnBirth)
-  self:HandleEvent(EVENTS.EngineStartup,  self._EngineStartup)
+  self:HandleEvent(EVENTS.EngineStartup,  self._OnEngineStartup)
   self:HandleEvent(EVENTS.Takeoff,        self._OnTakeoff)
   self:HandleEvent(EVENTS.Land,           self._OnLand)
   self:HandleEvent(EVENTS.EngineShutdown, self._OnEngineShutdown)
-  self:HandleEvent(EVENTS.Dead,           self._OnDead)
-  self:HandleEvent(EVENTS.Crash,          self._OnCrash)
-  -- TODO: add hit event?
+  self:HandleEvent(EVENTS.Dead,           self._OnDeadOrCrash)
+  self:HandleEvent(EVENTS.Crash,          self._OnDeadOrCrash)
+  self:HandleEvent(EVENTS.Hit,            self._OnHit)
 
   if self.ngroups==0 then
     return nil
@@ -1700,7 +1706,7 @@ function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _live
     local temp={RAT.wp.cold, RAT.wp.hot}
     takeoff=temp[math.random(2)]
   end
-  
+    
   -- Number of respawn attempts after spawning on runway.
   local nrespawn=0
   if _nrespawn then
@@ -1719,6 +1725,39 @@ function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _live
   -- Return nil if we could not find a departure destination or waypoints
   if not (departure and destination and waypoints) then
     return nil
+  end
+  
+  local _spawnpos=nil
+  if (takeoff==RAT.wp.cold or takeoff==RAT.wp.hot) and lastpos==nil then
+  
+    local destname=departure:GetName()
+    env.info(RAT.id.."Checking spawn position DB for destination "..destname)
+    
+    if RAT.parking[destname] then
+    
+      -- Loop over all known parking spots
+      for _,spawnplace in pairs(RAT.parking[destname]) do
+      
+        -- Loop over all units present.
+        local occupied=false
+        for _,unit in pairs(_DATABASE.UNITS) do
+          unit=unit --Wrapper.Unit#UNIT
+          local up=unit:GetCoordinate() --Core.Point#COORDINATE
+          local _dist=up:Get2DDistance(spawnplace)
+          env.info(RAT.id.."Occupied Distance = ".._dist)
+          if _dist<10 then
+            occupied=true
+          end
+        end
+        
+        if not occupied then
+          lastpos=spawnplace
+          env.info(RAT.id.."Found some DB parking position for destination "..destname)
+          break
+        end
+        
+      end
+    end
   end
   
   -- Set (another) livery.
@@ -1740,6 +1779,10 @@ function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _live
   
   -- Actually spawn the group.
   local group=self:SpawnWithIndex(self.SpawnIndex) -- Wrapper.Group#GROUP
+  
+  -- Increase counter of alive groups (also uncontrolled ones).
+  self.alive=self.alive+1
+  env.info(RAT.id.."_SpawnWithRoute: alive = "..self.alive)
   
   -- ATC is monitoring this flight (if it is supposed to land).
   if self.ATCswitch and landing==RAT.wp.landing then
@@ -1778,6 +1821,7 @@ function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _live
   self.ratcraft[self.SpawnIndex]["departure"]=departure
   self.ratcraft[self.SpawnIndex]["waypoints"]=waypoints
   self.ratcraft[self.SpawnIndex]["airborne"]=group:InAir()
+  self.ratcraft[self.SpawnIndex]["nunits"]=group:GetInitialSize()
   -- Time and position on ground. For check if aircraft is stuck somewhere.
   if group:InAir() then
     self.ratcraft[self.SpawnIndex]["Tground"]=nil
@@ -1813,6 +1857,11 @@ function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _live
   
   -- Number of preformed spawn attempts for this group.
   self.ratcraft[self.SpawnIndex].nrespawn=nrespawn
+  
+  -- If we start at a parking position, we memorize the parking spot position for future use (DCS bug).
+  if takeoff==RAT.wp.cold or takeoff==RAT.wp.hot then
+    RAT._AddParkingPosition(departure, group:GetCoordinate())
+  end
  
   -- Create submenu for this group.
   if self.f10menu then
@@ -2007,10 +2056,11 @@ end
 
 --- Set the route of the AI plane. Due to DCS landing bug, this has to be done before the unit is spawned.
 -- @param #RAT self
--- @param takeoff #RAT.wp Takeoff type. Could also be air start.
--- @param landing #RAT.wp Landing type. Could also be a destination in air.
+-- @param #RAT.wp takeoff Takeoff type. Could also be air start.
+-- @param #RAT.wp landing Landing type. Could also be a destination in air.
 -- @param Wrapper.Airport#AIRBASE _departure (Optional) Departure airbase.
 -- @param Wrapper.Airport#AIRBASE _destination (Optional) Destination airbase.
+-- @param #table _waypoint Initial waypoint.
 -- @return Wrapper.Airport#AIRBASE Departure airbase.
 -- @return Wrapper.Airport#AIRBASE Destination airbase.
 -- @return #table Table of flight plan waypoints.
@@ -2927,6 +2977,40 @@ function RAT:_GetAirportsOfCoalition()
   end
 end
 
+--- Adds a parking spot at an airport when it has been used by a spawned RAT aircraft to the RAT.parking data base.
+-- This is mainly to circumvent (not perfectly) the DCS parking spot bug.
+-- @param Wrapper.Airbase#AIRBASE airport Airport.
+-- @param Core.Point#COORDINATE coord Coordinate of the parking position.
+function RAT._AddParkingPosition(airport, coord)
+
+  local name=airport:GetName()
+  
+  env.info(RAT.id..string.format("Adding parking sport for airport %s.", name))
+  
+  if not RAT.parking[name] then
+    RAT.parking[name]={}
+  end
+  
+  local gotit=false
+  for _name,_spot in pairs(RAT.parking[name]) do
+    env.info(RAT.id.."airport = ".._name)
+  
+    local _spot=_spot -- Core.Point#COORDINATE
+    
+    local _dist=_spot:Get2DDistance(coord)
+    
+    if _dist < 10 then
+      gotit=true
+      break
+    end
+  end
+  
+  if not gotit then
+    table.insert(RAT.parking[name], coord)
+  end
+  BASE:E(RAT.parking)
+end
+
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 --- Report status of RAT groups.
@@ -2969,6 +3053,8 @@ function RAT:Status(message, forID)
       local type=self.aircraft.type
       local status=ratcraft.status
       local active=ratcraft.active
+      local Nunits=ratcraft.nunits -- group:GetSize()
+      local N0units=group:GetInitialSize()
              
       -- Monitor time and distance on ground.
       local Tg=0
@@ -3027,7 +3113,12 @@ function RAT:Status(message, forID)
    
       -- Status report.
       if (forID and spawnindex==forID) or (not forID) then
-        local text=string.format("ID %i of group %s\n", spawnindex, prefix)
+        local text=string.format("ID %i of flight %s", spawnindex, prefix)
+        if N0units>1 then
+          text=text..string.format(" (%d/%d)\n", Nunits, N0units)
+        else
+          text=text.."\n"
+        end
         if self.commute then
           text=text..string.format("%s commuting between %s and %s\n", type, departure, destination)
         elseif self.continuejourney then
@@ -3062,7 +3153,7 @@ function RAT:Status(message, forID)
       
         -- Despawn unit if it did not move more then 50 m in the last 180 seconds.
         if stationary then
-          local text=string.format("Group %s is despawned after being %4.0f seconds inaktive on ground.", self.alias, dTlast)
+          local text=string.format("Group %s is despawned after being %d seconds inaktive on ground.", self.alias, dTlast)
           self:T(RAT.id..text)
           self:_Despawn(group)
         end
@@ -3159,7 +3250,9 @@ end
 
 --- Function is executed when a unit is spawned.
 -- @param #RAT self
+-- @param Core.Event#EVENTDATA EventData
 function RAT:_OnBirth(EventData)
+  env.info(RAT.id.."Captured event birth!")
 
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
   
@@ -3176,9 +3269,6 @@ function RAT:_OnBirth(EventData)
         local text="Event: Group "..SpawnGroup:GetName().." was born."
         self:T(RAT.id..text)
         
-        -- Increase counter of alive groups (also uncontrolled ones).
-        self.alive=self.alive+1
-
         -- Set status.
         local status="unknown in birth"
         if SpawnGroup:InAir() then
@@ -3320,7 +3410,9 @@ end
 
 --- Function is executed when a unit starts its engines.
 -- @param #RAT self
-function RAT:_EngineStartup(EventData)
+-- @param Core.Event#EVENTDATA EventData
+function RAT:_OnEngineStartup(EventData)
+  env.info(RAT.id.."Captured event EngineStartup!")
 
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
   
@@ -3355,6 +3447,7 @@ end
 
 --- Function is executed when a unit takes off.
 -- @param #RAT self
+-- @param Core.Event#EVENTDATA EventData
 function RAT:_OnTakeoff(EventData)
 
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
@@ -3394,6 +3487,7 @@ end
 
 --- Function is executed when a unit lands.
 -- @param #RAT self
+-- @param Core.Event#EVENTDATA EventData
 function RAT:_OnLand(EventData)
 
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
@@ -3439,6 +3533,7 @@ end
 --- Function is executed when a unit shuts down its engines.
 -- @param #RAT self
 function RAT:_OnEngineShutdown(EventData)
+  env.info(RAT.id.."Captured event EngineShutdown!")
 
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
   
@@ -3452,27 +3547,30 @@ function RAT:_OnEngineShutdown(EventData)
       -- Check that the template name actually belongs to this object.
       if EventPrefix == self.alias then
   
-        local text="Event: Group "..SpawnGroup:GetName().." shut down its engines."
-        self:T(RAT.id..text)
-    
-        -- Set status.
-        local status=RAT.status.EventEngineShutdown
-        self:_SetStatus(SpawnGroup, status)
+        -- Despawn group only if it on the ground.
+        if not SpawnGroup:InAir() then
         
-        if not self.respawn_at_landing and not self.norespawn then
-          text="Event: Group "..SpawnGroup:GetName().." will be respawned."
+          local text="Event: Group "..SpawnGroup:GetName().." shut down its engines."
           self:T(RAT.id..text)
-        
-          -- Respawn group.
-          self:_Respawn(SpawnGroup)
-        end
-        
-        
-        -- Despawn group.
-        text="Event: Group "..SpawnGroup:GetName().." will be destroyed now."
-        self:T(RAT.id..text)
-        self:_Despawn(SpawnGroup)
+      
+          -- Set status.
+          local status=RAT.status.EventEngineShutdown
+          self:_SetStatus(SpawnGroup, status)
+          
+          if not self.respawn_at_landing and not self.norespawn then
+            text="Event: Group "..SpawnGroup:GetName().." will be respawned."
+            self:T(RAT.id..text)
+          
+            -- Respawn group.
+            self:_Respawn(SpawnGroup)
+          end
+                   
+          -- Despawn group.
+          text="Event: Group "..SpawnGroup:GetName().." will be destroyed now."
+          self:T(RAT.id..text)
+          self:_Despawn(SpawnGroup)
 
+        end
       end
     end
     
@@ -3481,15 +3579,63 @@ function RAT:_OnEngineShutdown(EventData)
   end
 end
 
---- Function is executed when a unit is dead.
+--- Function is executed when a unit is dead or crashes.
 -- @param #RAT self
-function RAT:_OnDead(EventData)
-
+-- @param Core.Event#EVENTDATA EventData
+function RAT:_OnDeadOrCrash(EventData)
+  env.info(RAT.id.."Captured event DeadOrCrash!")
+    
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
   
   if SpawnGroup then
   
-    env.info(string.format("%sGroup %s died!", RAT.id, SpawnGroup:GetName()))
+    -- Get the template name of the group. This can be nil if this was not a spawned group.
+    local EventPrefix = self:_GetPrefixFromGroup(SpawnGroup)
+    
+    if EventPrefix then
+    
+      -- Check that the template name actually belongs to this object.
+      if EventPrefix == self.alias then
+      
+        -- Decrease group alive counter.
+        self.alive=self.alive-1
+        
+        env.info(RAT.id.."_OnDeadOrCrash: alive = "..self.alive)
+  
+        -- Split crash and dead events.
+        if EventData.id == world.event.S_EVENT_CRASH  then
+          
+          -- Call crash event. This handles when a group crashed or 
+          self:_OnCrash(EventData)
+  
+        elseif EventData.id == world.event.S_EVENT_DEAD  then
+  
+          -- Call dead event.
+          self:_OnDead(EventData)
+  
+        end
+      end
+    end
+  end
+end
+
+--- Function is executed when a unit is hit.
+-- @param #RAT self
+-- @param Core.Event#EVENTDATA EventData
+function RAT:_OnHit(EventData)
+  env.info(RAT.id.."Captured event Hit!")
+end
+
+--- Function is executed when a unit is dead.
+-- @param #RAT self
+-- @param Core.Event#EVENTDATA EventData
+function RAT:_OnDead(EventData)
+  env.info(RAT.id.."Captured event Dead!")
+  --self:T({EventData = EventData})
+
+  local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
+  
+  if SpawnGroup then
   
     -- Get the template name of the group. This can be nil if this was not a spawned group.
     local EventPrefix = self:_GetPrefixFromGroup(SpawnGroup)
@@ -3502,6 +3648,8 @@ function RAT:_OnDead(EventData)
         local text="Event: Group "..SpawnGroup:GetName().." died."
         self:T(RAT.id..text)
         env.info(RAT.id..text)
+        
+        env.info(string.format(RAT.id.."DEAD Number of alive units %d of %d.", SpawnGroup:GetSize(),SpawnGroup:GetInitialSize()))
     
         -- Set status.
         local status=RAT.status.EventDead
@@ -3517,14 +3665,13 @@ end
 
 --- Function is executed when a unit crashes.
 -- @param #RAT self
+-- @param Core.Event#EVENTDATA EventData
 function RAT:_OnCrash(EventData)
+  env.info(RAT.id.."Captured event Crash!")
 
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
   
   if SpawnGroup then
-  
-    self:T(string.format("%sGroup %s crashed!", RAT.id, SpawnGroup:GetName()))
-    env.info(string.format("%sGroup %s crashed!", RAT.id, SpawnGroup:GetName()))
 
     -- Get the template name of the group. This can be nil if this was not a spawned group.
     local EventPrefix = self:_GetPrefixFromGroup(SpawnGroup)
@@ -3537,6 +3684,12 @@ function RAT:_OnCrash(EventData)
         local text="Event: Group "..SpawnGroup:GetName().." crashed."
         self:T(RAT.id..text)
         env.info(RAT.id..text)
+        
+        local _i=self:GetSpawnIndexFromGroup(SpawnGroup)
+        self.ratcraft[_i].nunits=self.ratcraft[_i].nunits-1
+        local _n=self.ratcraft[_i].nunits
+        
+        env.info(string.format(RAT.id.."CRASH: Number of alive units %d of %d. nunits=%d", SpawnGroup:GetSize(),SpawnGroup:GetInitialSize(),_n))
     
         -- Set status.
         --self:_SetStatus(SpawnGroup, "Crashed")
@@ -3573,6 +3726,7 @@ function RAT:_Despawn(group)
       self.ratcraft[index].group=nil
       self.ratcraft[index]["status"]="Dead"
       
+      --TODO: Somehow this causes issues.
       --[[
       --self.ratcraft[index]["group"]=group
       self.ratcraft[index]["destination"]=nil
@@ -3595,17 +3749,15 @@ function RAT:_Despawn(group)
       self.ratcraft[index].despawnme=nil
       self.ratcraft[index].nrespawn=nil
       ]]
-      
       -- Remove ratcraft table entry.
-      --TODO: Somehow this causes issues.
       --table.remove(self.ratcraft, index)
       
       --TODO: What events are actually fired when doing this? Crash and Dead or just Dead or...?
       -- Destroy should create a crash event but for each unit.
-      group:Destroy()
-
-      -- Decrease group alive counter.
-      self.alive=self.alive-1
+      --group:Destroy()
+      
+      -- This will destroy the DCS group and create a DEAD event.
+      self:_Destroy(group)
 
       -- Remove submenu for this group.
       if self.f10menu and self.SubMenuName ~= nil then
@@ -3615,6 +3767,49 @@ function RAT:_Despawn(group)
   end
 
   --TODO: Maybe here could be some more arrays deleted?
+end
+
+--- Destroys the RAT DCS group and all of its DCS units.
+-- Note that this raises a DEAD event at run-time.
+-- So all event listeners will catch the DEAD event of this DCS group.
+-- @param #RAT self
+-- @param Wrapper.Group#GROUP group The RAT group to be destroyed.
+function RAT:_Destroy(group)
+  self:F2(group)
+
+  local DCSGroup = group:GetDCSObject() -- Dcs.DCSGroup#Group
+
+  if DCSGroup and DCSGroup:isExist() then
+    local DCSUnit = DCSGroup:getUnit(1) -- Dcs.DCSUnit#Unit
+    
+    if DCSUnit then
+      self:_CreateEventDead(timer.getTime(), DCSUnit)
+    end
+    
+    -- Delete from data base
+    
+    -- Destroy DCS group.
+    DCSGroup:destroy()
+    DCSGroup = nil
+  end
+
+  return nil
+end
+
+--- Create a Dead event.
+-- @param #RAT self
+-- @param Dcs.DCSTypes#Time EventTime The time stamp of the event.
+-- @param Dcs.DCSWrapper.Object#Object Initiator The initiating object of the event.
+function RAT:_CreateEventDead(EventTime, Initiator)
+  self:F( { EventTime, Initiator } )
+
+  local Event = {
+    id = world.event.S_EVENT_DEAD,
+    time = EventTime,
+    initiator = Initiator,
+    }
+
+  world.onEvent( Event )
 end
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
