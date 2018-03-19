@@ -547,7 +547,7 @@ function RANGE:AddBombingTargets(unitnames, goodhitrange, static)
         self:AddBombingTargetUnit(_unit, goodhitrange)
         self:T(RANGE.id..string.format("Adding bombing target %s with hit range %d.", name, goodhitrange))
       else
-        self:E(RANGE.id..string.fromat("ERROR! Could not find bombing target %s.", name))
+        self:E(RANGE.id..string.format("ERROR! Could not find bombing target %s.", name))
       end
       
     end
