@@ -2,7 +2,7 @@
 --
 -- ![Banner Image](..\Presentations\POINT\Dia1.JPG)
 --
--- ====
+-- ===
 --
 -- # Demo Missions
 --
@@ -12,7 +12,7 @@
 --
 -- ### [ALL Demo Missions pack of the last release](https://github.com/FlightControl-Master/MOOSE_MISSIONS/releases)
 --
--- ====
+-- ===
 --
 -- # YouTube Channel
 --
@@ -856,7 +856,7 @@ do -- COORDINATE
     RoutePoint.action = Formation or ""
 
 
-    RoutePoint.speed = ( Speed or 999 ) / 3.6
+    RoutePoint.speed = ( Speed or 20 ) / 3.6
     RoutePoint.speed_locked = true
 
     --  ["task"] =
@@ -1243,7 +1243,7 @@ do -- COORDINATE
   -- @return #string The coordinate Text in the configured coordinate system.
   function COORDINATE:ToStringFromRP( ReferenceCoord, ReferenceName, Controllable, Settings ) -- R2.2
   
-    self:E( { ReferenceCoord = ReferenceCoord, ReferenceName = ReferenceName } )
+    self:F( { ReferenceCoord = ReferenceCoord, ReferenceName = ReferenceName } )
 
     local Settings = Settings or ( Controllable and _DATABASE:GetPlayerSettings( Controllable:GetPlayerName() ) ) or _SETTINGS
     

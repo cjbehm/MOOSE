@@ -3,7 +3,7 @@
 -- ===
 --
 -- 1) @{MissileTrainer#MISSILETRAINER} class, extends @{Base#BASE}
--- ===============================================================
+-- ===
 -- The @{#MISSILETRAINER} class uses the DCS world messaging system to be alerted of any missiles fired, and when a missile would hit your aircraft,
 -- the class will destroy the missile within a certain range, to avoid damage to your aircraft.
 -- It suports the following functionality:
@@ -71,7 +71,7 @@
 -- ===
 -- 
 -- CREDITS
--- =======
+-- ===
 -- **Stuka (Danny)** Who you can search on the Eagle Dynamics Forums.
 -- Working together with Danny has resulted in the MISSILETRAINER class. 
 -- Danny has shared his ideas and together we made a design. 
@@ -177,13 +177,13 @@ function MISSILETRAINER:New( Distance, Briefing )
 
 
 --  for ClientID, Client in pairs( self.DBClients.Database ) do
---      self:E( "ForEach:" .. Client.UnitName )
+--      self:F( "ForEach:" .. Client.UnitName )
 --      Client:Alive( self._Alive, self )
 --  end
 --  
   self.DBClients:ForEachClient( 
     function( Client )
-      self:E( "ForEach:" .. Client.UnitName )
+      self:F( "ForEach:" .. Client.UnitName )
       Client:Alive( self._Alive, self )
     end
   )

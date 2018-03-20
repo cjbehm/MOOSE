@@ -1,8 +1,8 @@
 --- **Wrapper** -- CLIENT wraps DCS Unit objects acting as a __Client__ or __Player__ within a mission.
 -- 
--- ====
+-- ===
 -- 
--- ### Author: **Sven Van de Velde (FlightControl)**
+-- ### Author: **FlightControl**
 -- 
 -- ### Contributions: 
 -- 
@@ -143,7 +143,7 @@ function CLIENT:Register( ClientName )
   --self.AliveCheckScheduler = routines.scheduleFunction( self._AliveCheckScheduler, { self }, timer.getTime() + 1, 5 )
   self.AliveCheckScheduler = SCHEDULER:New( self, self._AliveCheckScheduler, { "Client Alive " .. ClientName }, 1, 5 )
 
-  self:E( self )
+  self:F( self )
   return self
 end
 
@@ -299,7 +299,7 @@ function CLIENT:GetDCSGroup()
 			self:T3( { "UnitData:", UnitData } )
 			if UnitData and UnitData:isExist() then
 
-        --self:E(self.ClientName)
+        --self:F(self.ClientName)
         if ClientUnit then
   				local ClientGroup = ClientUnit:getGroup()
   				if ClientGroup then
@@ -326,7 +326,7 @@ function CLIENT:GetDCSGroup()
   --					error( "Client " .. self.ClientName .. " not found!" )
   				end
   			else
-  			  --self:E( { "Client not found!", self.ClientName } )
+  			  --self:F( { "Client not found!", self.ClientName } )
   		  end
 			end
 		end
@@ -360,7 +360,7 @@ function CLIENT:GetClientGroupID()
 
   local ClientGroup = self:GetDCSGroup()
 
-  --self:E( self.ClientGroupID ) -- Determined in GetDCSGroup()
+  --self:F( self.ClientGroupID ) -- Determined in GetDCSGroup()
 	return self.ClientGroupID
 end
 

@@ -1,4 +1,6 @@
---- **Functional** -- DETECTION_ classes model the detection of enemy units by FACs or RECCEs and group them according various methods.
+--- **Functional** -- Models the detection of enemy units by FACs or RECCEs and group them according various methods.
+-- 
+-- ===
 -- 
 -- ![Banner Image](..\Presentations\DETECTION\Dia1.JPG)
 -- 
@@ -9,23 +11,15 @@
 -- 
 -- Find the DETECTION classes documentation further in this document in the globals section.
 -- 
--- ====
+-- ===
 -- 
--- # Demo Missions
+-- ### [Demo Missions](https://github.com/FlightControl-Master/MOOSE_MISSIONS/tree/master/DET%20-%20Detection)
 -- 
--- ### [DETECTION Demo Missions and Source Code](https://github.com/FlightControl-Master/MOOSE_MISSIONS/tree/master-release/DET%20-%20Detection)
+-- ===
 -- 
--- ### [DETECTION Demo Missions, only for Beta Testers](https://github.com/FlightControl-Master/MOOSE_MISSIONS/tree/master/DET%20-%20Detection)
---
--- ### [ALL Demo Missions pack of the Latest Release](https://github.com/FlightControl-Master/MOOSE_MISSIONS/releases)
+-- ### [YouTube Playlist](https://www.youtube.com/playlist?list=PL7ZUrU4zZUl3Cf5jpI6BS0sBOVWK__tji)
 -- 
--- ====
--- 
--- # YouTube Channel
--- 
--- ### [DETECTION YouTube Channel](https://www.youtube.com/playlist?list=PL7ZUrU4zZUl3Cf5jpI6BS0sBOVWK__tji)
--- 
--- ====
+-- ===
 -- 
 -- ### Contributions: 
 -- 
@@ -275,6 +269,7 @@ do -- DETECTION_BASE
     DetectionRun = 0,
     DetectedObjectsIdentified = {},
     DetectedItems = {},
+    DetectedItemsByIndex = {},  
   }
   
   --- @type DETECTION_BASE.DetectedObjects
@@ -515,7 +510,7 @@ do -- DETECTION_BASE
     -- @param #string Event The Event string.
     -- @param #string To The To State string.
     function DETECTION_BASE:onafterDetect(From,Event,To)
-      self:E( { From, Event, To } )
+      self:F( { From, Event, To } )
 
       local DetectDelay = 0.1
       self.DetectionCount = 0
@@ -525,7 +520,7 @@ do -- DETECTION_BASE
       local DetectionTimeStamp = timer.getTime()
       
       for DetectionGroupID, DetectionGroupData in pairs( self.DetectionSetGroup:GetSet() ) do
-        --self:E( { DetectionGroupData } )
+        --self:F( { DetectionGroupData } )
         self:__DetectionGroup( DetectDelay, DetectionGroupData, DetectionTimeStamp ) -- Process each detection asynchronously.
         self.DetectionCount = self.DetectionCount + 1
         DetectDelay = DetectDelay + 1
@@ -538,7 +533,7 @@ do -- DETECTION_BASE
     -- @param #string To The To State string.
     -- @param Wrapper.Group#GROUP DetectionGroup The Group detecting.
     function DETECTION_BASE:onafterDetectionGroup( From, Event, To, DetectionGroup, DetectionTimeStamp  )
-      self:E( { From, Event, To } )
+      self:F( { From, Event, To } )
       
       self.DetectionRun = self.DetectionRun + 1
       
@@ -581,138 +576,142 @@ do -- DETECTION_BASE
             
             self:T2( { TargetIsDetected = TargetIsDetected, TargetIsVisible = TargetIsVisible, TargetLastTime = TargetLastTime, TargetKnowType = TargetKnowType, TargetKnowDistance = TargetKnowDistance, TargetLastPos = TargetLastPos, TargetLastVelocity = TargetLastVelocity } )
 
-            local DetectionAccepted = true
+            -- Only process if the target is visible. Detection also returns invisible units.
+            if Detection.visible == true then
             
-            local DetectedObjectName = DetectedObject:getName()
-            local DetectedObjectType = DetectedObject:getTypeName()
-    
-            local DetectedObjectVec3 = DetectedObject:getPoint()
-            local DetectedObjectVec2 = { x = DetectedObjectVec3.x, y = DetectedObjectVec3.z }
-            local DetectionGroupVec3 = DetectionGroup:GetVec3()
-            local DetectionGroupVec2 = { x = DetectionGroupVec3.x, y = DetectionGroupVec3.z }
-    
-            local Distance = ( ( DetectedObjectVec3.x - DetectionGroupVec3.x )^2 +
-              ( DetectedObjectVec3.y - DetectionGroupVec3.y )^2 +
-              ( DetectedObjectVec3.z - DetectionGroupVec3.z )^2
-              ) ^ 0.5 / 1000
-
-            local DetectedUnitCategory = DetectedObject:getDesc().category
-    
-            self:F( { "Detected Target:", DetectionGroupName, DetectedObjectName, DetectedObjectType, Distance, DetectedUnitCategory } )
-
-            -- Calculate Acceptance
-            
-            DetectionAccepted = self._.FilterCategories[DetectedUnitCategory] ~= nil and DetectionAccepted or false
-    
---            if Distance > 15000 then
---              if DetectedUnitCategory == Unit.Category.GROUND_UNIT or DetectedUnitCategory == Unit.Category.SHIP then
---                if DetectedObject:hasSensors( Unit.SensorType.RADAR, Unit.RadarType.AS ) == false then
---                  DetectionAccepted = false
---                end
---              end
---            end
-    
-            if self.AcceptRange and Distance * 1000 > self.AcceptRange then
-              DetectionAccepted = false
-            end
-            
-            if self.AcceptZones then
-              local AnyZoneDetection = false
-              for AcceptZoneID, AcceptZone in pairs( self.AcceptZones ) do
-                local AcceptZone = AcceptZone -- Core.Zone#ZONE_BASE
-                if AcceptZone:IsVec2InZone( DetectedObjectVec2 ) then
-                  AnyZoneDetection = true
-                end
-              end
-              if not AnyZoneDetection then
-                DetectionAccepted = false            
-              end
-            end
-
-            if self.RejectZones then
-              for RejectZoneID, RejectZone in pairs( self.RejectZones ) do
-                local RejectZone = RejectZone -- Core.Zone#ZONE_BASE
-                if RejectZone:IsPointVec2InZone( DetectedObjectVec2 ) == true then
-                  DetectionAccepted = false
-                end
-              end
-            end
-            
-            -- Calculate additional probabilities
-            
-            if not self.DetectedObjects[DetectedObjectName] and Detection.visible and self.DistanceProbability then
-              local DistanceFactor = Distance / 4
-              local DistanceProbabilityReversed = ( 1 - self.DistanceProbability ) * DistanceFactor
-              local DistanceProbability = 1 - DistanceProbabilityReversed
-              DistanceProbability = DistanceProbability * 30 / 300
-              local Probability = math.random() -- Selects a number between 0 and 1
-              self:T( { Probability, DistanceProbability } )
-              if Probability > DistanceProbability then
+              local DetectionAccepted = true
+              
+              local DetectedObjectName = DetectedObject:getName()
+              local DetectedObjectType = DetectedObject:getTypeName()
+      
+              local DetectedObjectVec3 = DetectedObject:getPoint()
+              local DetectedObjectVec2 = { x = DetectedObjectVec3.x, y = DetectedObjectVec3.z }
+              local DetectionGroupVec3 = DetectionGroup:GetVec3()
+              local DetectionGroupVec2 = { x = DetectionGroupVec3.x, y = DetectionGroupVec3.z }
+      
+              local Distance = ( ( DetectedObjectVec3.x - DetectionGroupVec3.x )^2 +
+                ( DetectedObjectVec3.y - DetectionGroupVec3.y )^2 +
+                ( DetectedObjectVec3.z - DetectionGroupVec3.z )^2
+                ) ^ 0.5 / 1000
+  
+              local DetectedUnitCategory = DetectedObject:getDesc().category
+      
+              self:F( { "Detected Target:", DetectionGroupName, DetectedObjectName, DetectedObjectType, Distance, DetectedUnitCategory } )
+  
+              -- Calculate Acceptance
+              
+              DetectionAccepted = self._.FilterCategories[DetectedUnitCategory] ~= nil and DetectionAccepted or false
+      
+  --            if Distance > 15000 then
+  --              if DetectedUnitCategory == Unit.Category.GROUND_UNIT or DetectedUnitCategory == Unit.Category.SHIP then
+  --                if DetectedObject:hasSensors( Unit.SensorType.RADAR, Unit.RadarType.AS ) == false then
+  --                  DetectionAccepted = false
+  --                end
+  --              end
+  --            end
+      
+              if self.AcceptRange and Distance * 1000 > self.AcceptRange then
                 DetectionAccepted = false
               end
-            end
-            
-            if not self.DetectedObjects[DetectedObjectName] and Detection.visible and self.AlphaAngleProbability then
-              local NormalVec2 = { x = DetectedObjectVec2.x - DetectionGroupVec2.x, y = DetectedObjectVec2.y - DetectionGroupVec2.y }
-              local AlphaAngle = math.atan2( NormalVec2.y, NormalVec2.x )
-              local Sinus = math.sin( AlphaAngle )
-              local AlphaAngleProbabilityReversed = ( 1 - self.AlphaAngleProbability ) * ( 1 - Sinus )
-              local AlphaAngleProbability = 1 - AlphaAngleProbabilityReversed
               
-              AlphaAngleProbability = AlphaAngleProbability * 30 / 300
-              
-              local Probability =  math.random() -- Selects a number between 0 and 1
-              self:T( { Probability, AlphaAngleProbability } )
-              if Probability > AlphaAngleProbability then
-                DetectionAccepted = false
+              if self.AcceptZones then
+                local AnyZoneDetection = false
+                for AcceptZoneID, AcceptZone in pairs( self.AcceptZones ) do
+                  local AcceptZone = AcceptZone -- Core.Zone#ZONE_BASE
+                  if AcceptZone:IsVec2InZone( DetectedObjectVec2 ) then
+                    AnyZoneDetection = true
+                  end
+                end
+                if not AnyZoneDetection then
+                  DetectionAccepted = false            
+                end
               end
-               
-            end
-            
-            if not self.DetectedObjects[DetectedObjectName] and Detection.visible and self.ZoneProbability then
-            
-              for ZoneDataID, ZoneData in pairs( self.ZoneProbability ) do
-                self:E({ZoneData})
-                local ZoneObject = ZoneData[1] -- Core.Zone#ZONE_BASE
-                local ZoneProbability = ZoneData[2] -- #number
-                ZoneProbability = ZoneProbability * 30 / 300
-                
-                if ZoneObject:IsPointVec2InZone( DetectedObjectVec2 ) == true then
-                  local Probability =  math.random() -- Selects a number between 0 and 1
-                  self:T( { Probability, ZoneProbability } )
-                  if Probability > ZoneProbability then
+  
+              if self.RejectZones then
+                for RejectZoneID, RejectZone in pairs( self.RejectZones ) do
+                  local RejectZone = RejectZone -- Core.Zone#ZONE_BASE
+                  if RejectZone:IsPointVec2InZone( DetectedObjectVec2 ) == true then
                     DetectionAccepted = false
-                    break
                   end
                 end
               end
-            end
-            
-            if DetectionAccepted then
               
-              HasDetectedObjects = true
-    
-              self.DetectedObjects[DetectedObjectName] = self.DetectedObjects[DetectedObjectName] or {} 
-              self.DetectedObjects[DetectedObjectName].Name = DetectedObjectName
-              self.DetectedObjects[DetectedObjectName].IsDetected = TargetIsDetected
-              self.DetectedObjects[DetectedObjectName].IsVisible = TargetIsVisible 
-              self.DetectedObjects[DetectedObjectName].LastTime = TargetLastTime
-              self.DetectedObjects[DetectedObjectName].LastPos = TargetLastPos
-              self.DetectedObjects[DetectedObjectName].LastVelocity = TargetLastVelocity
-              self.DetectedObjects[DetectedObjectName].KnowType = TargetKnowType
-              self.DetectedObjects[DetectedObjectName].KnowDistance = Detection.distance   -- TargetKnowDistance
-              self.DetectedObjects[DetectedObjectName].Distance = Distance
-              self.DetectedObjects[DetectedObjectName].DetectionTimeStamp = DetectionTimeStamp
+              -- Calculate additional probabilities
               
-              self:F( { DetectedObject = self.DetectedObjects[DetectedObjectName] } )
+              if not self.DetectedObjects[DetectedObjectName] and Detection.visible and self.DistanceProbability then
+                local DistanceFactor = Distance / 4
+                local DistanceProbabilityReversed = ( 1 - self.DistanceProbability ) * DistanceFactor
+                local DistanceProbability = 1 - DistanceProbabilityReversed
+                DistanceProbability = DistanceProbability * 30 / 300
+                local Probability = math.random() -- Selects a number between 0 and 1
+                self:T( { Probability, DistanceProbability } )
+                if Probability > DistanceProbability then
+                  DetectionAccepted = false
+                end
+              end
               
-              local DetectedUnit = UNIT:FindByName( DetectedObjectName )
+              if not self.DetectedObjects[DetectedObjectName] and Detection.visible and self.AlphaAngleProbability then
+                local NormalVec2 = { x = DetectedObjectVec2.x - DetectionGroupVec2.x, y = DetectedObjectVec2.y - DetectionGroupVec2.y }
+                local AlphaAngle = math.atan2( NormalVec2.y, NormalVec2.x )
+                local Sinus = math.sin( AlphaAngle )
+                local AlphaAngleProbabilityReversed = ( 1 - self.AlphaAngleProbability ) * ( 1 - Sinus )
+                local AlphaAngleProbability = 1 - AlphaAngleProbabilityReversed
+                
+                AlphaAngleProbability = AlphaAngleProbability * 30 / 300
+                
+                local Probability =  math.random() -- Selects a number between 0 and 1
+                self:T( { Probability, AlphaAngleProbability } )
+                if Probability > AlphaAngleProbability then
+                  DetectionAccepted = false
+                end
+                 
+              end
               
-              DetectedUnits[DetectedObjectName] = DetectedUnit
-            else
-              -- if beyond the DetectionRange then nullify...
-              if self.DetectedObjects[DetectedObjectName] then
-                self.DetectedObjects[DetectedObjectName] = nil
+              if not self.DetectedObjects[DetectedObjectName] and Detection.visible and self.ZoneProbability then
+              
+                for ZoneDataID, ZoneData in pairs( self.ZoneProbability ) do
+                  self:F({ZoneData})
+                  local ZoneObject = ZoneData[1] -- Core.Zone#ZONE_BASE
+                  local ZoneProbability = ZoneData[2] -- #number
+                  ZoneProbability = ZoneProbability * 30 / 300
+                  
+                  if ZoneObject:IsPointVec2InZone( DetectedObjectVec2 ) == true then
+                    local Probability =  math.random() -- Selects a number between 0 and 1
+                    self:T( { Probability, ZoneProbability } )
+                    if Probability > ZoneProbability then
+                      DetectionAccepted = false
+                      break
+                    end
+                  end
+                end
+              end
+              
+              if DetectionAccepted then
+                
+                HasDetectedObjects = true
+      
+                self.DetectedObjects[DetectedObjectName] = self.DetectedObjects[DetectedObjectName] or {} 
+                self.DetectedObjects[DetectedObjectName].Name = DetectedObjectName
+                self.DetectedObjects[DetectedObjectName].IsDetected = TargetIsDetected
+                self.DetectedObjects[DetectedObjectName].IsVisible = TargetIsVisible 
+                self.DetectedObjects[DetectedObjectName].LastTime = TargetLastTime
+                self.DetectedObjects[DetectedObjectName].LastPos = TargetLastPos
+                self.DetectedObjects[DetectedObjectName].LastVelocity = TargetLastVelocity
+                self.DetectedObjects[DetectedObjectName].KnowType = TargetKnowType
+                self.DetectedObjects[DetectedObjectName].KnowDistance = Detection.distance   -- TargetKnowDistance
+                self.DetectedObjects[DetectedObjectName].Distance = Distance
+                self.DetectedObjects[DetectedObjectName].DetectionTimeStamp = DetectionTimeStamp
+                
+                self:F( { DetectedObject = self.DetectedObjects[DetectedObjectName] } )
+                
+                local DetectedUnit = UNIT:FindByName( DetectedObjectName )
+                
+                DetectedUnits[DetectedObjectName] = DetectedUnit
+              else
+                -- if beyond the DetectionRange then nullify...
+                if self.DetectedObjects[DetectedObjectName] then
+                  self.DetectedObjects[DetectedObjectName] = nil
+                end
               end
             end
           end
@@ -784,7 +783,7 @@ do -- DETECTION_BASE
       local DetectedItems = self:GetDetectedItems()
       
       for DetectedItemIndex, DetectedItem in pairs( DetectedItems ) do
-        local DetectedSet = self:GetDetectedSet( DetectedItemIndex )
+        local DetectedSet = self:GetDetectedSet( DetectedItem )
         if DetectedSet then
           DetectedSet:RemoveUnitsByName( UnitName )
         end
@@ -799,7 +798,7 @@ do -- DETECTION_BASE
     function DETECTION_BASE:CreateDetectionItems()
       self:F2()
     
-      self:E( "Error, in DETECTION_BASE class..." )
+      self:F( "Error, in DETECTION_BASE class..." )
       return self
     end
   
@@ -1000,7 +999,7 @@ do -- DETECTION_BASE
           self.AcceptZones = AcceptZones
         end
       else
-        self:E( { "AcceptZones must be a list of ZONE_BASE derived objects or one ZONE_BASE derived object", AcceptZones } )
+        self:F( { "AcceptZones must be a list of ZONE_BASE derived objects or one ZONE_BASE derived object", AcceptZones } )
         error()
       end
       
@@ -1021,7 +1020,7 @@ do -- DETECTION_BASE
           self.RejectZones = RejectZones
         end
       else
-        self:E( { "RejectZones must be a list of ZONE_BASE derived objects or one ZONE_BASE derived object", RejectZones } )
+        self:F( { "RejectZones must be a list of ZONE_BASE derived objects or one ZONE_BASE derived object", RejectZones } )
         error()
       end
       
@@ -1113,7 +1112,7 @@ do -- DETECTION_BASE
       DetectedItem.Changes[ChangeCode].ID = ID
       DetectedItem.Changes[ChangeCode].ItemUnitType = ItemUnitType
     
-      self:E( { "Change on Detected Item:", DetectedItemID = DetectedItem.ID, ChangeCode = ChangeCode, ItemUnitType = ItemUnitType } )
+      self:F( { "Change on Detected Item:", DetectedItemID = DetectedItem.ID, ChangeCode = ChangeCode, ItemUnitType = ItemUnitType } )
      
       return self
     end
@@ -1136,7 +1135,7 @@ do -- DETECTION_BASE
       DetectedItem.Changes[ChangeCode][ChangeUnitType] = DetectedItem.Changes[ChangeCode][ChangeUnitType] + 1
       DetectedItem.Changes[ChangeCode].ID = ID
       
-      self:E( { "Change on Detected Unit:", DetectedItemID = DetectedItem.ID, ChangeCode = ChangeCode, ChangeUnitType = ChangeUnitType } )
+      self:F( { "Change on Detected Unit:", DetectedItemID = DetectedItem.ID, ChangeCode = ChangeCode, ChangeUnitType = ChangeUnitType } )
     
       return self
     end
@@ -1458,23 +1457,26 @@ do -- DETECTION_BASE
   -- The DetectedItem is a table and contains a SET_UNIT in the field Set.
   -- @param #DETECTION_BASE self
   -- @param ItemPrefix
-  -- @param #string DetectedItemIndex The index of the DetectedItem.
+  -- @param DetectedItemKey The key of the DetectedItem.
   -- @param Core.Set#SET_UNIT Set (optional) The Set of Units to be added.
   -- @return #DETECTION_BASE.DetectedItem
-  function DETECTION_BASE:AddDetectedItem( ItemPrefix, DetectedItemIndex, Set )
+  function DETECTION_BASE:AddDetectedItem( ItemPrefix, DetectedItemKey, Set )
   
     local DetectedItem = {}
     self.DetectedItemCount = self.DetectedItemCount + 1
     self.DetectedItemMax = self.DetectedItemMax + 1
     
-    if DetectedItemIndex then
-      self.DetectedItems[DetectedItemIndex] = DetectedItem
+    if DetectedItemKey then
+      self.DetectedItems[DetectedItemKey] = DetectedItem
     else
       self.DetectedItems[self.DetectedItemMax] = DetectedItem
     end
     
+    self.DetectedItemsByIndex[self.DetectedItemMax] = DetectedItem
+    
+    
     DetectedItem.Set = Set or SET_UNIT:New():FilterDeads():FilterCrashes()
-    DetectedItem.Index = DetectedItemIndex or self.DetectedItemMax
+    DetectedItem.Index = DetectedItemKey or self.DetectedItemMax
     DetectedItem.ItemID = ItemPrefix .. "." .. self.DetectedItemMax
     DetectedItem.ID = self.DetectedItemMax
     DetectedItem.Removed = false
@@ -1485,13 +1487,13 @@ do -- DETECTION_BASE
   --- Adds a new DetectedItem to the DetectedItems list.
   -- The DetectedItem is a table and contains a SET_UNIT in the field Set.
   -- @param #DETECTION_BASE self
-  -- @param #string DetectedItemIndex The index of the DetectedItem.
+  -- @param DetectedItemKey The key of the DetectedItem.
   -- @param Core.Set#SET_UNIT Set (optional) The Set of Units to be added.
   -- @param Core.Zone#ZONE_UNIT Zone (optional) The Zone to be added where the Units are located.
   -- @return #DETECTION_BASE.DetectedItem
-  function DETECTION_BASE:AddDetectedItemZone( DetectedItemIndex, Set, Zone )
+  function DETECTION_BASE:AddDetectedItemZone( DetectedItemKey, Set, Zone )
   
-    local DetectedItem = self:AddDetectedItem( "AREA", DetectedItemIndex, Set )
+    local DetectedItem = self:AddDetectedItem( "AREA", DetectedItemKey, Set )
 
     DetectedItem.Zone = Zone
     
@@ -1501,12 +1503,16 @@ do -- DETECTION_BASE
   --- Removes an existing DetectedItem from the DetectedItems list.
   -- The DetectedItem is a table and contains a SET_UNIT in the field Set.
   -- @param #DETECTION_BASE self
-  -- @param #number DetectedItemIndex The index or position in the DetectedItems list where the item needs to be removed.
-  function DETECTION_BASE:RemoveDetectedItem( DetectedItemIndex )
+  -- @param DetectedItemKey The key in the DetectedItems list where the item needs to be removed.
+  function DETECTION_BASE:RemoveDetectedItem( DetectedItemKey )
     
-    if self.DetectedItems[DetectedItemIndex] then
+    local DetectedItem = self.DetectedItems[DetectedItemKey]
+
+    if DetectedItem then
       self.DetectedItemCount = self.DetectedItemCount - 1
-      self.DetectedItems[DetectedItemIndex] = nil
+      local DetectedItemIndex = DetectedItem.Index
+      self.DetectedItemsByIndex[DetectedItemIndex] = nil
+      self.DetectedItems[DetectedItemKey] = nil
     end
   end
   
@@ -1528,13 +1534,31 @@ do -- DETECTION_BASE
     return DetectedCount
   end
   
+  --- Get a detected item using a given Key.
+  -- @param #DETECTION_BASE self
+  -- @param Key
+  -- @return #DETECTION_BASE.DetectedItem
+  function DETECTION_BASE:GetDetectedItemByKey( Key )
+  
+    self:F( { DetectedItems = self.DetectedItems } )
+    
+    local DetectedItem = self.DetectedItems[Key]
+    if DetectedItem then
+      return DetectedItem
+    end
+    
+    return nil
+  end
+  
   --- Get a detected item using a given numeric index.
   -- @param #DETECTION_BASE self
   -- @param #number Index
   -- @return #DETECTION_BASE.DetectedItem
-  function DETECTION_BASE:GetDetectedItem( Index )
+  function DETECTION_BASE:GetDetectedItemByIndex( Index )
   
-    local DetectedItem = self.DetectedItems[Index]
+    self:F( { DetectedItemsByIndex = self.DetectedItemsByIndex } )
+    
+    local DetectedItem = self.DetectedItemsByIndex[Index]
     if DetectedItem then
       return DetectedItem
     end
@@ -1544,16 +1568,11 @@ do -- DETECTION_BASE
   
   --- Get a detected ItemID using a given numeric index.
   -- @param #DETECTION_BASE self
-  -- @param #number Index
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem.
   -- @return #string DetectedItemID
-  function DETECTION_BASE:GetDetectedItemID( Index ) --R2.1
+  function DETECTION_BASE:GetDetectedItemID( DetectedItem ) --R2.1
   
-    local DetectedItem = self.DetectedItems[Index]
-    if DetectedItem then
-      return DetectedItem.ItemID
-    end
-    
-    return ""
+    return DetectedItem and DetectedItem.ItemID or ""
   end
   
   --- Get a detected ID using a given numeric index.
@@ -1562,7 +1581,7 @@ do -- DETECTION_BASE
   -- @return #string DetectedItemID
   function DETECTION_BASE:GetDetectedID( Index ) --R2.1
   
-    local DetectedItem = self.DetectedItems[Index]
+    local DetectedItem = self.DetectedItemsByIndex[Index]
     if DetectedItem then
       return DetectedItem.ID
     end
@@ -1572,12 +1591,11 @@ do -- DETECTION_BASE
   
   --- Get the @{Set#SET_UNIT} of a detecttion area using a given numeric index.
   -- @param #DETECTION_BASE self
-  -- @param #number Index
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem
   -- @return Core.Set#SET_UNIT DetectedSet
-  function DETECTION_BASE:GetDetectedSet( Index )
+  function DETECTION_BASE:GetDetectedSet( DetectedItem )
   
-    local DetectedItem = self:GetDetectedItem( Index )
-    local DetectedSetUnit = DetectedItem.Set
+    local DetectedSetUnit = DetectedItem and DetectedItem.Set
     if DetectedSetUnit then
       return DetectedSetUnit
     end
@@ -1622,11 +1640,11 @@ do -- DETECTION_BASE
   
     --- Get the @{Zone#ZONE_UNIT} of a detection area using a given numeric index.
     -- @param #DETECTION_BASE self
-    -- @param #number Index
+    -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem.
     -- @return Core.Zone#ZONE_UNIT DetectedZone
-    function DETECTION_BASE:GetDetectedItemZone( Index )
+    function DETECTION_BASE:GetDetectedItemZone( DetectedItem )
     
-      local DetectedZone = self.DetectedItems[Index].Zone
+      local DetectedZone = DetectedItem and DetectedItem.Zone
       if DetectedZone then
         return DetectedZone
       end
@@ -1641,7 +1659,7 @@ do -- DETECTION_BASE
 
   --- Set the detected item coordinate.
   -- @param #DETECTION_BASE self
-  -- @param #DETECTION_BASE.DetectedItem The DetectedItem to set the coordinate at.
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem to set the coordinate at.
   -- @param Core.Point#COORDINATE Coordinate The coordinate to set the last know detected position at.
   -- @param Wrapper.Unit#UNIT DetectedItemUnit The unit to set the heading and altitude from.
   -- @return #DETECTION_BASE
@@ -1661,13 +1679,11 @@ do -- DETECTION_BASE
 
   --- Get the detected item coordinate.
   -- @param #DETECTION_BASE self
-  -- @param #number Index
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem to set the coordinate at.
   -- @return Core.Point#COORDINATE
-  function DETECTION_BASE:GetDetectedItemCoordinate( Index )
-    self:F( { Index = Index } )
+  function DETECTION_BASE:GetDetectedItemCoordinate( DetectedItem )
+    self:F( { DetectedItem = DetectedItem } )
   
-    local DetectedItem = self:GetDetectedItem( Index )
-    
     if DetectedItem then
       return DetectedItem.Coordinate
     end
@@ -1692,42 +1708,27 @@ do -- DETECTION_BASE
 
   --- Get the detected item coordinate.
   -- @param #DETECTION_BASE self
-  -- @param #number Index
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem.
   -- @return #number ThreatLevel
-  function DETECTION_BASE:GetDetectedItemThreatLevel( Index )
-    self:F( { Index = Index } )
+  function DETECTION_BASE:GetDetectedItemThreatLevel( DetectedItem )
+    self:F( { DetectedItem = DetectedItem } )
   
-    local DetectedItem = self:GetDetectedItem( Index )
-    
     if DetectedItem then
+      self:F( { ThreatLevel = DetectedItem.ThreatLevel, ThreatText = DetectedItem.ThreatText } )
       return DetectedItem.ThreatLevel or 0, DetectedItem.ThreatText or ""
     end
     
     return nil, ""
   end
   
-  
 
-
-
-
-  --- Menu of a detected item using a given numeric index.
-  -- @param #DETECTION_BASE self
-  -- @param Index
-  -- @return #string
-  function DETECTION_BASE:DetectedItemMenu( Index, AttackGroup )
-    self:F( Index )
-    return nil
-  end
-
-  
   --- Report summary of a detected item using a given numeric index.
   -- @param #DETECTION_BASE self
-  -- @param Index
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem.
   -- @param Wrapper.Group#GROUP AttackGroup The group to generate the report for.
   -- @param Core.Settings#SETTINGS Settings Message formatting settings to use.
   -- @return Core.Report#REPORT
-  function DETECTION_BASE:DetectedItemReportSummary( Index, AttackGroup, Settings )
+  function DETECTION_BASE:DetectedItemReportSummary( DetectedItem, AttackGroup, Settings )
     self:F( Index )
     return nil
   end
@@ -1764,7 +1765,7 @@ do -- DETECTION_BASE
         for RecceUnit, RecceUnit in pairs( RecceGroup:GetUnits() ) do
           if RecceUnit:IsActive() then
             local RecceUnitCoord = RecceUnit:GetCoordinate()
-            local Distance = RecceUnitCoord:Get2DDistance( self:GetDetectedItemCoordinate( DetectedItem.Index ) )
+            local Distance = RecceUnitCoord:Get2DDistance( self:GetDetectedItemCoordinate( DetectedItem ) )
             if Distance < DistanceRecce then
               DistanceRecce = Distance
               NearestRecce = RecceUnit
@@ -1887,9 +1888,9 @@ do -- DETECTION_UNITS
         local DetectedUnit = DetectedUnitData -- Wrapper.Unit#UNIT
 
         local DetectedObject = nil
-        --self:E( DetectedUnit )
+        --self:F( DetectedUnit )
         if DetectedUnit:IsAlive() then
-        --self:E(DetectedUnit:GetName())
+        --self:F(DetectedUnit:GetName())
           DetectedObject = self:GetDetectedObject( DetectedUnit:GetName() )
         end
         if DetectedObject then
@@ -1928,7 +1929,7 @@ do -- DETECTION_UNITS
         
         if DetectedUnit then
           local DetectedTypeName = DetectedUnit:GetTypeName()
-          local DetectedItem = self:GetDetectedItem( DetectedUnitName )
+          local DetectedItem = self:GetDetectedItemByKey( DetectedUnitName )
           if not DetectedItem then
             self:T( "Added new DetectedItem" )
             DetectedItem = self:AddDetectedItem( "UNIT", DetectedUnitName )
@@ -1960,54 +1961,24 @@ do -- DETECTION_UNITS
       self:SetDetectedItemCoordinate( DetectedItem, DetectedFirstUnitCoord, DetectedFirstUnit )
 
       self:ReportFriendliesNearBy( { DetectedItem = DetectedItem, ReportSetGroup = self.DetectionSetGroup } ) -- Fill the Friendlies table
+      self:SetDetectedItemThreatLevel( DetectedItem )
       self:NearestRecce( DetectedItem )
       
     end
     
   end
 
-  --- Menu of a DetectedItem using a given numeric index.
-  -- @param #DETECTION_UNITS self
-  -- @param Index
-  -- @return #string
-  function DETECTION_UNITS:DetectedItemMenu( Index, AttackGroup )
-    self:F( Index )
-  
-    local DetectedItem = self:GetDetectedItem( Index )
-    local DetectedSet = self:GetDetectedSet( Index )
-    local DetectedItemID = self:GetDetectedItemID( Index )
-    
-    self:T( DetectedSet )
-    if DetectedSet then
-      local ReportSummary = ""
-      local UnitDistanceText = ""
-      local UnitCategoryText = ""
-  
-      local DetectedItemCoordinate = self:GetDetectedItemCoordinate( Index )
-      local DetectedItemCoordText = DetectedItemCoordinate:ToString( AttackGroup )
-     
-      ReportSummary = string.format( 
-        "%s - %s",
-        DetectedItemID,
-        DetectedItemCoordText
-      )
-      self:T( ReportSummary )
-    
-      return ReportSummary
-    end
-  end
   
   --- Report summary of a DetectedItem using a given numeric index.
   -- @param #DETECTION_UNITS self
-  -- @param Index
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem.
   -- @param Wrapper.Group#GROUP AttackGroup The group to generate the report for.
   -- @param Core.Settings#SETTINGS Settings Message formatting settings to use.
   -- @return Core.Report#REPORT The report of the detection items.
-  function DETECTION_UNITS:DetectedItemReportSummary( Index, AttackGroup, Settings )
-    self:F( { Index, self.DetectedItems } )
+  function DETECTION_UNITS:DetectedItemReportSummary( DetectedItem, AttackGroup, Settings )
+    self:F( { DetectedItem = DetectedItem } )
   
-    local DetectedItem = self:GetDetectedItem( Index )
-    local DetectedItemID = self:GetDetectedItemID( Index )
+    local DetectedItemID = self:GetDetectedItemID( DetectedItem )
     
     if DetectedItem then
       local ReportSummary = ""
@@ -2037,10 +2008,10 @@ do -- DETECTION_UNITS
       end
         
       --TODO: solve Index reference
-      local DetectedItemCoordinate = self:GetDetectedItemCoordinate( Index )
+      local DetectedItemCoordinate = self:GetDetectedItemCoordinate( DetectedItem )
       local DetectedItemCoordText = DetectedItemCoordinate:ToString( AttackGroup, Settings )
  
-      local ThreatLevelA2G = self:GetDetectedItemThreatLevel( Index )
+      local ThreatLevelA2G = self:GetDetectedItemThreatLevel( DetectedItem )
         
       local Report = REPORT:New()
       Report:Add(DetectedItemID .. ", " .. DetectedItemCoordText)
@@ -2060,9 +2031,9 @@ do -- DETECTION_UNITS
     self:F()
     
     local Report = REPORT:New()
-    for DetectedItemID, DetectedItem in pairs( self.DetectedItems ) do
+    for DetectedItemIndex, DetectedItem in pairs( self.DetectedItems ) do
       local DetectedItem = DetectedItem -- #DETECTION_BASE.DetectedItem
-      local ReportSummary = self:DetectedItemReportSummary( DetectedItemID, AttackGroup )
+      local ReportSummary = self:DetectedItemReportSummary( DetectedItem, AttackGroup )
       Report:SetTitle( "Detected units:" )
       Report:Add( ReportSummary:Text() )
     end
@@ -2165,7 +2136,7 @@ do -- DETECTION_TYPES
 
         local DetectedObject = nil
         if DetectedUnit:IsAlive() then
-        --self:E(DetectedUnit:GetName())
+        --self:F(DetectedUnit:GetName())
           DetectedObject = self:GetDetectedObject( DetectedUnit:GetName() )
         end
         if DetectedObject then
@@ -2192,10 +2163,10 @@ do -- DETECTION_TYPES
         
         if DetectedUnit then
           local DetectedTypeName = DetectedUnit:GetTypeName()
-          local DetectedItem = self:GetDetectedItem( DetectedTypeName )
+          local DetectedItem = self:GetDetectedItemByKey( DetectedTypeName )
           if not DetectedItem then
             DetectedItem = self:AddDetectedItem( "TYPE", DetectedTypeName )
-            DetectedItem.TypeName = DetectedUnit:GetTypeName()
+            DetectedItem.TypeName = DetectedTypeName
           end
         
           DetectedItem.Set:AddUnit( DetectedUnit )
@@ -2218,6 +2189,7 @@ do -- DETECTION_TYPES
       self:SetDetectedItemCoordinate( DetectedItem, DetectedUnitCoord, DetectedFirstUnit )
 
       self:ReportFriendliesNearBy( { DetectedItem = DetectedItem, ReportSetGroup = self.DetectionSetGroup } ) -- Fill the Friendlies table
+      self:SetDetectedItemThreatLevel( DetectedItem )
       self:NearestRecce( DetectedItem )
     end
     
@@ -2225,53 +2197,26 @@ do -- DETECTION_TYPES
 
   end
 
-  --- Menu of a DetectedItem using a given numeric index.
-  -- @param #DETECTION_TYPES self
-  -- @param Index
-  -- @return #string
-  function DETECTION_TYPES:DetectedItemMenu( DetectedTypeName, AttackGroup )
-    self:F( DetectedTypeName )
-  
-    local DetectedItem = self:GetDetectedItem( DetectedTypeName )
-    local DetectedItemID = self:GetDetectedItemID( DetectedTypeName )
-    
-    if DetectedItem then
-
-      local DetectedItemCoordinate = self:GetDetectedItemCoordinate( DetectedTypeName )
-      local DetectedItemCoordText = DetectedItemCoordinate:ToString( AttackGroup )
-      
-      local ReportSummary = string.format( 
-        "%s - %s", 
-        DetectedItemID,
-        DetectedItemCoordText
-      )
-      self:T( ReportSummary )
-    
-      return ReportSummary
-    end
-  end
-  
   --- Report summary of a DetectedItem using a given numeric index.
   -- @param #DETECTION_TYPES self
-  -- @param Index
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem.
   -- @param Wrapper.Group#GROUP AttackGroup The group to generate the report for.
   -- @param Core.Settings#SETTINGS Settings Message formatting settings to use.
   -- @return Core.Report#REPORT The report of the detection items.
-  function DETECTION_TYPES:DetectedItemReportSummary( DetectedTypeName, AttackGroup, Settings )
-    self:F( DetectedTypeName )
+  function DETECTION_TYPES:DetectedItemReportSummary( DetectedItem, AttackGroup, Settings )
+    self:F( { DetectedItem = DetectedItem } )
   
-    local DetectedItem = self:GetDetectedItem( DetectedTypeName )
-    local DetectedSet = self:GetDetectedSet( DetectedTypeName )
-    local DetectedItemID = self:GetDetectedItemID( DetectedTypeName )
+    local DetectedSet = self:GetDetectedSet( DetectedItem )
+    local DetectedItemID = self:GetDetectedItemID( DetectedItem )
     
     self:T( DetectedItem )
     if DetectedItem then
 
-      local ThreatLevelA2G = self:GetDetectedItemThreatLevel( DetectedTypeName )
+      local ThreatLevelA2G = self:GetDetectedItemThreatLevel( DetectedItem )
       local DetectedItemsCount = DetectedSet:Count()
       local DetectedItemType = DetectedItem.TypeName
       
-      local DetectedItemCoordinate = self:GetDetectedItemCoordinate( DetectedTypeName )
+      local DetectedItemCoordinate = self:GetDetectedItemCoordinate( DetectedItem )
       local DetectedItemCoordText = DetectedItemCoordinate:ToString( AttackGroup, Settings )
 
       local Report = REPORT:New()
@@ -2290,9 +2235,9 @@ do -- DETECTION_TYPES
     self:F()
     
     local Report = REPORT:New()
-    for DetectedItemTypeName, DetectedItem in pairs( self.DetectedItems ) do
+    for DetectedItemIndex, DetectedItem in pairs( self.DetectedItems ) do
       local DetectedItem = DetectedItem -- #DETECTION_BASE.DetectedItem
-      local ReportSummary = self:DetectedItemReportSummary( DetectedItemTypeName, AttackGroup )
+      local ReportSummary = self:DetectedItemReportSummary( DetectedItem, AttackGroup )
       Report:SetTitle( "Detected types:" )
       Report:Add( ReportSummary:Text() )
     end
@@ -2371,57 +2316,26 @@ do -- DETECTION_AREAS
   end
 
 
-  --- Menu of a detected item using a given numeric index.
-  -- @param #DETECTION_AREAS self
-  -- @param Index
-  -- @return #string
-  function DETECTION_AREAS:DetectedItemMenu( Index, AttackGroup )
-    self:F( Index )
-  
-    local DetectedItem = self:GetDetectedItem( Index )
-    local DetectedItemID = self:GetDetectedItemID( Index )
-    
-    if DetectedItem then
-      local DetectedSet = self:GetDetectedSet( Index )
-      local ReportSummaryItem
-      
-      local DetectedZone = self:GetDetectedItemZone( Index )
-      local DetectedItemCoordinate = DetectedZone:GetCoordinate()
-      local DetectedItemCoordText = DetectedItemCoordinate:ToString( AttackGroup )
-
-      local ReportSummary = string.format( 
-        "%s - %s", 
-        DetectedItemID,
-        DetectedItemCoordText
-      )
-      
-      return ReportSummary
-    end
-    
-    return nil
-  end
-  
   --- Report summary of a detected item using a given numeric index.
   -- @param #DETECTION_AREAS self
-  -- @param Index
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem The DetectedItem.
   -- @param Wrapper.Group#GROUP AttackGroup The group to get the settings for.
   -- @param Core.Settings#SETTINGS Settings (Optional) Message formatting settings to use.
   -- @return Core.Report#REPORT The report of the detection items.
-  function DETECTION_AREAS:DetectedItemReportSummary( Index, AttackGroup, Settings )
-    self:F( Index )
+  function DETECTION_AREAS:DetectedItemReportSummary( DetectedItem, AttackGroup, Settings )
+    self:F( { DetectedItem = DetectedItem } )
   
-    local DetectedItem = self:GetDetectedItem( Index )
-    local DetectedItemID = self:GetDetectedItemID( Index )
+    local DetectedItemID = self:GetDetectedItemID( DetectedItem )
     
     if DetectedItem then
-      local DetectedSet = self:GetDetectedSet( Index )
+      local DetectedSet = self:GetDetectedSet( DetectedItem )
       local ReportSummaryItem
       
-      local DetectedZone = self:GetDetectedItemZone( Index )
+      local DetectedZone = self:GetDetectedItemZone( DetectedItem )
       local DetectedItemCoordinate = DetectedZone:GetCoordinate()
       local DetectedItemCoordText = DetectedItemCoordinate:ToString( AttackGroup, Settings )
 
-      local ThreatLevelA2G = self:GetDetectedItemThreatLevel( Index )
+      local ThreatLevelA2G = self:GetDetectedItemThreatLevel( DetectedItem )
       local DetectedItemsCount = DetectedSet:Count()
       local DetectedItemsTypes = DetectedSet:GetTypeNames()
       
@@ -2446,7 +2360,7 @@ do -- DETECTION_AREAS
     local Report = REPORT:New()
     for DetectedItemIndex, DetectedItem in pairs( self.DetectedItems ) do
       local DetectedItem = DetectedItem -- #DETECTION_BASE.DetectedItem
-      local ReportSummary = self:DetectedItemReportSummary( DetectedItemIndex, AttackGroup )
+      local ReportSummary = self:DetectedItemReportSummary( DetectedItem, AttackGroup )
       Report:SetTitle( "Detected areas:" )
       Report:Add( ReportSummary:Text() )
     end
@@ -2673,7 +2587,7 @@ do -- DETECTION_AREAS
 
             local DetectedObject = nil
             if DetectedUnit:IsAlive() then
-            --self:E(DetectedUnit:GetName())
+            --self:F(DetectedUnit:GetName())
               DetectedObject = self:GetDetectedObject( DetectedUnit:GetName() )
             end
             if DetectedObject then
@@ -2751,7 +2665,7 @@ do -- DETECTION_AREAS
             SET_UNIT:New():FilterDeads():FilterCrashes(),
             ZONE_UNIT:New( DetectedUnitName, DetectedUnit, self.DetectionZoneRange )
           )
-          --self:E( DetectedItem.Zone.ZoneUNIT.UnitName )
+          --self:F( DetectedItem.Zone.ZoneUNIT.UnitName )
           DetectedItem.Set:AddUnit( DetectedUnit )
           self:AddChangeItem( DetectedItem, "AA", DetectedUnitTypeName )
         end  

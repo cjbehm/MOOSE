@@ -3,7 +3,7 @@
 -- ===
 -- 
 -- 1) @{DetectionManager#DETECTION_MANAGER} class, extends @{Fsm#FSM}
--- ====================================================================
+-- ===
 -- The @{DetectionManager#DETECTION_MANAGER} class defines the core functions to report detected objects to groups.
 -- Reportings can be done in several manners, and it is up to the derived classes if DETECTION_MANAGER to model the reporting behaviour.
 -- 
@@ -27,7 +27,7 @@
 -- ===
 -- 
 -- 2) @{DetectionManager#DETECTION_REPORTING} class, extends @{DetectionManager#DETECTION_MANAGER}
--- =========================================================================================
+-- ===
 -- The @{DetectionManager#DETECTION_REPORTING} class implements detected units reporting. Reporting can be controlled using the reporting methods available in the @{DetectionManager#DETECTION_MANAGER} class.
 -- 
 -- 2.1) DETECTION_REPORTING constructor:
@@ -129,7 +129,6 @@ do -- DETECTION MANAGER
     self:SetRefreshTimeInterval( 30 )
     self:SetReportDisplayTime( 25 )
   
-    self:E( { Detection = Detection } )
     Detection:__Start( 3 )
 
     return self
@@ -140,8 +139,6 @@ do -- DETECTION MANAGER
   end
   
   function DETECTION_MANAGER:onafterReport( From, Event, To )
-
-    self:E( "onafterReport" )
 
     self:__Report( -self._RefreshTimeInterval )
     
@@ -256,7 +253,6 @@ do -- DETECTION_REPORTING
   function DETECTION_REPORTING:ProcessDetected( Group, Detection )
     self:F2( Group )
   
-    self:E( Group )
     local DetectedMsg = {}
     for DetectedAreaID, DetectedAreaData in pairs( Detection:GetDetectedAreas() ) do
       local DetectedArea = DetectedAreaData -- Functional.Detection#DETECTION_AREAS.DetectedArea

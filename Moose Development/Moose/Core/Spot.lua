@@ -2,7 +2,7 @@
 --
 -- ![Banner Image](..\Presentations\SPOT\Dia1.JPG)
 --
--- ====
+-- ===
 -- 
 -- SPOT implements the DCS Spot class functionality, but adds additional luxury to be able to:
 -- 
@@ -11,7 +11,7 @@
 --   * Provide a @{Unit} as a target, instead of a point.
 --   * Implement a status machine, LaseOn, LaseOff.
 --
--- ====
+-- ===
 -- 
 -- # Demo Missions
 -- 
@@ -21,22 +21,22 @@
 --
 -- ### [ALL Demo Missions pack of the last release](https://github.com/FlightControl-Master/MOOSE_MISSIONS/releases)
 -- 
--- ====
+-- ===
 -- 
 -- # YouTube Channel
 -- 
 -- ### [SPOT YouTube Channel]()
 -- 
--- ====
+-- ===
 -- 
--- ### Author: **Sven Van de Velde (FlightControl)**
+-- ### Author: **FlightControl**
 -- ### Contributions: 
 -- 
 --   * [**Ciribob**](https://forums.eagle.ru/member.php?u=112175): Showing the way how to lase targets + how laser codes work!!! Explained the autolase script.
 --   * [**EasyEB**](https://forums.eagle.ru/member.php?u=112055): Ideas and Beta Testing
 --   * [**Wingthor**](https://forums.eagle.ru/member.php?u=123698): Beta Testing
 -- 
--- ====
+-- ===
 -- 
 -- @module Spot
 
@@ -200,7 +200,7 @@ do
   -- @param #number LaserCode
   -- @param #number Duration
   function SPOT:onafterLaseOn( From, Event, To, Target, LaserCode, Duration )
-    self:E( { "LaseOn", Target, LaserCode, Duration } )
+    self:F( { "LaseOn", Target, LaserCode, Duration } )
 
     local function StopLase( self )
       self:LaseOff()
@@ -228,10 +228,10 @@ do
   --- @param #SPOT self
   -- @param Core.Event#EVENTDATA EventData
   function SPOT:OnEventDead(EventData)
-    self:E( { Dead = EventData.IniDCSUnitName, Target = self.Target } )
+    self:F( { Dead = EventData.IniDCSUnitName, Target = self.Target } )
     if self.Target then
       if EventData.IniDCSUnitName == self.Target:GetName() then
-        self:E( {"Target dead ", self.Target:GetName() } )
+        self:F( {"Target dead ", self.Target:GetName() } )
         self:Destroyed()
         self:LaseOff()
       end
@@ -249,7 +249,7 @@ do
       self.SpotLaser:setPoint( self.Target:GetPointVec3():AddY(1):GetVec3() )
       self:__Lasing( -0.2 )
     else
-      self:E( { "Target is not alive", self.Target:IsAlive() } )
+      self:F( { "Target is not alive", self.Target:IsAlive() } )
     end
   
   end
@@ -261,7 +261,7 @@ do
   -- @return #SPOT
   function SPOT:onafterLaseOff( From, Event, To )
   
-    self:E( {"Stopped lasing for ", self.Target:GetName() , SpotIR = self.SportIR, SpotLaser = self.SpotLaser } )
+    self:F( {"Stopped lasing for ", self.Target:GetName() , SpotIR = self.SportIR, SpotLaser = self.SpotLaser } )
     
     self.Lasing = false
     
