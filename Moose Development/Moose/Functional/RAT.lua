@@ -145,6 +145,7 @@
 -- @field #string onboardnum Sets the onboard number prefix. Same as setting "TAIL #" in the mission editor.
 -- @field #number onboardnum0 (Optional) Starting value of the automatically appended numbering of aircraft within a flight. Default is one.
 -- @field #number rbug_maxretry Number of respawn retries (on ground) at other airports if a group gets accidentally spawned on the runway. Default is 3.
+-- @field #boolean respawninair Aircraft are spawned in air if they cannot be respawned on ground if there is not free parking spot. Default is true.
 -- @extends Core.Spawn#SPAWN
 
 ---# RAT class, extends @{Spawn#SPAWN}
@@ -376,6 +377,7 @@ RAT={
   onboardnum=nil,           -- Tail number.
   onboardnum0=1,            -- (Optional) Starting value of the automatically appended numbering of aircraft within a flight. Default is one.
   rbug_maxretry=3,          -- Number of respawn retries (on ground) at other airports if a group gets accidentally spawned on the runway.
+  respawninair=true,        -- Aircraft are spawned in air if there is no free parking spot on the ground.
 }
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1567,6 +1569,12 @@ function RAT:_InitAircraft(DCSgroup)
   -- service ceiling in meters
   self.aircraft.ceiling=DCSdesc.Hmax
   
+  -- aircraft dimensions
+  self.aircraft.length=DCSdesc.box.max.x
+  self.aircraft.height=DCSdesc.box.max.y
+  self.aircraft.width=DCSdesc.box.max.z
+  self.aircraft.box=math.max(self.aircraft.length,self.aircraft.width)
+  
   -- info message
   local text=string.format("\n******************************************************\n")
   text=text..string.format("Aircraft parameters:\n")
@@ -1574,6 +1582,9 @@ function RAT:_InitAircraft(DCSgroup)
   text=text..string.format("Alias           =  %s\n",       self.alias)
   text=text..string.format("Category        =  %s\n",       self.category)
   text=text..string.format("Type            =  %s\n",       self.aircraft.type)
+  text=text..string.format("Length (x)      = %6.1f m\n",   self.aircraft.length)
+  text=text..string.format("Width  (z)      = %6.1f m\n",   self.aircraft.width)
+  text=text..string.format("Height (y)      = %6.1f m\n",   self.aircraft.height)
   text=text..string.format("Max air speed   = %6.1f m/s\n", self.aircraft.Vmax)
   text=text..string.format("Max climb speed = %6.1f m/s\n", self.aircraft.Vymax)
   text=text..string.format("Initial Fuel    = %6.1f\n",     self.aircraft.fuel*100)
@@ -3184,7 +3195,7 @@ function RAT:_OnBirth(EventData)
           else
             -- This will respawn the same fight (maybe with a different route) but already in the air.
             -- Note: Uncontrolled aircraft are not respawned in air.  
-            if not self.uncontrolled then
+            if self.respawninair and not self.uncontrolled then
               text=string.format("Spawning new aircraft of group %s in air since no parking slot is available at %s.", self.alias, _departure)
               MESSAGE:New(text,10):ToAll()
               self:T(RAT.id..text)
@@ -3205,6 +3216,8 @@ function RAT:_OnBirth(EventData)
           if self.Debug then
             SpawnGroup:FlareYellow()
           end
+          -- Despawn group.
+          self:_Despawn(SpawnGroup)
         end
         
       end
@@ -4206,14 +4219,19 @@ function RAT:_FindParkingSpot(airbase)
       -- Loop over ALL units present.
       local occupied=false
       for _,unit in pairs(_DATABASE.UNITS) do
-        unit=unit --Wrapper.Unit#UNIT
-        local up=unit:GetCoordinate() --Core.Point#COORDINATE
-        local _dist=up:Get2DDistance(spawnplace)
-        
-        if _dist<10 then
-          occupied=true
+        local unit=unit --Wrapper.Unit#UNIT
+        if unit then
+          local _upos=unit:GetCoordinate() --Core.Point#COORDINATE
+          if _upos then
+            local _dist=_upos:Get2DDistance(spawnplace)
+            
+            local safe=_dist < self.aircraft.box*2
+            if safe then
+              occupied=true
+            end
+            self:T(RAT.id..string.format("Unit %s to parking spot %d: distance = %.1f m (occupied = %s).", unit:GetName(), _i, _dist, tostring(safe)))
+          end
         end
-        self:T(RAT.id..string.format("Unit %s to parking spot %d: distance = %.1f m (occupied = %s).", unit:GetName(), _i, _dist, tostring(_dist<10)))
       end
       
       if not occupied then
@@ -4239,35 +4257,48 @@ end
 function RAT:_CheckOnTop(group)
 
   -- Minimum allowed distance between two units
-  local distmin=4
+  local distmin=5
   
   for i,uniti in pairs(group:GetUnits()) do
     local uniti=uniti --Wrapper.Unit#UNIT
-    local namei=uniti:GetName()
     
-    for j,unitj in pairs(_DATABASE.UNITS) do
-      local unitj=unitj --Wrapper.Unit#UNIT
-      local namej=unitj:GetName()
+    if uniti then
+    
+      local namei=uniti:GetName()
       
-      if namei ~= namej then
+      for j,unitj in pairs(_DATABASE.UNITS) do
       
-        -- Distance between units.
-        local _dist=uniti:GetCoordinate():Get2DDistance(unitj:GetCoordinate())
-        
-        -- Check for min distance.
-        if _dist < distmin then
-          if not uniti:InAir() and not unitj:InAir() then
-            --uniti:Destroy()
-            --self:_CreateEventDead(timer.getTime(), uniti)
-            --unitj:Destroy()
-            --self:_CreateEventDead(timer.getTime(), unitj)
-            return true
-          end
-        end
-  
-      end
-    end
-  end
+        if unitj then
+          local unitj=unitj --Wrapper.Unit#UNIT
+          local namej=unitj:GetName()
+          
+          if namei ~= namej then
+          
+            local DCSuniti=uniti:GetDCSObject()
+            local DCSunitj=unitj:GetDCSObject()
+            
+            if DCSuniti and DCSuniti:isExist() and DCSunitj and DCSunitj:isExist() then
+            
+              -- Distance between units.
+              local _dist=uniti:GetCoordinate():Get2DDistance(unitj:GetCoordinate())
+              
+              -- Check for min distance.
+              if _dist < distmin then
+                if not uniti:InAir() and not unitj:InAir() then
+                  --uniti:Destroy()
+                  --self:_CreateEventDead(timer.getTime(), uniti)
+                  --unitj:Destroy()
+                  --self:_CreateEventDead(timer.getTime(), unitj)
+                  return true
+                end
+              end
+              
+            end -- if DCSunit exists
+          end -- if namei==namej then  
+        end --if unitj then
+      end -- for j, unitj  
+    end -- if uniti then
+  end -- for i,uniti in
   
   return false
 end
