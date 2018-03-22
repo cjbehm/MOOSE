@@ -577,7 +577,7 @@ do -- DETECTION_BASE
             self:T2( { TargetIsDetected = TargetIsDetected, TargetIsVisible = TargetIsVisible, TargetLastTime = TargetLastTime, TargetKnowType = TargetKnowType, TargetKnowDistance = TargetKnowDistance, TargetLastPos = TargetLastPos, TargetLastVelocity = TargetLastVelocity } )
 
             -- Only process if the target is visible. Detection also returns invisible units.
-            if Detection.visible == true then
+            --if Detection.visible == true then
             
               local DetectionAccepted = true
               
@@ -713,7 +713,7 @@ do -- DETECTION_BASE
                   self.DetectedObjects[DetectedObjectName] = nil
                 end
               end
-            end
+            --end
           end
           
           self:T2( self.DetectedObjects )
@@ -1729,7 +1729,7 @@ do -- DETECTION_BASE
   -- @param Core.Settings#SETTINGS Settings Message formatting settings to use.
   -- @return Core.Report#REPORT
   function DETECTION_BASE:DetectedItemReportSummary( DetectedItem, AttackGroup, Settings )
-    self:F( Index )
+    self:F()
     return nil
   end
   
@@ -2707,7 +2707,7 @@ do -- DETECTION_AREAS
         DetectedZone.ZoneUNIT:SmokeRed()
       end
       
-      --DetectedSet:Flush()
+      --DetectedSet:Flush( self )
       
       DetectedSet:ForEachUnit(
         --- @param Wrapper.Unit#UNIT DetectedUnit

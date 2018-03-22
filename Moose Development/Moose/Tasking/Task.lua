@@ -323,7 +323,7 @@ function TASK:AbortGroup( PlayerGroup )
         -- Now check if the task needs to go to hold...
         -- It will go to hold, if there are no players in the mission...
         
-        PlayerGroups:Flush()
+        PlayerGroups:Flush( self )
         local IsRemaining = false
         for GroupName, AssignedGroup in pairs( PlayerGroups:GetSet() or {} ) do
           if self:IsGroupAssigned( AssignedGroup ) == true then
@@ -374,7 +374,7 @@ function TASK:CrashGroup( PlayerGroup )
         -- Now check if the task needs to go to hold...
         -- It will go to hold, if there are no players in the mission...
         
-        PlayerGroups:Flush()
+        PlayerGroups:Flush( self )
         local IsRemaining = false
         for GroupName, AssignedGroup in pairs( PlayerGroups:GetSet() or {} ) do
           if self:IsGroupAssigned( AssignedGroup ) == true then
@@ -1401,6 +1401,8 @@ do -- Reporting
 -- @return #string
 function TASK:ReportSummary( ReportGroup ) 
 
+  self:UpdateTaskInfo( self.DetectedItem )
+  
   local Report = REPORT:New()
   
   -- List the name of the Task.

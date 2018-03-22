@@ -375,7 +375,7 @@ do -- TASK_A2A_DISPATCHER
         end
 
         local DetectedSet = DetectedItem.Set -- Core.Set#SET_UNIT
-        --DetectedSet:Flush()
+        --DetectedSet:Flush( self )
         --self:F( { DetectedSetCount = DetectedSet:Count() } )
         if DetectedSet:Count() == 0 then
           Remove = true
@@ -524,7 +524,7 @@ do -- TASK_A2A_DISPATCHER
         local DetectedCount = DetectedSet:Count()
         local DetectedZone = DetectedItem.Zone
         --self:F( { "Targets in DetectedItem", DetectedItem.ItemID, DetectedSet:Count(), tostring( DetectedItem ) } )
-        --DetectedSet:Flush()
+        --DetectedSet:Flush( self )
         
         local DetectedID = DetectedItem.ID
         local TaskIndex = DetectedItem.Index
@@ -539,16 +539,19 @@ do -- TASK_A2A_DISPATCHER
           if TargetSetUnit then
             Task = TASK_A2A_ENGAGE:New( Mission, self.SetGroup, string.format( "ENGAGE.%03d", DetectedID ), TargetSetUnit )
             Task:SetDetection( Detection, DetectedItem )
+            Task:UpdateTaskInfo( DetectedItem )
           else
             local TargetSetUnit = self:EvaluateINTERCEPT( DetectedItem ) -- Returns a SetUnit if there are targets to be INTERCEPTed...
             if TargetSetUnit then
               Task = TASK_A2A_INTERCEPT:New( Mission, self.SetGroup, string.format( "INTERCEPT.%03d", DetectedID ), TargetSetUnit )
               Task:SetDetection( Detection, DetectedItem )
+              Task:UpdateTaskInfo( DetectedItem )
             else
               local TargetSetUnit = self:EvaluateSWEEP( DetectedItem ) -- Returns a SetUnit 
               if TargetSetUnit then
                 Task = TASK_A2A_SWEEP:New( Mission, self.SetGroup, string.format( "SWEEP.%03d", DetectedID ), TargetSetUnit )
                 Task:SetDetection( Detection, DetectedItem )
+                Task:UpdateTaskInfo( DetectedItem )
               end  
             end
           end
