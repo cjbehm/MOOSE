@@ -123,6 +123,7 @@
 -- @field #boolean norespawn Aircraft will not be respawned after they have finished their route.
 -- @field #boolean respawn_after_takeoff Aircraft will be respawned directly after take-off.
 -- @field #boolean respawn_after_crash Aircraft will be respawned after a crash, e.g. when they get shot down.
+-- @field #boolean respawn_inair Aircraft are allowed to spawned in air if they cannot be respawned on ground because there is not free parking spot. Default is true.
 -- @field #number respawn_delay Delay in seconds until a repawn happens.
 -- @field #table markerids Array with marker IDs.
 -- @field #table waypointdescriptions Table with strings for waypoint descriptions of markers.
@@ -141,11 +142,12 @@
 -- @field #number activate_delay Delay in seconds before first uncontrolled group is activated. Default is 5 seconds.
 -- @field #number activate_delta Time interval in seconds between activation of uncontrolled groups. Default is 5 seconds.
 -- @field #number activate_frand Randomization factor of time interval (activate_delta) between activating uncontrolled groups. Default is 0.
--- @field #number activate_max=0 Maximal number of uncontrolle aircraft, which will be activated at a time. Default is 0 
+-- @field #number activate_max Maximum number of uncontrolled aircraft, which will be activated at the same time. Default is 1.
 -- @field #string onboardnum Sets the onboard number prefix. Same as setting "TAIL #" in the mission editor.
--- @field #number onboardnum0 (Optional) Starting value of the automatically appended numbering of aircraft within a flight. Default is one.
+-- @field #number onboardnum0 (Optional) Starting value of the automatically appended numbering of aircraft within a flight. Default is 1.
+-- @field #boolean checkonrunway Aircraft are checked if they were accidentally spawned on the runway. Default is true.
+-- @field #boolean checkontop Aircraft are checked if they were accidentally spawned on top of another unit. Default is true.
 -- @field #number rbug_maxretry Number of respawn retries (on ground) at other airports if a group gets accidentally spawned on the runway. Default is 3.
--- @field #boolean respawninair Aircraft are spawned in air if they cannot be respawned on ground if there is not free parking spot. Default is true.
 -- @extends Core.Spawn#SPAWN
 
 ---# RAT class, extends @{Spawn#SPAWN}
@@ -354,6 +356,7 @@ RAT={
   norespawn=false,          -- Aircraft will not get respawned.
   respawn_after_takeoff=false, -- Aircraft will be respawned directly after takeoff.
   respawn_after_crash=true, -- Aircraft will be respawned after a crash.
+  respawn_inair=true,        -- Aircraft are spawned in air if there is no free parking spot on the ground.
   respawn_delay=nil,        -- Delay in seconds until repawn happens after landing.
   markerids={},             -- Array with marker IDs.
   waypointdescriptions={},  -- Array with descriptions for waypoint markers.
@@ -373,11 +376,12 @@ RAT={
   activate_delay=5,         -- Delay in seconds before first uncontrolled group is activated.
   activate_delta=5,         -- Time interval in seconds between activation of uncontrolled groups.
   activate_frand=0,         -- Randomization factor of time interval (activate_delta) between activating uncontrolled groups.
-  activate_max=0,           -- Max number of uncontrolle aircraft, which will be activated at a time. 
+  activate_max=1,           -- Max number of uncontrolle aircraft, which will be activated at a time. 
   onboardnum=nil,           -- Tail number.
   onboardnum0=1,            -- (Optional) Starting value of the automatically appended numbering of aircraft within a flight. Default is one.
   rbug_maxretry=3,          -- Number of respawn retries (on ground) at other airports if a group gets accidentally spawned on the runway.
-  respawninair=true,        -- Aircraft are spawned in air if there is no free parking spot on the ground.
+  checkonrunway=true,       -- Check whether aircraft have been spawned on the runway.
+  checkontop=true,          -- Check whether aircraft have been spawned on top of another unit.
 }
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1216,10 +1220,48 @@ function RAT:RespawnAfterCrashON()
   self.respawn_after_crash=true
 end
 
---- Aircraft will no be respawned after they crashed or get shot down.
+--- Aircraft will not be respawned after they crashed or get shot down.
 -- @param #RAT self
 function RAT:RespawnAfterCrashOFF()
   self.respawn_after_crash=false
+end
+
+--- If aircraft cannot be spawned on parking spots, it is allowed to spawn them in air above the same airport. Note that this is also the default behavior.
+-- @param #RAT self
+function RAT:RespawnInAirAllowed()
+  self.respawn_inair=true
+end
+
+--- If aircraft cannot be spawned on parking spots, it is NOT allowed to spawn them in air. This has only impact if aircraft are supposed to be spawned on the ground (and not in a zone).
+-- @param #RAT self
+function RAT:RespawnInAirNotAllowed()
+  self.respawn_inair=false
+end
+
+--- If aircraft cannot be spawned on parking spots, it is NOT allowed to spawn them in air. This has only impact if aircraft are supposed to be spawned on the ground (and not in a zone).
+-- @param #RAT self
+function RAT:RespawnInAirNotAllowed()
+  self.respawn_inair=false
+end
+
+--- Check if aircraft have accidentally been spawned on the runway. If so they will be removed immediatly.
+-- @param #RAT self
+-- @param #booblen switch If true, check is performed. If false, this check is omitted.
+function RAT:CheckOnRunway(switch)
+  if switch==nil then
+    switch=true
+  end
+  self.checkonrunway=switch
+end
+
+--- Check if aircraft have accidentally been spawned on top of each other. If yes, they will be removed immediately.
+-- @param #RAT self
+-- @param #booblen switch If true, check is performed. If false, this check is omitted.
+function RAT:CheckOnTop(switch)
+  if switch==nil then
+    switch=true
+  end
+  self.checkontop=switch
 end
 
 --- Set parking id of aircraft.
@@ -1568,6 +1610,9 @@ function RAT:_InitAircraft(DCSgroup)
     
   -- service ceiling in meters
   self.aircraft.ceiling=DCSdesc.Hmax
+  
+  -- Store all descriptors.
+  --self.aircraft.descriptors=DCSdesc
   
   -- aircraft dimensions
   self.aircraft.length=DCSdesc.box.max.x
@@ -3036,7 +3081,7 @@ function RAT:Status(message, forID)
         local text=string.format("Flight %s will be despawned NOW!", self.alias)
         self:T(RAT.id..text)
         -- Despawn old group.
-        if not self.norespawn then  
+        if (not self.norespawn) and (not self.respawn_after_takeoff) then  
           self:_Respawn(group)
         end
         self:_Despawn(group)
@@ -3157,7 +3202,7 @@ function RAT:_OnBirth(EventData)
         -- Check if aircraft group was accidentally spawned on the runway.
         -- This can happen due to no parking slots available and other DCS bugs.
         local onrunway=false
-        if _takeoff ~= RAT.wp.runway then
+        if _takeoff ~= RAT.wp.runway and self.checkonrunway then
           for _,unit in pairs(SpawnGroup:GetUnits()) do
             local _onrunway=self:_CheckOnRunway(unit, _departure)
             if _onrunway then
@@ -3195,7 +3240,7 @@ function RAT:_OnBirth(EventData)
           else
             -- This will respawn the same fight (maybe with a different route) but already in the air.
             -- Note: Uncontrolled aircraft are not respawned in air.  
-            if self.respawninair and not self.uncontrolled then
+            if self.respawn_inair and not self.uncontrolled then
               text=string.format("Spawning new aircraft of group %s in air since no parking slot is available at %s.", self.alias, _departure)
               MESSAGE:New(text,10):ToAll()
               self:T(RAT.id..text)
@@ -3207,7 +3252,10 @@ function RAT:_OnBirth(EventData)
         end -- end of workaround
         
         -- Check if any unit of the group was spawned on top of another unit in the MOOSE data base.
-        local ontop=self:_CheckOnTop(SpawnGroup)
+        local ontop=false
+        if self.checkontop then
+          ontop=self:_CheckOnTop(SpawnGroup)
+        end
         
         if ontop then
           local text=string.format("ERROR: RAT group of %s was spawned on top of another unit. Group #%d will be despawned immediately!", self.alias, i)
@@ -3407,7 +3455,7 @@ end
 -- @param Core.Event#EVENTDATA EventData
 function RAT:_OnHit(EventData)
   self:F3(EventData)
-  self:T3(RAT.id.."Captured event Hit!")
+  self:T(RAT.id..string.format("Captured event Hit by %s! Initiator %s. Target %s", self.alias, tostring(EventData.IniUnitName), tostring(EventData.TgtUnitName)))
   
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
   
@@ -4225,16 +4273,25 @@ function RAT:_FindParkingSpot(airbase)
           if _upos then
             local _dist=_upos:Get2DDistance(spawnplace)
             
-            local safe=_dist < self.aircraft.box*2
-            if safe then
+            -- We need two times the size of the aircraft to be "safe" and not spawn on top of each other.
+            local safe=_dist > self.aircraft.box*2
+            -- Or (if possible) even better to take our and the other object's size (plus 10% safety margin)
+            local size=self:_GetObjectSize(unit)
+            if size then
+              safe=_dist > (self.aircraft.box+size)*1.1
+            end
+            self:T2(RAT.id..string.format("RAT aircraft size = %.1f m, other object size = %.1f m", self.aircraft.box, size or 0))
+            if not safe then
               occupied=true
             end
-            self:T(RAT.id..string.format("Unit %s to parking spot %d: distance = %.1f m (occupied = %s).", unit:GetName(), _i, _dist, tostring(safe)))
+            self:T2(RAT.id..string.format("Unit %s to parking spot %d: distance = %.1f m (occupied = %s).", unit:GetName(), _i, _dist, tostring(safe)))
           end
         end
       end
       
-      if not occupied then
+      if occupied then
+        self:T(RAT.id..string.format("Parking spot #%d occupied at %s.", _i, airport))
+      else
         parkingspot=spawnplace
         self:T(RAT.id..string.format("Found free parking spot in DB at airport %s.", airport))
         break
@@ -4244,9 +4301,27 @@ function RAT:_FindParkingSpot(airbase)
     
     return parkingspot
   else
-    self:T(RAT.id..string.format("No parking position in DB yet for %s.", airport))  
+    self:T2(RAT.id..string.format("No parking position in DB yet for %s.", airport))  
   end
   
+  self:T(RAT.id..string.format("No free parking position found in DB at airport %s.", airport))  
+  return nil
+end
+
+--- Get aircraft dimensions length, width, height.
+-- @param #RAT self
+-- @param Wrapper.Unit#UNIT unit The unit which is we want the size of.
+-- @return #number Size, i.e. max(length,width) of unit.
+function RAT:_GetObjectSize(unit)
+  local DCSunit=unit:GetDCSObject()
+  if DCSunit then
+    local DCSdesc=DCSunit:getDesc()
+    -- dimensions
+    local length=DCSdesc.box.max.x
+    local height=DCSdesc.box.max.y
+    local width=DCSdesc.box.max.z
+    return math.max(length,width)
+  end
   return nil
 end
 
