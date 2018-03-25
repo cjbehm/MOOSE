@@ -148,6 +148,7 @@
 -- @field #boolean checkonrunway Aircraft are checked if they were accidentally spawned on the runway. Default is true.
 -- @field #boolean checkontop Aircraft are checked if they were accidentally spawned on top of another unit. Default is true.
 -- @field #number rbug_maxretry Number of respawn retries (on ground) at other airports if a group gets accidentally spawned on the runway. Default is 3.
+-- @field #boolean useparkingdb Parking spots are added to data base once an aircraft has used it. These spots can later be used by other aircraft. Default is true.
 -- @extends Core.Spawn#SPAWN
 
 ---# RAT class, extends @{Spawn#SPAWN}
@@ -382,6 +383,7 @@ RAT={
   rbug_maxretry=3,          -- Number of respawn retries (on ground) at other airports if a group gets accidentally spawned on the runway.
   checkonrunway=true,       -- Check whether aircraft have been spawned on the runway.
   checkontop=true,          -- Check whether aircraft have been spawned on top of another unit.
+  useparkingdb=true,        -- Put known parking spots into a data base.
 }
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1264,6 +1266,16 @@ function RAT:CheckOnTop(switch)
   self.checkontop=switch
 end
 
+--- Put parking spot coordinates in a data base for future use of aircraft.
+-- @param #RAT self
+-- @param #booblen switch If true, parking spots are memorized. This is also the default setting.
+function RAT:ParkingSpotDB(switch)
+  if switch==nil then
+    switch=true
+  end
+  self.useparkingdb=switch
+end
+
 --- Set parking id of aircraft.
 -- @param #RAT self
 -- @param #string id Parking ID of the aircraft.
@@ -1693,10 +1705,9 @@ function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _live
     return nil
   end
 
-  -- Find parking spot in RAT parking DB.
-  local _spawnpos=nil
-  if (takeoff==RAT.wp.cold or takeoff==RAT.wp.hot) and _lastpos==nil then
-    self:T(RAT.id..string.format("Checking spawn position DB for airport %s.", departure:GetName()))
+  -- Find parking spot in RAT parking DB. Category 4 should be airports and farps. Ships would be caterory 1.
+  local _spawnpos=_lastpos
+  if self.useparkingdb and (takeoff==RAT.wp.cold or takeoff==RAT.wp.hot) and departure:GetCategory()==4 and  _spawnpos==nil then
     _spawnpos=self:_FindParkingSpot(departure)
   end
   
@@ -1800,7 +1811,7 @@ function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _live
   
   -- If we start at a parking position, we memorize the parking spot position for future use (DCS bug).
   -- TODO: Check for ships and FARPS.
-  if (takeoff==RAT.wp.cold or takeoff==RAT.wp.hot) and departure:GetCategory()==4 then
+  if self.useparkingdb and (takeoff==RAT.wp.cold or takeoff==RAT.wp.hot) and departure:GetCategory()==4 then
     self:_AddParkingSpot(departure, group)
   end
  
@@ -1875,8 +1886,8 @@ function RAT:_Respawn(group)
     -- Note: we have to check that it was supposed to land and not respawned directly after landing or after takeoff.
     -- TODO: Need to think if continuejourney with respawn_after_takeoff actually makes sense.
     if landing==RAT.wp.landing and lastpos and not (self.respawn_at_landing or self.respawn_after_takeoff) then
-      -- Check that we have an airport or FARP but not a ship (which would be categroy 4).
-      if destination:GetCategory()==1 then
+      -- Check that we have an airport or FARP but not a ship (which would be categroy 1).
+      if destination:GetCategory()==4 then
         _lastpos=lastpos
       end
     end
@@ -1924,8 +1935,8 @@ function RAT:_Respawn(group)
     -- Note: we have to check that it was supposed to land and not respawned directly after landing or after takeoff.
     -- TODO: Need to think if commute with respawn_after_takeoff actually makes sense.
     if landing==RAT.wp.landing and lastpos and not (self.respawn_at_landing or self.respawn_after_takeoff) then
-      -- Check that we have landed on an airport or FARP but not a ship (which would be categroy 4).
-      if destination:GetCategory()==1 then
+      -- Check that we have landed on an airport or FARP but not a ship (which would be categroy 1).
+      if destination:GetCategory()==4 then
         _lastpos=lastpos
       end    
     end
@@ -4255,6 +4266,8 @@ function RAT:_FindParkingSpot(airbase)
 
   -- Get airport name.
   local airport=airbase:GetName()
+  
+  self:T(RAT.id..string.format("Checking spawn position DB for airport %s.", airport))
 
   if RAT.parking[airport] then
    self:T(RAT.id..string.format("Number of parking spots in DB for %s: %d", airport, #RAT.parking[airport]))
