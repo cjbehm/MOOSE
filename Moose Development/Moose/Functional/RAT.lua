@@ -3243,6 +3243,21 @@ end
 function RAT:_OnBirth(EventData)
   self:F3(EventData)
   self:T3(RAT.id.."Captured event birth!")
+  
+  --[[
+  if EventData.place then
+    env.info(RAT.id..string.format("Birth place: %s", tostring(EventData.place:getName())))
+  end
+  if EventData.subPlace then
+    -- subPlace is always equal to 14.
+    env.info(RAT.id..string.format("Birth place: %s", tostring(EventData.subPlace)))
+    env.info(RAT.id.."Air           = "..world.BirthPlace.wsBirthPlace_Air)
+    env.info(RAT.id.."Runway        = "..world.BirthPlace.wsBirthPlace_RunWay)
+    env.info(RAT.id.."Park          = "..world.BirthPlace.wsBirthPlace_Park)
+    env.info(RAT.id.."Heliport hot  = "..world.BirthPlace.wsBirthPlace_Heliport_Hot)
+    env.info(RAT.id.."Heliport cold = "..world.BirthPlace.wsBirthPlace_Heliport_Cold)
+  end
+  ]]
 
   local SpawnGroup = EventData.IniGroup --Wrapper.Group#GROUP
   
