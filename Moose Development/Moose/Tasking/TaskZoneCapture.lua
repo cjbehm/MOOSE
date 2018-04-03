@@ -185,7 +185,7 @@ do -- TASK_ZONE_CAPTURE
   -- @param Tasking.Mission#MISSION Mission
   -- @param Core.Set#SET_GROUP SetGroup The set of groups for which the Task can be assigned.
   -- @param #string TaskName The name of the Task.
-  -- @param Core.ZoneGoalCoalition#ZONE_GOAL_COALITION ZoneGoalCoalition
+  -- @param Functional.ZoneGoalCoalition#ZONE_GOAL_COALITION ZoneGoalCoalition
   -- @param #string TaskBriefing The briefing of the task.
   -- @return #TASK_ZONE_CAPTURE self
   function TASK_ZONE_CAPTURE:New( Mission, SetGroup, TaskName, ZoneGoalCoalition, TaskBriefing)
