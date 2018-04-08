@@ -457,7 +457,7 @@ do -- TASK_CARGO
       self:F( { TaskUnit = TaskUnit, Task = Task and Task:GetClassNameAndID() } )
 
       if Cargo:IsAlive() then
-        self.Cargo = Cargo -- Core.Cargo#CARGO
+        self.Cargo = Cargo -- Cargo.Cargo#CARGO
         Task:SetCargoPickup( self.Cargo, TaskUnit )
         self:__RouteToPickupPoint( -0.1 )
       end
@@ -539,7 +539,7 @@ do -- TASK_CARGO
       self:F( { TaskUnit = TaskUnit, Task = Task and Task:GetClassNameAndID() } )
       
       if self.Cargo:IsAlive() then
-        if self.Cargo:IsInLoadRadius( TaskUnit:GetPointVec2() ) then
+        if self.Cargo:IsInReportRadius( TaskUnit:GetPointVec2() ) then
           if TaskUnit:InAir() then
             self:__Land( -10, Action )
           else
@@ -548,9 +548,9 @@ do -- TASK_CARGO
           end
         else
           if Action == "Pickup" then
-            self:__RouteToPickupZone( -0.1 )
+            self:__RouteToPickup( -0.1, self.Cargo )
           else
-            self:__RouteToDeployZone( -0.1 )
+            self:__RouteToDeploy( -0.1, self.Cargo )
           end
         end
       end
@@ -563,7 +563,7 @@ do -- TASK_CARGO
       self:F( { TaskUnit = TaskUnit, Task = Task and Task:GetClassNameAndID() } )
       
       if self.Cargo:IsAlive() then
-        if self.Cargo:IsInLoadRadius( TaskUnit:GetPointVec2() ) then
+        if self.Cargo:IsInReportRadius( TaskUnit:GetPointVec2() ) then
           if TaskUnit:InAir() then
             self:__Land( -0.1, Action )
           else
@@ -571,9 +571,9 @@ do -- TASK_CARGO
           end
         else
           if Action == "Pickup" then
-            self:__RouteToPickupZone( -0.1 )
+            self:__RouteToPickup( -0.1, self.Cargo )
           else
-            self:__RouteToDeployZone( -0.1 )
+            self:__RouteToDeploy( -0.1, self.Cargo )
           end
         end
       end
@@ -598,7 +598,8 @@ do -- TASK_CARGO
       self:F( { TaskUnit = TaskUnit, Task = Task and Task:GetClassNameAndID() } )
 
       function Cargo:OnEnterLoaded( From, Event, To, TaskUnit, TaskProcess )
-        self:F({From, Event, To, TaskUnit, TaskProcess })
+        self:F( { From, Event, To, TaskUnit, TaskProcess } )
+        self:F( { Cargo = Cargo } )
         TaskProcess:__Boarded( 0.1, self )
       end
 
@@ -624,12 +625,14 @@ do -- TASK_CARGO
     -- @param Tasking.Task_Cargo#TASK_CARGO Task
     function Fsm:onafterBoarded( TaskUnit, Task, From, Event, To, Cargo  )
       
+      self:F( { Cargo = Cargo } )
+
       local TaskUnitName = TaskUnit:GetName()
       self:F( { TaskUnit = TaskUnitName, Task = Task and Task:GetClassNameAndID() } )
 
       Cargo:MessageToGroup( "Boarded ...", TaskUnit:GetGroup() )
       
-      self:__Load( -0.1, Cargo )
+      self:Load( Cargo )
       
     end
     
@@ -637,7 +640,9 @@ do -- TASK_CARGO
     --- @param #FSM_PROCESS self
     -- @param Wrapper.Unit#UNIT TaskUnit
     -- @param Tasking.Task_Cargo#TASK_CARGO Task
-    function Fsm:onenterLoaded( TaskUnit, Task, From, Event, To, Cargo )
+    function Fsm:onafterLoad( TaskUnit, Task, From, Event, To, Cargo )
+      
+      self:F( { Cargo = Cargo } )
       
       local TaskUnitName = TaskUnit:GetName()
       self:F( { TaskUnit = TaskUnitName, Task = Task and Task:GetClassNameAndID() } )
@@ -650,14 +655,6 @@ do -- TASK_CARGO
       TaskUnit:AddCargo( Cargo )
 
       self:__SelectAction( 1 )
-      
-      -- TODO:I need to find a more decent solution for this. 
-      Task:E( { CargoPickedUp = Task.CargoPickedUp } )
-      if Cargo:IsAlive() then
-        if Task.CargoPickedUp then
-          Task:CargoPickedUp( TaskUnit, Cargo )
-        end
-      end
       
     end
     
