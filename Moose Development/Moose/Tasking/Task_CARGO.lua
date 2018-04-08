@@ -598,8 +598,7 @@ do -- TASK_CARGO
       self:F( { TaskUnit = TaskUnit, Task = Task and Task:GetClassNameAndID() } )
 
       function Cargo:OnEnterLoaded( From, Event, To, TaskUnit, TaskProcess )
-        self:F( { From, Event, To, TaskUnit, TaskProcess } )
-        self:F( { Cargo = Cargo } )
+        self:F({From, Event, To, TaskUnit, TaskProcess })
         TaskProcess:__Boarded( 0.1, self )
       end
 
@@ -632,7 +631,7 @@ do -- TASK_CARGO
 
       Cargo:MessageToGroup( "Boarded ...", TaskUnit:GetGroup() )
       
-      self:Load( Cargo )
+      self:__Load( -0.1, Cargo )
       
     end
     
@@ -640,7 +639,11 @@ do -- TASK_CARGO
     --- @param #FSM_PROCESS self
     -- @param Wrapper.Unit#UNIT TaskUnit
     -- @param Tasking.Task_Cargo#TASK_CARGO Task
-    function Fsm:onafterLoad( TaskUnit, Task, From, Event, To, Cargo )
+    function Fsm:onenterLoaded( TaskUnit, Task, From, Event, To, Cargo )
+      
+      self:F( { Cargo = Cargo } )
+      
+      self:F( { Cargo = Cargo } )
       
       self:F( { Cargo = Cargo } )
       
