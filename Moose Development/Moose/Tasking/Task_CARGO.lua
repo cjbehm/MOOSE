@@ -661,7 +661,7 @@ do -- TASK_CARGO
       Cargo:MessageToGroup( "Loaded ...", TaskUnit:GetGroup() )
       TaskUnit:AddCargo( Cargo )
 
-      Task:CargoPickedUp( TaskUnit, Cargo )
+      --Task:CargoPickedUp( TaskUnit, Cargo )
 
       self:SelectAction( )
       
