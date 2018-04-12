@@ -24,7 +24,7 @@ do -- CARGO_SLINGLOAD
 
   --- Models the behaviour of cargo crates, which can only be slingloaded. 
   -- @type CARGO_SLINGLOAD
-  -- @extends #CARGO_REPRESENTABLE
+  -- @extends Cargo.Cargo#CARGO_REPRESENTABLE
   
   --- # CARGO\_CRATE class, extends @{#CARGO_REPRESENTABLE}
   -- 
@@ -42,16 +42,14 @@ do -- CARGO_SLINGLOAD
   -- @param Wrapper.Static#STATIC CargoStatic
   -- @param #string Type
   -- @param #string Name
-  -- @param #number ReportRadius (optional)
+  -- @param #number LoadRadius (optional)
   -- @param #number NearRadius (optional)
   -- @return #CARGO_SLINGLOAD
-  function CARGO_SLINGLOAD:New( CargoStatic, Type, Name, ReportRadius, NearRadius )
-    local self = BASE:Inherit( self, CARGO_REPRESENTABLE:New( CargoStatic, Type, Name, nil, ReportRadius, NearRadius ) ) -- #CARGO_SLINGLOAD
+  function CARGO_SLINGLOAD:New( CargoStatic, Type, Name, LoadRadius, NearRadius )
+    local self = BASE:Inherit( self, CARGO_REPRESENTABLE:New( CargoStatic, Type, Name, nil, LoadRadius, NearRadius ) ) -- #CARGO_SLINGLOAD
     self:F( { Type, Name, NearRadius } )
   
     self.CargoObject = CargoStatic
-  
-    self:T( self.ClassName )
   
     -- Cargo objects are added to the _DATABASE and SET_CARGO objects.
     _EVENTDISPATCHER:CreateEventNewCargo( self )
@@ -64,7 +62,35 @@ do -- CARGO_SLINGLOAD
   
     return self
   end
+
+
+  --- @param #CARGO_SLINGLOAD self
+  -- @param Core.Event#EVENTDATA EventData 
+  function CARGO_SLINGLOAD:OnEventCargoDead( EventData )
+
+    local Destroyed = false
   
+    if self:IsDestroyed() or self:IsUnLoaded() then
+      if self.CargoObject:GetName() == EventData.IniUnitName then
+        if not self.NoDestroy then 
+          Destroyed = true
+        end
+      end
+    end
+    
+    if Destroyed then
+      self:I( { "Cargo crate destroyed: " .. self.CargoObject:GetName() } )
+      self:Destroyed()
+    end
+  
+  end
+  
+  
+  --- Check if the cargo can be Slingloaded.
+  -- @param #CARGO self
+  function CARGO:CanSlingload()
+    return true
+  end
   
   --- Check if the cargo can be Boarded.
   -- @param #CARGO_SLINGLOAD self
@@ -90,12 +116,54 @@ do -- CARGO_SLINGLOAD
     return false
   end
 
+
+  --- Check if Cargo Crate is in the radius for the Cargo to be reported.
+  -- @param #CARGO_SLINGLOAD self
+  -- @param Core.Point#Coordinate Coordinate
+  -- @return #boolean true if the Cargo Crate is within the report radius.
+  function CARGO_SLINGLOAD:IsInReportRadius( Coordinate )
+    --self:F( { Coordinate, LoadRadius = self.LoadRadius } )
+  
+    local Distance = 0
+    if self:IsUnLoaded() then
+      Distance = Coordinate:DistanceFromPointVec2( self.CargoObject:GetPointVec2() )
+      --self:T( Distance )
+      if Distance <= self.LoadRadius then
+        return true
+      end
+    end
+    
+    return false
+  end
+
+
+  --- Check if Cargo Slingload is in the radius for the Cargo to be Boarded or Loaded.
+  -- @param #CARGO_SLINGLOAD self
+  -- @param Core.Point#Coordinate Coordinate
+  -- @return #boolean true if the Cargo Slingload is within the loading radius.
+  function CARGO_SLINGLOAD:IsInLoadRadius( Coordinate )
+    --self:F( { Coordinate } )
+  
+    local Distance = 0
+    if self:IsUnLoaded() then
+      Distance = Coordinate:DistanceFromPointVec2( self.CargoObject:GetPointVec2() )
+      self:T( Distance )
+      if Distance <= self.NearRadius then
+        return true
+      end
+    end
+    
+    return false
+  end
+
+
+
   --- Get the current Coordinate of the CargoGroup.
   -- @param #CARGO_SLINGLOAD self
   -- @return Core.Point#COORDINATE The current Coordinate of the first Cargo of the CargoGroup.
   -- @return #nil There is no valid Cargo in the CargoGroup.
   function CARGO_SLINGLOAD:GetCoordinate()
-    self:F()
+    --self:F()
     
     return self.CargoObject:GetCoordinate()
   end
@@ -125,7 +193,7 @@ do -- CARGO_SLINGLOAD
   -- @param #CARGO_SLINGLOAD self
   -- @param Core.Point#COORDINATE Coordinate
   function CARGO_SLINGLOAD:RouteTo( Coordinate )
-    self:F( {Coordinate = Coordinate } )
+    --self:F( {Coordinate = Coordinate } )
     
   end
 
@@ -138,43 +206,64 @@ do -- CARGO_SLINGLOAD
   -- @return #boolean The Cargo is near to the Carrier.
   -- @return #nil The Cargo is not near to the Carrier.
   function CARGO_SLINGLOAD:IsNear( CargoCarrier, NearRadius )
-    self:F( {NearRadius = NearRadius } )
+    --self:F( {NearRadius = NearRadius } )
     
     return self:IsNear( CargoCarrier:GetCoordinate(), NearRadius )
   end
 
 
-  --- Check if CargoGroup is in the ReportRadius for the Cargo to be Loaded.
-  -- @param #CARGO_SLINGLOAD self
-  -- @param Core.Point#Coordinate Coordinate
-  -- @return #boolean true if the CargoGroup is within the reporting radius.
-  function CARGO_SLINGLOAD:IsInRadius( Coordinate )
-    self:F( { Coordinate } )
-  
-    local Distance = 0
-    if self:IsLoaded() then
-      Distance = Coordinate:DistanceFromPointVec2( self.CargoCarrier:GetPointVec2() )
-    else
-      Distance = Coordinate:DistanceFromPointVec2( self.CargoObject:GetPointVec2() )
-    end
-    self:T( Distance )
-    
-    if Distance <= self.ReportRadius then
-      return true
-    else
-      return false
-    end
-  end
-
   --- Respawn the CargoGroup.
   -- @param #CARGO_SLINGLOAD self
   function CARGO_SLINGLOAD:Respawn()
 
-    self:F( { "Respawning" } )
+    --self:F( { "Respawning slingload " .. self:GetName() } )
 
-    self:SetDeployed( false )
-    self:SetStartState( "UnLoaded" )
+
+    -- Respawn the group...
+    if self.CargoObject then
+      self.CargoObject:ReSpawn() -- A cargo destroy crates a DEAD event.
+      self:__Reset( -0.1 )
+    end
+
     
   end
-  
+
+
+  --- Respawn the CargoGroup.
+  -- @param #CARGO_SLINGLOAD self
+  function CARGO_SLINGLOAD:onafterReset()
+
+    --self:F( { "Reset slingload " .. self:GetName() } )
+
+
+    -- Respawn the group...
+    if self.CargoObject then
+      self:SetDeployed( false )
+      self:SetStartState( "UnLoaded" )
+      self.CargoCarrier = nil
+      -- Cargo objects are added to the _DATABASE and SET_CARGO objects.
+      _EVENTDISPATCHER:CreateEventNewCargo( self )
+    end
+
+    
+  end
+
+  --- Get the transportation method of the Cargo.
+  -- @param #CARGO_SLINGLOAD self
+  -- @return #string The transportation method of the Cargo.
+  function CARGO_SLINGLOAD:GetTransportationMethod()
+    if self:IsLoaded() then
+      return "for sling loading"
+    else
+      if self:IsUnLoaded() then
+        return "for sling loading"
+      else
+        if self:IsDeployed() then
+          return "delivered"
+        end
+      end
+    end
+    return ""
+  end
+   
 end

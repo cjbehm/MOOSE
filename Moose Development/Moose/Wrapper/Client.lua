@@ -181,9 +181,8 @@ function CLIENT:ShowBriefing()
     local Briefing = ""
     if self.ClientBriefing then
       Briefing = Briefing .. self.ClientBriefing
+      self:Message( Briefing, 60, "Briefing" )
     end
-    Briefing = Briefing .. " Press [LEFT ALT]+[B] to view the complete mission briefing."
-    self:Message( Briefing, 60, "Briefing" )
   end
 
   return self

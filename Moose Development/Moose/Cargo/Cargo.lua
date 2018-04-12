@@ -224,6 +224,7 @@ do -- CARGO
     Slingloadable = false,
     Moveable = false,
     Containable = false,
+    Reported = {},
   }
 
   --- @type CARGO.CargoObjects
@@ -235,12 +236,13 @@ do -- CARGO
   -- @param #string Type
   -- @param #string Name
   -- @param #number Weight
+  -- @param #number LoadRadius (optional)
   -- @param #number NearRadius (optional)
   -- @return #CARGO
-  function CARGO:New( Type, Name, Weight ) --R2.1
+  function CARGO:New( Type, Name, Weight, LoadRadius, NearRadius ) --R2.1
   
     local self = BASE:Inherit( self, FSM:New() ) -- #CARGO
-    self:F( { Type, Name, Weight } )
+    self:F( { Type, Name, Weight, LoadRadius, NearRadius } )
     
     self:SetStartState( "UnLoaded" )
     self:AddTransition( { "UnLoaded", "Boarding" }, "Board", "Boarding" )
@@ -255,7 +257,7 @@ do -- CARGO
     self:AddTransition( "*", "Damaged", "Damaged" )
     self:AddTransition( "*", "Destroyed", "Destroyed" )
     self:AddTransition( "*", "Respawn", "UnLoaded" )
-  
+    self:AddTransition( "*", "Reset", "UnLoaded" )
   
     self.Type = Type
     self.Name = Name
@@ -266,6 +268,11 @@ do -- CARGO
     self.Slingloadable = false
     self.Moveable = false
     self.Containable = false
+
+    self.CargoLimit = 0
+    
+    self.LoadRadius = LoadRadius or 500
+    self.NearRadius = NearRadius or 25
     
     self:SetDeployed( false )
   
@@ -287,6 +294,12 @@ do -- CARGO
     local CargoFound = _DATABASE:FindCargo( CargoName )
     return CargoFound
   end  
+  
+  --- Check if the cargo can be Slingloaded.
+  -- @param #CARGO self
+  function CARGO:CanSlingload()
+    return false
+  end
   
   --- Check if the cargo can be Boarded.
   -- @param #CARGO self
@@ -312,15 +325,12 @@ do -- CARGO
     return true
   end
 
-
-
-  
   
   --- Destroy the cargo.
   -- @param #CARGO self
   function CARGO:Destroy()
     if self.CargoObject then
-      self.CargoObject:Destroy()
+      self.CargoObject:Destroy( false )
     end
     self:Destroyed()
   end
@@ -349,13 +359,34 @@ do -- CARGO
   function CARGO:GetCount()
     return 1
   end
-  
+
   --- Get the type of the Cargo.
   -- @param #CARGO self
   -- @return #string The type of the Cargo.
   function CARGO:GetType()
     return self.Type
   end
+
+    
+  --- Get the transportation method of the Cargo.
+  -- @param #CARGO self
+  -- @return #string The transportation method of the Cargo.
+  function CARGO:GetTransportationMethod()
+    return self.TransportationMethod
+  end
+
+    
+  --- Get the coalition of the Cargo.
+  -- @param #CARGO self
+  -- @return Coalition
+  function CARGO:GetCoalition()
+    if self:IsLoaded() then
+      return self.CargoCarrier:GetCoalition()
+    else
+      return self.CargoObject:GetCoalition()
+    end 
+  end
+
   
   --- Get the current coordinates of the Cargo.
   -- @param #CARGO self
@@ -377,6 +408,14 @@ do -- CARGO
   -- @return #boolean true if loaded
   function CARGO:IsLoaded()
     return self:Is( "Loaded" )
+  end
+  
+  --- Check if cargo is loaded.
+  -- @param #CARGO self
+  -- @param Wrapper.Unit#UNIT Carrier
+  -- @return #boolean true if loaded
+  function CARGO:IsLoadedInCarrier( Carrier )
+    return self.CargoCarrier and self.CargoCarrier:GetName() == Carrier:GetName()
   end
   
   --- Check if cargo is unloaded.
@@ -405,8 +444,9 @@ do -- CARGO
     end 
   end
   
-  --- Set the cargo as deployed
+  --- Set the cargo as deployed.
   -- @param #CARGO self
+  -- @param #boolean Deployed true if the cargo is to be deployed. false or nil otherwise.
   function CARGO:SetDeployed( Deployed )
     self.Deployed = Deployed
   end
@@ -507,7 +547,88 @@ do -- CARGO
   end
   
   
+  --- Set the Load radius, which is the radius till when the Cargo can be loaded.
+  -- @param #CARGO self
+  -- @param #number LoadRadius The radius till Cargo can be loaded.
+  -- @return #CARGO
+  function CARGO:SetLoadRadius( LoadRadius )
+    self.LoadRadius = LoadRadius or 150
+  end
   
+  --- Get the Load radius, which is the radius till when the Cargo can be loaded.
+  -- @param #CARGO self
+  -- @return #number The radius till Cargo can be loaded.
+  function CARGO:GetLoadRadius()
+    return self.LoadRadius
+  end
+  
+  
+  
+  --- Check if Cargo is in the LoadRadius for the Cargo to be Boarded or Loaded.
+  -- @param #CARGO self
+  -- @param Core.Point#Coordinate Coordinate
+  -- @return #boolean true if the CargoGroup is within the loading radius.
+  function CARGO:IsInLoadRadius( Coordinate )
+    self:F( { Coordinate, LoadRadius = self.LoadRadius } )
+  
+    local Distance = 0
+    if self:IsUnLoaded() then
+      Distance = Coordinate:DistanceFromPointVec2( self.CargoObject:GetPointVec2() )
+      self:T( Distance )
+      if Distance <= self.LoadRadius then
+        return true
+      end
+    end
+    
+    return false
+  end
+
+
+  --- Check if the Cargo can report itself to be Boarded or Loaded.
+  -- @param #CARGO self
+  -- @param Core.Point#Coordinate Coordinate
+  -- @return #boolean true if the Cargo can report itself.
+  function CARGO:IsInReportRadius( Coordinate )
+    self:F( { Coordinate } )
+  
+    local Distance = 0
+    if self:IsUnLoaded() then
+      Distance = Coordinate:DistanceFromPointVec2( self.CargoObject:GetPointVec2() )
+      self:T( Distance )
+      if Distance <= self.LoadRadius then
+        return true
+      end
+    end
+    
+    return false
+  end
+
+
+  --- Check if CargoCarrier is near the Cargo to be Loaded.
+  -- @param #CARGO self
+  -- @param Core.Point#POINT_VEC2 PointVec2
+  -- @param #number NearRadius The radius when the cargo will board the Carrier (to avoid collision).
+  -- @return #boolean
+  function CARGO:IsNear( PointVec2, NearRadius )
+    --self:F2( { PointVec2 = PointVec2, NearRadius = NearRadius } )
+  
+    if self.CargoObject:IsAlive() then
+      --local Distance = PointVec2:DistanceFromPointVec2( self.CargoObject:GetPointVec2() )
+      --self:F( { CargoObjectName = self.CargoObject:GetName() } )
+      --self:F( { CargoObjectVec2 = self.CargoObject:GetVec2() } )
+      --self:F( { PointVec2 = PointVec2:GetVec2() } )
+      local Distance = PointVec2:Get2DDistance( self.CargoObject:GetPointVec2() )
+      --self:F( Distance )
+      
+      if Distance <= NearRadius then
+        --self:F( { PointVec2 = PointVec2, NearRadius = NearRadius, IsNear = true } )
+        return true
+      end
+    end
+    
+    --self:F( { PointVec2 = PointVec2, NearRadius = NearRadius, IsNear = false } )
+    return false
+  end
   
   
   
@@ -516,12 +637,12 @@ do -- CARGO
   -- @param Core.Zone#ZONE_BASE Zone
   -- @return #boolean **true** if cargo is in the Zone, **false** if cargo is not in the Zone.
   function CARGO:IsInZone( Zone )
-    self:F( { Zone } )
+    --self:F( { Zone } )
   
     if self:IsLoaded() then
       return Zone:IsPointVec2InZone( self.CargoCarrier:GetPointVec2() )
     else
-      self:F( { Size = self.CargoObject:GetSize(), Units = self.CargoObject:GetUnits() } )
+      --self:F( { Size = self.CargoObject:GetSize(), Units = self.CargoObject:GetUnits() } )
       if self.CargoObject:GetSize() ~= 0 then
         return Zone:IsPointVec2InZone( self.CargoObject:GetPointVec2() )
       else
@@ -533,30 +654,6 @@ do -- CARGO
   
   end
   
-  
-  --- Check if CargoCarrier is near the Cargo to be Loaded.
-  -- @param #CARGO self
-  -- @param Core.Point#POINT_VEC2 PointVec2
-  -- @param #number NearRadius The radius when the cargo will board the Carrier (to avoid collision).
-  -- @return #boolean
-  function CARGO:IsNear( PointVec2, NearRadius )
-    self:F( { PointVec2 = PointVec2, NearRadius = NearRadius } )
-  
-    if self.CargoObject:IsAlive() then
-      --local Distance = PointVec2:DistanceFromPointVec2( self.CargoObject:GetPointVec2() )
-      self:F( { CargoObjectName = self.CargoObject:GetName() } )
-      self:F( { CargoObjectVec2 = self.CargoObject:GetVec2() } )
-      self:F( { PointVec2 = PointVec2:GetVec2() } )
-      local Distance = PointVec2:Get2DDistance( self.CargoObject:GetPointVec2() )
-      self:T( Distance )
-      
-      if Distance <= NearRadius then
-        return true
-      end
-    end
-    
-    return false
-  end
   
   --- Get the current PointVec2 of the cargo.
   -- @param #CARGO self
@@ -580,6 +677,101 @@ do -- CARGO
     self.Weight = Weight
     return self
   end
+  
+  --- Send a CC message to a @{Group}.
+  -- @param #CARGO self
+  -- @param #string Message
+  -- @param Wrapper.Group#GROUP CarrierGroup The Carrier Group.
+  -- @param #sring Name (optional) The name of the Group used as a prefix for the message to the Group. If not provided, there will be nothing shown.
+  function CARGO:MessageToGroup( Message, CarrierGroup, Name )
+  
+    MESSAGE:New( Message, 20, "Cargo " .. self:GetName() ):ToGroup( CarrierGroup )
+  
+  end
+  
+  --- Report to a Carrier Group.
+  -- @param #CARGO self
+  -- @param #string Action The string describing the action for the cargo.
+  -- @param Wrapper.Group#GROUP CarrierGroup The Carrier Group to send the report to.
+  -- @return #CARGO
+  function CARGO:Report( ReportText, Action, CarrierGroup )
+
+    if not self.Reported[CarrierGroup] or not self.Reported[CarrierGroup][Action] then
+      self.Reported[CarrierGroup] = {}
+      self.Reported[CarrierGroup][Action] = true  
+      self:MessageToGroup( ReportText, CarrierGroup )
+      if self.ReportFlareColor then
+        if not self.Reported[CarrierGroup]["Flaring"] then
+          self:Flare( self.ReportFlareColor )
+          self.Reported[CarrierGroup]["Flaring"] = true
+        end
+      end
+      if self.ReportSmokeColor then
+        if not self.Reported[CarrierGroup]["Smoking"] then
+          self:Smoke( self.ReportSmokeColor )
+          self.Reported[CarrierGroup]["Smoking"] = true
+        end
+      end
+    end
+  end
+  
+  
+  --- Report to a Carrier Group with a Flaring signal.
+  -- @param #CARGO self
+  -- @param Utils#UTILS.FlareColor FlareColor the color of the flare.
+  -- @return #CARGO
+  function CARGO:ReportFlare( FlareColor )
+
+    self.ReportFlareColor = FlareColor 
+  end
+  
+  
+  --- Report to a Carrier Group with a Smoking signal.
+  -- @param #CARGO self
+  -- @param Utils#UTILS.SmokeColor SmokeColor the color of the smoke.
+  -- @return #CARGO
+  function CARGO:ReportSmoke( SmokeColor )
+
+    self.ReportSmokeColor = SmokeColor 
+  end
+  
+  
+  --- Reset the reporting for a Carrier Group.
+  -- @param #CARGO self
+  -- @param #string Action The string describing the action for the cargo.
+  -- @param Wrapper.Group#GROUP CarrierGroup The Carrier Group to send the report to.
+  -- @return #CARGO
+  function CARGO:ReportReset( Action, CarrierGroup )
+
+    self.Reported[CarrierGroup][Action] = nil
+  end
+  
+  --- Reset all the reporting for a Carrier Group.
+  -- @param #CARGO self
+  -- @param Wrapper.Group#GROUP CarrierGroup The Carrier Group to send the report to.
+  -- @return #CARGO
+  function CARGO:ReportResetAll( CarrierGroup )
+
+    self.Reported[CarrierGroup] = nil
+  end
+  
+  --- Respawn the cargo when destroyed
+  -- @param #CARGO self
+  -- @param #boolean RespawnDestroyed
+  function CARGO:RespawnOnDestroyed( RespawnDestroyed )
+
+    if RespawnDestroyed then
+      self.onenterDestroyed = function( self )
+        self:Respawn()
+      end
+    else
+      self.onenterDestroyed = nil
+    end
+      
+  end
+  
+
+  
 
 end -- CARGO
 
@@ -600,16 +792,13 @@ do -- CARGO_REPRESENTABLE
   -- @param #string Type
   -- @param #string Name
   -- @param #number Weight
-  -- @param #number ReportRadius (optional)
+  -- @param #number LoadRadius (optional)
   -- @param #number NearRadius (optional)
   -- @return #CARGO_REPRESENTABLE
-  function CARGO_REPRESENTABLE:New( CargoObject, Type, Name, Weight, ReportRadius, NearRadius )
-    local self = BASE:Inherit( self, CARGO:New( Type, Name, Weight ) ) -- #CARGO_REPRESENTABLE
-    self:F( { Type, Name, Weight, ReportRadius, NearRadius } )
+  function CARGO_REPRESENTABLE:New( CargoObject, Type, Name, Weight, LoadRadius, NearRadius )
+    local self = BASE:Inherit( self, CARGO:New( Type, Name, Weight, LoadRadius, NearRadius ) ) -- #CARGO_REPRESENTABLE
+    self:F( { Type, Name, Weight, LoadRadius, NearRadius } )
     
-    self.ReportRadius = ReportRadius or 500
-    self.NearRadius = NearRadius or 25
-  
     return self
   end
 
@@ -620,7 +809,7 @@ do -- CARGO_REPRESENTABLE
   
     -- Cargo objects are deleted from the _DATABASE and SET_CARGO objects.
     self:F( { CargoName = self:GetName() } )
-    _EVENTDISPATCHER:CreateEventDeleteCargo( self )
+    --_EVENTDISPATCHER:CreateEventDeleteCargo( self )
   
     return self
   end
@@ -645,6 +834,32 @@ do -- CARGO_REPRESENTABLE
     return self  
   end
   
+  --- Send a message to a @{Group} through a communication channel near the cargo.
+  -- @param #CARGO_REPRESENTABLE self
+  -- @param #string Message
+  -- @param Wrapper.Group#GROUP TaskGroup
+  -- @param #sring Name (optional) The name of the Group used as a prefix for the message to the Group. If not provided, there will be nothing shown.
+  function CARGO_REPRESENTABLE:MessageToGroup( Message, TaskGroup, Name )
+
+    local CoordinateZone = ZONE_RADIUS:New( "Zone" , self:GetCoordinate():GetVec2(), 500 )
+    CoordinateZone:Scan( { Object.Category.UNIT } )
+    for _, DCSUnit in pairs( CoordinateZone:GetScannedUnits() ) do
+      local NearUnit = UNIT:Find( DCSUnit )
+      self:F({NearUnit=NearUnit})
+      local NearUnitCoalition = NearUnit:GetCoalition()
+      local CargoCoalition = self:GetCoalition()
+      if NearUnitCoalition == CargoCoalition then
+        local Attributes = NearUnit:GetDesc()
+        self:F({Desc=Attributes})
+        if NearUnit:HasAttribute( "Trucks" ) then
+          MESSAGE:New( Message, 20, NearUnit:GetCallsign() .. " reporting - Cargo " .. self:GetName() ):ToGroup( TaskGroup )
+          break
+        end
+      end
+    end
+  
+  end
+
   
 end -- CARGO_REPRESENTABLE
 
@@ -661,14 +876,12 @@ do -- CARGO_REPORTABLE
   -- @param #string Type
   -- @param #string Name
   -- @param #number Weight
-  -- @param #number ReportRadius (optional)
+  -- @param #number LoadRadius (optional)
   -- @param #number NearRadius (optional)
   -- @return #CARGO_REPORTABLE
-  function CARGO_REPORTABLE:New( Type, Name, Weight, ReportRadius )
-    local self = BASE:Inherit( self, CARGO:New( Type, Name, Weight ) ) -- #CARGO_REPORTABLE
-    self:F( { Type, Name, Weight, ReportRadius } )
-  
-    self.ReportRadius = ReportRadius or 1000
+  function CARGO_REPORTABLE:New( Type, Name, Weight, LoadRadius, NearRadius )
+    local self = BASE:Inherit( self, CARGO:New( Type, Name, Weight, LoadRadius, NearRadius ) ) -- #CARGO_REPORTABLE
+    self:F( { Type, Name, Weight, LoadRadius, NearRadius } )
   
     return self
   end
@@ -680,19 +893,10 @@ do -- CARGO_REPORTABLE
   -- @param #sring Name (optional) The name of the Group used as a prefix for the message to the Group. If not provided, there will be nothing shown.
   function CARGO_REPORTABLE:MessageToGroup( Message, TaskGroup, Name )
   
-    local Prefix = Name and "@ " .. Name .. ": " or "@ " .. TaskGroup:GetCallsign() .. ": "
-    Message = Prefix .. Message 
-    MESSAGE:New( Message, 20, "Cargo: " .. self:GetName() ):ToGroup( TaskGroup )
+    MESSAGE:New( Message, 20, "Cargo " .. self:GetName() .. " reporting" ):ToGroup( TaskGroup )
   
   end
 
-  --- Get the Report radius, which is the radius when the Cargo is reporting itself.
-  -- @param #CARGO_REPORTABLE self
-  -- @return #number The range till Cargo reports itself.
-  function CARGO_REPORTABLE:GetBoardingRange()
-    return self.ReportRadius
-  end
-  
 
   
 end
@@ -717,12 +921,12 @@ do -- CARGO_PACKAGE
 -- @param #string Type
 -- @param #string Name
 -- @param #number Weight
--- @param #number ReportRadius (optional)
+-- @param #number LoadRadius (optional)
 -- @param #number NearRadius (optional)
 -- @return #CARGO_PACKAGE
-function CARGO_PACKAGE:New( CargoCarrier, Type, Name, Weight, ReportRadius, NearRadius )
-  local self = BASE:Inherit( self, CARGO_REPRESENTABLE:New( CargoCarrier, Type, Name, Weight, ReportRadius, NearRadius ) ) -- #CARGO_PACKAGE
-  self:F( { Type, Name, Weight, ReportRadius, NearRadius } )
+function CARGO_PACKAGE:New( CargoCarrier, Type, Name, Weight, LoadRadius, NearRadius )
+  local self = BASE:Inherit( self, CARGO_REPRESENTABLE:New( CargoCarrier, Type, Name, Weight, LoadRadius, NearRadius ) ) -- #CARGO_PACKAGE
+  self:F( { Type, Name, Weight, LoadRadius, NearRadius } )
 
   self:T( CargoCarrier )
   self.CargoCarrier = CargoCarrier

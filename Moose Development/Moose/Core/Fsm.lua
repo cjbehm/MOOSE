@@ -724,6 +724,10 @@ do -- FSM
     return self.current
   end
   
+  function FSM:GetCurrentState()
+    return self.current
+  end
+  
   
   function FSM:Is( State )
     return self.current == State
@@ -930,7 +934,9 @@ do -- FSM_PROCESS
     if self[handler] then
       self:F3( "Calling " .. handler )
       self._EventSchedules[EventName] = nil
-      local Result, Value = xpcall( function() return self[handler]( self, self.Controllable, self.Task, unpack( params ) ) end, ErrorHandler )
+      if self.Controllable and self.Controllable:IsAlive() == true then
+        local Result, Value = xpcall( function() return self[handler]( self, self.Controllable, self.Task, unpack( params ) ) end, ErrorHandler )
+      end
       return Value
       --return self[handler]( self, self.Controllable, unpack( params ) )
     end

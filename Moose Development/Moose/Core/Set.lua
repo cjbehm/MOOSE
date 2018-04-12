@@ -149,6 +149,7 @@ end
 -- @param #SET_BASE self
 -- @param #string ObjectName
 function SET_BASE:Remove( ObjectName )
+  self:F( { ObjectName = ObjectName, Object = Object } )
 
   local Object = self.Set[ObjectName]
   
@@ -173,7 +174,7 @@ end
 -- @param Core.Base#BASE Object
 -- @return Core.Base#BASE The added BASE Object.
 function SET_BASE:Add( ObjectName, Object )
-  self:F3( { ObjectName = ObjectName, Object = Object } )
+  self:F( { ObjectName = ObjectName, Object = Object } )
 
   -- Ensure that the existing element is removed from the Set before a new one is inserted to the Set
   if self.Set[ObjectName] then
@@ -312,10 +313,6 @@ function SET_BASE:_FilterStart()
       self:Add( ObjectName, Object )
     end
   end
-  
-  self:HandleEvent( EVENTS.Birth, self._EventOnBirth )
-  self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrash )
-  self:HandleEvent( EVENTS.Crash, self._EventOnDeadOrCrash )
   
   -- Follow alive players and clients
   --self:HandleEvent( EVENTS.PlayerEnterUnit, self._EventOnPlayerEnterUnit )
@@ -935,6 +932,9 @@ function SET_GROUP:FilterStart()
 
   if _DATABASE then
     self:_FilterStart()
+    self:HandleEvent( EVENTS.Birth, self._EventOnBirth )
+    self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrash )
+    self:HandleEvent( EVENTS.Crash, self._EventOnDeadOrCrash )
   end
   
   
@@ -1643,6 +1643,9 @@ do -- SET_UNIT
   
     if _DATABASE then
       self:_FilterStart()
+      self:HandleEvent( EVENTS.Birth, self._EventOnBirth )
+      self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrash )
+      self:HandleEvent( EVENTS.Crash, self._EventOnDeadOrCrash )
     end
     
     return self
@@ -2559,6 +2562,9 @@ do -- SET_STATIC
   
     if _DATABASE then
       self:_FilterStart()
+      self:HandleEvent( EVENTS.Birth, self._EventOnBirth )
+      self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrash )
+      self:HandleEvent( EVENTS.Crash, self._EventOnDeadOrCrash )
     end
     
     return self
@@ -3200,6 +3206,9 @@ function SET_CLIENT:FilterStart()
 
   if _DATABASE then
     self:_FilterStart()
+    self:HandleEvent( EVENTS.Birth, self._EventOnBirth )
+    self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrash )
+    self:HandleEvent( EVENTS.Crash, self._EventOnDeadOrCrash )
   end
   
   return self
@@ -3599,6 +3608,9 @@ function SET_PLAYER:FilterStart()
 
   if _DATABASE then
     self:_FilterStart()
+    self:HandleEvent( EVENTS.Birth, self._EventOnBirth )
+    self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrash )
+    self:HandleEvent( EVENTS.Crash, self._EventOnDeadOrCrash )
   end
   
   return self
@@ -4131,6 +4143,19 @@ function SET_CARGO:New() --R2.1
   return self
 end
 
+
+--- (R2.1) Add CARGO to SET_CARGO.
+-- @param Core.Set#SET_CARGO self
+-- @param Cargo.Cargo#CARGO Cargo A single cargo.
+-- @return self
+function SET_CARGO:AddCargo( Cargo ) --R2.4
+
+  self:Add( Cargo:GetName(), Cargo )
+    
+  return self
+end
+
+
 --- (R2.1) Add CARGOs to SET_CARGO.
 -- @param Core.Set#SET_CARGO self
 -- @param #string AddCargoNames A single name or an array of CARGO names.
@@ -4257,10 +4282,9 @@ function SET_CARGO:FilterStart() --R2.1
 
   if _DATABASE then
     self:_FilterStart()
+    self:HandleEvent( EVENTS.NewCargo )
+    self:HandleEvent( EVENTS.DeleteCargo )
   end
-
-  self:HandleEvent( EVENTS.NewCargo )
-  self:HandleEvent( EVENTS.DeleteCargo )
   
   return self
 end
@@ -4336,7 +4360,7 @@ function SET_CARGO:IsIncludeObject( MCargo ) --R2.1
           MCargoCoalition = true
         end
       end
-      self:T( { "Evaluated Coalition", MCargoCoalition } )
+      self:F( { "Evaluated Coalition", MCargoCoalition } )
       MCargoInclude = MCargoInclude and MCargoCoalition
     end
 
@@ -4348,7 +4372,7 @@ function SET_CARGO:IsIncludeObject( MCargo ) --R2.1
           MCargoType = true
         end
       end
-      self:T( { "Evaluated Type", MCargoType } )
+      self:F( { "Evaluated Type", MCargoType } )
       MCargoInclude = MCargoInclude and MCargoType
     end
     
@@ -4360,7 +4384,7 @@ function SET_CARGO:IsIncludeObject( MCargo ) --R2.1
           MCargoPrefix = true
         end
       end
-      self:T( { "Evaluated Prefix", MCargoPrefix } )
+      self:F( { "Evaluated Prefix", MCargoPrefix } )
       MCargoInclude = MCargoInclude and MCargoPrefix
     end
   end
@@ -4373,6 +4397,8 @@ end
 -- @param #SET_CARGO self
 -- @param Core.Event#EVENTDATA EventData
 function SET_CARGO:OnEventNewCargo( EventData ) --R2.1
+
+  self:F( { "New Cargo", EventData } )
 
   if EventData.Cargo then
     if EventData.Cargo and self:IsIncludeObject( EventData.Cargo ) then
@@ -4390,7 +4416,18 @@ function SET_CARGO:OnEventDeleteCargo( EventData ) --R2.1
   if EventData.Cargo then
     local Cargo = _DATABASE:FindCargo( EventData.Cargo.Name )
     if Cargo and Cargo.Name then
-      self:Remove( Cargo.Name )
+
+    -- When cargo was deleted, it may probably be because of an S_EVENT_DEAD.
+    -- However, in the loading logic, an S_EVENT_DEAD is also generated after a Destroy() call.
+    -- And this is a problem because it will remove all entries from the SET_CARGOs.
+    -- To prevent this from happening, the Cargo object has a flag NoDestroy.
+    -- When true, the SET_CARGO won't Remove the Cargo object from the set.
+    -- This flag is switched off after the event handlers have been called in the EVENT class.
+      self:F( { CargoNoDestroy=Cargo.NoDestroy } )
+      if Cargo.NoDestroy then
+      else
+        self:Remove( Cargo.Name )
+      end
     end
   end
 end

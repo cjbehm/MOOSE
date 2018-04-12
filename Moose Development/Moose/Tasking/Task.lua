@@ -597,7 +597,9 @@ function TASK:UnAssignFromUnit( TaskUnit )
   self:F( TaskUnit:GetName() )
   
   self:RemoveStateMachine( TaskUnit )
-
+  
+  -- If a Task Control Menu had been set, then this will be removed.
+  self:RemoveTaskControlMenu( TaskUnit )
   return self
 end
 
@@ -686,7 +688,8 @@ function TASK:SetMenu( MenuTime ) --R2.1 Mission Reports and Task Reports added.
   self:F( { self:GetName(), MenuTime } )
 
   --self.SetGroup:Flush()
-  for TaskGroupID, TaskGroupData in pairs( self.SetGroup:GetAliveSet() ) do
+  --for TaskGroupID, TaskGroupData in pairs( self.SetGroup:GetAliveSet() ) do
+  for TaskGroupID, TaskGroupData in pairs( self.SetGroup:GetSet() ) do
     local TaskGroup = TaskGroupData -- Wrapper.Group#GROUP
     if TaskGroup:IsAlive() == true and TaskGroup:GetPlayerNames() then
     
@@ -779,15 +782,16 @@ function TASK:SetAssignedMenuForGroup( TaskGroup, MenuTime )
   local TaskText = string.format( "%s%s", self:GetName(), TaskPlayerString ) --, TaskThreatLevelString )
   local TaskName = string.format( "%s", self:GetName() )
 
-  local MissionMenu = Mission:GetMenu( TaskGroup )
---  local MissionMenu = MENU_GROUP:New( TaskGroup, MissionName, CommandCenterMenu ):SetTime( MenuTime )
---  local MissionMenu = Mission:GetMenu( TaskGroup )
-
-  self.MenuAssigned = self.MenuAssigned or {}
-  self.MenuAssigned[TaskGroup] = MENU_GROUP_DELAYED:New( TaskGroup, string.format( "Assigned Task %s", TaskName ), MissionMenu ):SetTime( MenuTime ):SetTag( "Tasking" )
-  local TaskMenu = MENU_GROUP_COMMAND_DELAYED:New( TaskGroup, string.format( "Abort Task" ), self.MenuAssigned[TaskGroup], self.MenuTaskAbort, self, TaskGroup ):SetTime( MenuTime ):SetTag( "Tasking" )
-  local MarkMenu = MENU_GROUP_COMMAND_DELAYED:New( TaskGroup, string.format( "Mark Task Location on Map" ), self.MenuAssigned[TaskGroup], self.MenuMarkToGroup, self, TaskGroup ):SetTime( MenuTime ):SetTag( "Tasking" )
-  local TaskTypeMenu = MENU_GROUP_COMMAND_DELAYED:New( TaskGroup, string.format( "Report Task Details" ), self.MenuAssigned[TaskGroup], self.MenuTaskStatus, self, TaskGroup ):SetTime( MenuTime ):SetTag( "Tasking" )
+  for UnitName, TaskUnit in pairs( TaskGroup:GetUnits() ) do
+    local TaskUnit = TaskUnit -- Wrapper.Unit#UNIT
+    if TaskUnit then
+      local MenuControl = self:GetTaskControlMenu( TaskUnit )
+      local TaskControl = MENU_GROUP:New( TaskGroup, "Control Task", MenuControl ):SetTime( MenuTime ):SetTag( "Tasking" )
+      local TaskMenu = MENU_GROUP_COMMAND:New( TaskGroup, string.format( "Abort Task" ), TaskControl, self.MenuTaskAbort, self, TaskGroup ):SetTime( MenuTime ):SetTag( "Tasking" )
+      local MarkMenu = MENU_GROUP_COMMAND:New( TaskGroup, string.format( "Mark Task Location on Map" ), TaskControl, self.MenuMarkToGroup, self, TaskGroup ):SetTime( MenuTime ):SetTag( "Tasking" )
+      local TaskTypeMenu = MENU_GROUP_COMMAND:New( TaskGroup, string.format( "Report Task Details" ), TaskControl, self.MenuTaskStatus, self, TaskGroup ):SetTime( MenuTime ):SetTag( "Tasking" )
+    end
+  end
 
   return self
 end
@@ -1441,11 +1445,13 @@ function TASK:GetPlayerCount() --R2.1 Get a count of the players.
   local PlayerCount = 0
 
   -- Loop each Unit active in the Task, and find Player Names.
-  for TaskGroupID, PlayerGroup in pairs( self:GetGroups():GetAliveSet() ) do
+  for TaskGroupID, PlayerGroup in pairs( self:GetGroups():GetSet() ) do
     local PlayerGroup = PlayerGroup -- Wrapper.Group#GROUP
-    if self:IsGroupAssigned( PlayerGroup ) then
-      local PlayerNames = PlayerGroup:GetPlayerNames()
-        PlayerCount = PlayerCount + #PlayerNames
+    if PlayerGroup:IsAlive() == true then
+      if self:IsGroupAssigned( PlayerGroup ) then
+        local PlayerNames = PlayerGroup:GetPlayerNames()
+          PlayerCount = PlayerCount + #PlayerNames
+      end
     end
   end
 
@@ -1499,7 +1505,7 @@ function TASK:ReportDetails( ReportGroup )
   
   local PlayerReport = REPORT:New()
   for PlayerName, PlayerGroup in pairs( PlayerNames ) do
-    PlayerReport:Add( "Group " .. PlayerGroup:GetCallsign() .. ": " .. PlayerName )
+    PlayerReport:Add( "Players group " .. PlayerGroup:GetCallsign() .. ": " .. PlayerName )
   end
   local Players = PlayerReport:Text()
   
@@ -1594,4 +1600,59 @@ do -- Additional Task Scoring and Task Progress
     return self
   end
 
+end
+
+do -- Task Control Menu
+  
+  -- The Task Control Menu is a menu attached to the task at the main menu to quickly be able to do actions in the task.
+  -- The Task Control Menu can only be shown when the task is assigned to the player.
+  -- The Task Control Menu is linked to the process executing the task, so no task menu can be set to the main static task definition.
+  
+  --- Init Task Control Menu
+  -- @param #TASK self
+  -- @param Wrapper.Unit#UNIT TaskUnit The @{Unit} that contains a player.
+  -- @return Task Control Menu Refresh ID
+  function TASK:InitTaskControlMenu( TaskUnit )
+
+    self.TaskControlMenuTime = timer.getTime()
+    
+    return self.TaskControlMenuTime
+  end
+  
+  --- Get Task Control Menu
+  -- @param #TASK self
+  -- @param Wrapper.Unit#UNIT TaskUnit The @{Unit} that contains a player.
+  -- @return Core.Menu#MENU_GROUP TaskControlMenu The Task Control Menu
+  function TASK:GetTaskControlMenu( TaskUnit, TaskName )
+  
+    TaskName = TaskName or ""
+    
+    self.TaskControlMenu = MENU_GROUP:New( TaskUnit:GetGroup(), "Assigned Task " .. TaskUnit:GetPlayerName() .. " - " .. self:GetName() .. " " .. TaskName ):SetTime( self.TaskControlMenuTime )
+    
+    return self.TaskControlMenu
+  end
+
+  --- Remove Task Control Menu
+  -- @param #TASK self
+  -- @param Wrapper.Unit#UNIT TaskUnit The @{Unit} that contains a player.
+  function TASK:RemoveTaskControlMenu( TaskUnit )
+  
+    if self.TaskControlMenu then
+      self.TaskControlMenu:Remove()
+      self.TaskControlMenu = nil
+    end
+  end
+  
+  --- Refresh Task Control Menu
+  -- @param #TASK self
+  -- @param Wrapper.Unit#UNIT TaskUnit The @{Unit} that contains a player.
+  -- @param MenuTime The refresh time that was used to refresh the Task Control Menu items.
+  -- @param MenuTag The tag.
+  function TASK:RefreshTaskControlMenu( TaskUnit, MenuTime, MenuTag )
+  
+    if self.TaskControlMenu then
+      self.TaskControlMenu:Remove( MenuTime, MenuTag )
+    end
+  end
+  
 end
