@@ -429,36 +429,50 @@ do -- TASK_CARGO_DISPATCHER
 
   --- Add a Transport task to transport cargo from fixed locations to a deployment zone.
   -- @param #TASK_CARGO_DISPATCHER self
-  -- @param #string TransportTaskName (optional) The name of the transport task. 
+  -- @param #string TaskName (optional) The name of the transport task. 
   -- @param Core.SetCargo#SET_CARGO SetCargo The SetCargo to be transported.
   -- @param #string Briefing The briefing of the task transport to be shown to the player.
   -- @return #TASK_CARGO_DISPATCHER
   -- @usage
   -- 
   --   -- Add a Transport task to transport cargo of different types to a Transport Deployment Zone.
-  function TASK_CARGO_DISPATCHER:AddTransportTask( TransportTaskName, SetCargo, Briefing )
+  function TASK_CARGO_DISPATCHER:AddTransportTask( TaskName, SetCargo, Briefing )
 
     self.TransportCount = self.TransportCount + 1
-    local TaskName = string.format( ( TransportTaskName or "Transport" ) .. ".%03d", self.TransportCount )
+    
+    local TaskName = string.format( ( TaskName or "Transport" ) .. ".%03d", self.TransportCount )
     
     self.Transport[TaskName] = {} 
     self.Transport[TaskName].SetCargo = SetCargo
     self.Transport[TaskName].Briefing = Briefing
     self.Transport[TaskName].Task = nil
     
-    return self
+    return TaskName
+  end
+
+
+  --- Add a Transport task to transport cargo from fixed locations to a deployment zone.
+  -- @param #TASK_CARGO_DISPATCHER self
+  -- @param #string TaskName (optional) The name of the transport task. 
+  -- @return Tasking.Task_Cargo_Transport#TASK_CARGO_TRANSPORT
+  function TASK_CARGO_DISPATCHER:GetTransportTask( TaskName )
+
+    self:ManageTasks()
+    return self.Transport[TaskName] and self.Transport[TaskName].Task
   end
 
   
   --- Define one deploy zone for the Transport tasks.
   -- @param #TASK_CARGO_DISPATCHER self
-  -- @param #string TransportTaskName (optional) The name of the Transport task. 
+  -- @param #string TaskName (optional) The name of the Transport task. 
   -- @param TransportDeployZone A Transport deploy zone.
   -- @return #TASK_CARGO_DISPATCHER
-  function TASK_CARGO_DISPATCHER:SetTransportDeployZone( TransportTaskName, TransportDeployZone )
+  function TASK_CARGO_DISPATCHER:SetTransportDeployZone( TaskName, TransportDeployZone )
 
-    if TransportTaskName then
-      self.Transport[TransportTaskName].DeployZones = { TransportDeployZone }
+    if self.Transport[TaskName] then
+      self.Transport[TaskName].DeployZones = { TransportDeployZone }
+    else
+      error( "TaskName does not exist" )
     end
   
     return self
@@ -467,14 +481,16 @@ do -- TASK_CARGO_DISPATCHER
   
   --- Define the deploy zones for the Transport tasks.
   -- @param #TASK_CARGO_DISPATCHER self
-  -- @param #string TransportTaskName (optional) The name of the Transport task.
+  -- @param #string TaskName (optional) The name of the Transport task.
   -- @param TransportDeployZones A list of the Transport deploy zones.
   -- @return #TASK_CARGO_DISPATCHER
   -- 
-  function TASK_CARGO_DISPATCHER:SetTransportDeployZones( TransportTaskName, TransportDeployZones )
+  function TASK_CARGO_DISPATCHER:SetTransportDeployZones( TaskName, TransportDeployZones )
 
-    if TransportTaskName then
-      self.Transport[TransportTaskName].DeployZones = TransportDeployZones
+    if self.Transport[TaskName] then
+      self.Transport[TaskName].DeployZones = TransportDeployZones
+    else
+      error( "TaskName does not exist" )
     end
   
     return self

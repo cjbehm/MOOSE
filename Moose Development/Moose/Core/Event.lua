@@ -174,6 +174,7 @@
 EVENT = {
   ClassName = "EVENT",
   ClassID = 0,
+  MissionEnd = false,
 }
 
 world.event.S_EVENT_NEW_CARGO = world.event.S_EVENT_MAX + 1000
@@ -748,8 +749,13 @@ function EVENT:onEvent( Event )
   if self and 
      self.Events and 
      self.Events[Event.id] and
+     self.MissionEnd == false and
      ( Event.initiator ~= nil or ( Event.initiator == nil and Event.id ~= EVENTS.PlayerLeaveUnit ) ) then
 
+    if Event.id and Event.id == EVENTS.MissionEnd then
+      self.MissionEnd = true
+    end
+    
     if Event.initiator then    
       
       Event.IniObjectCategory = Event.initiator:getCategory()
@@ -783,6 +789,16 @@ function EVENT:onEvent( Event )
         Event.IniDCSUnitName = Event.IniDCSUnit:getName()
         Event.IniUnitName = Event.IniDCSUnitName
         Event.IniUnit = STATIC:FindByName( Event.IniDCSUnitName, false )
+        Event.IniCoalition = Event.IniDCSUnit:getCoalition()
+        Event.IniCategory = Event.IniDCSUnit:getDesc().category
+        Event.IniTypeName = Event.IniDCSUnit:getTypeName()
+      end
+
+      if Event.IniObjectCategory == Object.Category.CARGO then
+        Event.IniDCSUnit = Event.initiator
+        Event.IniDCSUnitName = Event.IniDCSUnit:getName()
+        Event.IniUnitName = Event.IniDCSUnitName
+        Event.IniUnit = CARGO:FindByName( Event.IniDCSUnitName )
         Event.IniCoalition = Event.IniDCSUnit:getCoalition()
         Event.IniCategory = Event.IniDCSUnit:getDesc().category
         Event.IniTypeName = Event.IniDCSUnit:getTypeName()
@@ -872,7 +888,7 @@ function EVENT:onEvent( Event )
       
         -- Okay, we got the event from DCS. Now loop the SORTED self.EventSorted[] table for the received Event.id, and for each EventData registered, check if a function needs to be called.
         for EventClass, EventData in pairs( self.Events[Event.id][EventPriority] ) do
-
+        
           --if Event.IniObjectCategory ~= Object.Category.STATIC then
           --  self:E( { "Evaluating: ", EventClass:GetClassNameAndID() } )
           --end
@@ -1020,6 +1036,16 @@ function EVENT:onEvent( Event )
           end
         end
       end
+    end
+    
+    -- When cargo was deleted, it may probably be because of an S_EVENT_DEAD.
+    -- However, in the loading logic, an S_EVENT_DEAD is also generated after a Destroy() call.
+    -- And this is a problem because it will remove all entries from the SET_CARGOs.
+    -- To prevent this from happening, the Cargo object has a flag NoDestroy.
+    -- When true, the SET_CARGO won't Remove the Cargo object from the set.
+    -- But we need to switch that flag off after the event handlers have been called.
+    if Event.id == EVENTS.DeleteCargo then
+      Event.Cargo.NoDestroy = nil
     end
   else
     self:T( { EventMeta.Text, Event } )    
