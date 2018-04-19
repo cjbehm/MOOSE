@@ -24,18 +24,21 @@ AI_CARGO_APC = {
 
 --- Creates a new AI_CARGO_APC object.
 -- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
--- @param Cargo.CargoGroup#CARGO_GROUP CargoGroup
+-- @param Wrapper.Group#GROUP CargoCarrier
+-- @param Core.Set#SET_CARGO CargoSet
 -- @param #number CombatRadius
 -- @return #AI_CARGO_APC
-function AI_CARGO_APC:New( CargoCarrier, CargoGroup, CombatRadius )
+function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
 
   local self = BASE:Inherit( self, FSM_CONTROLLABLE:New() ) -- #AI_CARGO_APC
 
-  self.CargoGroup = CargoGroup -- Cargo.CargoGroup#CARGO_GROUP
+  self.CargoSet = CargoSet -- Core.Set#SET_CARGO
   self.CombatRadius = CombatRadius
 
   self:SetStartState( "UnLoaded" ) 
+  
+  self:AddTransition( "Unloaded", "Pickup", "*" )
+  self:AddTransition( "Loaded", "Deploy", "*" )
   
   self:AddTransition( "*", "Load", "Boarding" )
   self:AddTransition( "Boarding", "Board", "Boarding" )
@@ -50,6 +53,63 @@ function AI_CARGO_APC:New( CargoCarrier, CargoGroup, CombatRadius )
   
   self:AddTransition( "*", "Destroyed", "Destroyed" )
 
+
+  --- Pickup Handler OnBefore for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] OnBeforePickup
+  -- @param #AI_CARGO_APC self
+  -- @param #string From
+  -- @param #string Event
+  -- @param #string To
+  -- @param #number Waypoint
+  -- @return #boolean
+  
+  --- Pickup Handler OnAfter for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] OnAfterPickup
+  -- @param #AI_CARGO_APC self
+  -- @param #string From
+  -- @param #string Event
+  -- @param #string To
+  -- @param #number Waypoint
+  
+  --- Pickup Trigger for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] Pickup
+  -- @param #AI_CARGO_APC self
+  -- @param #number Waypoint
+  
+  --- Pickup Asynchronous Trigger for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] __Pickup
+  -- @param #AI_CARGO_APC self
+  -- @param #number Delay
+  -- @param #number Waypoint
+  
+  --- Deploy Handler OnBefore for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] OnBeforeDeploy
+  -- @param #AI_CARGO_APC self
+  -- @param #string From
+  -- @param #string Event
+  -- @param #string To
+  -- @param #number Waypoint
+  -- @return #boolean
+  
+  --- Deploy Handler OnAfter for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] OnAfterDeploy
+  -- @param #AI_CARGO_APC self
+  -- @param #string From
+  -- @param #string Event
+  -- @param #string To
+  -- @param #number Waypoint
+  
+  --- Deploy Trigger for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] Deploy
+  -- @param #AI_CARGO_APC self
+  -- @param #number Waypoint
+  
+  --- Deploy Asynchronous Trigger for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] __Deploy
+  -- @param #AI_CARGO_APC self
+  -- @param #number Waypoint
+  -- @param #number Delay
+
   self:__Monitor( 1 )
 
   self:SetCarrier( CargoCarrier )
@@ -60,11 +120,11 @@ end
 
 --- Set the Carrier.
 -- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 -- @return #AI_CARGO_APC
 function AI_CARGO_APC:SetCarrier( CargoCarrier )
 
-  self.CargoCarrier = CargoCarrier -- Wrapper.Unit#UNIT
+  self.CargoCarrier = CargoCarrier -- Wrapper.Group#GROUP
   self.CargoCarrier:SetState( self.CargoCarrier, "AI_CARGO_APC", self )
 
   CargoCarrier:HandleEvent( EVENTS.Dead )
@@ -110,7 +170,7 @@ end
 -- @param #AI_CARGO_APC self
 -- @param Core.Point#COORDINATE Coordinate
 -- @param #number Radius
--- @return Wrapper.Unit#UNIT NewCarrier
+-- @return Wrapper.Group#GROUP NewCarrier
 function AI_CARGO_APC:FindCarrier( Coordinate, Radius )
 
   local CoordinateZone = ZONE_RADIUS:New( "Zone" , Coordinate:GetVec2(), Radius )
@@ -135,7 +195,7 @@ end
 --- Follow Infantry to the Carrier.
 -- @param #AI_CARGO_APC self
 -- @param #AI_CARGO_APC Me
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 -- @param Wrapper.Group#GROUP InfantryGroup
 -- @return #AI_CARGO_APC
 function AI_CARGO_APC:FollowToCarrier( Me, CargoCarrier, InfantryGroup )
@@ -186,7 +246,7 @@ end
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 function AI_CARGO_APC:onafterMonitor( CargoCarrier, From, Event, To )
   self:F( { CargoCarrier, From, Event, To } )
 
@@ -206,19 +266,19 @@ function AI_CARGO_APC:onafterMonitor( CargoCarrier, From, Event, To )
         end
       end
       if self:Is( "Guarding" ) then
-        if not self.CargoGroup:IsNear( CargoCarrier, 5 ) then
+        if not self.Cargo:IsNear( CargoCarrier, 5 ) then
           self:Follow()
         end
       end
       if self:Is( "Following" ) then
-        local Distance = Coordinate:Get2DDistance( self.CargoGroup:GetCoordinate() )
+        local Distance = Coordinate:Get2DDistance( self.Cargo:GetCoordinate() )
         self:F( { Distance = Distance } )
         if Distance > 40 then
           CargoCarrier:RouteStop()
           self.CarrierStopped = true
         else
           if self.CarrierStopped then
-            if self.CargoGroup:IsNear( CargoCarrier, 10 ) then
+            if self.Cargo:IsNear( CargoCarrier, 10 ) then
               CargoCarrier:RouteResume()
               self.CarrierStopped = nil
             end
@@ -236,26 +296,33 @@ end
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
-function AI_CARGO_APC:onafterLoad( CargoCarrier, From, Event, To )
-  self:F( { CargoCarrier, From, Event, To } )
+-- @param Wrapper.Group#GROUP Carrier
+function AI_CARGO_APC:onafterLoad( Carrier, From, Event, To )
+  self:F( { Carrier, From, Event, To } )
 
-  if CargoCarrier and CargoCarrier:IsAlive() then
-    CargoCarrier:RouteStop()
-    self:__Board( 10 ) 
-    self.CargoGroup:Board( CargoCarrier, 10 )
+  if Carrier and Carrier:IsAlive() then
+    Carrier:RouteStop()
+
+    for _, Cargo in pairs( self.CargoSet:GetSet() ) do
+      if Cargo:IsInLoadRadius( Carrier:GetCoordinate() ) then
+        self:__Board( 5 )
+        Cargo:Board( Carrier, 25 )
+        self.Cargo = Cargo
+        break
+      end
+    end
   end
   
 end
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 function AI_CARGO_APC:onafterBoard( CargoCarrier, From, Event, To )
   self:F( { CargoCarrier, From, Event, To } )
 
   if CargoCarrier and CargoCarrier:IsAlive() then
-    self:F({ IsLoaded = self.CargoGroup:IsLoaded() } )
-    if not self.CargoGroup:IsLoaded() then
+    self:F({ IsLoaded = self.Cargo:IsLoaded() } )
+    if not self.Cargo:IsLoaded() then
       self:__Board( 10 )
     else
       self:__Loaded( 1 )
@@ -265,7 +332,7 @@ function AI_CARGO_APC:onafterBoard( CargoCarrier, From, Event, To )
 end
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 function AI_CARGO_APC:onafterLoaded( CargoCarrier, From, Event, To )
   self:F( { CargoCarrier, From, Event, To } )
 
@@ -277,25 +344,25 @@ end
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 function AI_CARGO_APC:onafterUnload( CargoCarrier, From, Event, To )
   self:F( { CargoCarrier, From, Event, To } )
 
   if CargoCarrier and CargoCarrier:IsAlive() then
     CargoCarrier:RouteStop()
-    self.CargoGroup:UnBoard( )
+    self.Cargo:UnBoard()
     self:__Unboard( 10 ) 
   end
   
 end
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 function AI_CARGO_APC:onafterUnboard( CargoCarrier, From, Event, To )
   self:F( { CargoCarrier, From, Event, To } )
 
   if CargoCarrier and CargoCarrier:IsAlive() then
-    if not self.CargoGroup:IsUnLoaded() then
+    if not self.Cargo:IsUnLoaded() then
       self:__Unboard( 10 ) 
     else
       self:__Unloaded( 1 )
@@ -305,7 +372,7 @@ function AI_CARGO_APC:onafterUnboard( CargoCarrier, From, Event, To )
 end
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 function AI_CARGO_APC:onafterUnloaded( CargoCarrier, From, Event, To )
   self:F( { CargoCarrier, From, Event, To } )
 
@@ -319,13 +386,13 @@ end
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Unit#UNIT CargoCarrier
+-- @param Wrapper.Group#GROUP CargoCarrier
 function AI_CARGO_APC:onafterFollow( CargoCarrier, From, Event, To )
   self:F( { CargoCarrier, From, Event, To } )
 
   self:F( "Follow" )
   if CargoCarrier and CargoCarrier:IsAlive() then
-    self.CargoGroup.CargoSet:ForEach(
+    self.Cargo.CargoSet:ForEach(
       --- @param Core.Cargo#CARGO Cargo
       function( Cargo )
         self:F( { "Follow", Cargo.CargoObject:GetName() } )
@@ -335,6 +402,89 @@ function AI_CARGO_APC:onafterFollow( CargoCarrier, From, Event, To )
         end
       end
     )
+  end
+  
+end
+
+
+--- @param #AI_CARGO_APC 
+-- @param Wrapper.Group#GROUP Carrier
+function AI_CARGO_APC._Pickup( Carrier )
+
+  Carrier:F( { "AI_CARGO_APC._Pickup:", Carrier:GetName() } )
+
+  if Carrier:IsAlive() then
+    Carrier:__Load( 1 )
+  end
+end
+
+
+--- @param #AI_CARGO_APC 
+-- @param Wrapper.Group#GROUP Carrier
+function AI_CARGO_APC._Deploy( Carrier )
+
+  Carrier:F( { "AI_CARGO_APC._Deploy:", Carrier:GetName() } )
+
+  if Carrier:IsAlive() then
+    Carrier:__Unload( 1 )
+  end
+end
+
+
+
+--- @param #AI_CARGO_APC self
+-- @param Wrapper.Group#GROUP Carrier
+-- @param From
+-- @param Event
+-- @param To
+-- @param #number Waypoint
+-- @param #number Speed
+function AI_CARGO_APC:onafterPickup( Carrier, From, Event, To, Waypoint, Speed )
+
+  if Carrier and Carrier:IsAlive() then
+
+    self.RoutePickup = true
+     
+    local Route = Carrier:GetTemplateRoutePoints()
+    
+    
+    --- Now we're going to do something special, we're going to call a function from a waypoint action at the AIControllable...
+    Carrier:WayPointInitialize( Route )
+  
+    local Tasks = {}
+    
+    Tasks[#Tasks+1] = Carrier:TaskFunction( "AI_CARGO_ROUTE._Pickup", self )
+    Route[Waypoint].task = Carrier:TaskCombo( Tasks )
+
+    -- Now route the helicopter
+    Carrier:Route( Route, 0.5 )
+  end
+  
+end
+
+
+--- @param #AI_CARGO_APC self
+-- @param Wrapper.Group#GROUP Carrier
+-- @param From
+-- @param Event
+-- @param To
+-- @param #number Waypoint
+-- @param #number Speed
+function AI_CARGO_APC:onafterDeploy( Carrier, From, Event, To, Waypoint, Speed )
+
+  if Carrier and Carrier:IsAlive() then
+
+    self.RouteDeploy = true
+     
+    local Route = Carrier:GetTemplateRoutePoints()
+    
+    local Tasks = {}
+    
+    Tasks[#Tasks+1] = Carrier:TaskFunction( "AI_CARGO_ROUTE._Deploy", self )
+    Route[Waypoint].task = Carrier:TaskCombo( Tasks )
+
+    -- Now route the helicopter
+    Carrier:Route( Route, 0.5 )
   end
   
 end
