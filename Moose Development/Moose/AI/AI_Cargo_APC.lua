@@ -263,24 +263,25 @@ function AI_CARGO_APC:onafterMonitor( CargoCarrier, From, Event, To )
         if self:Is( "Loaded" ) then
           -- There are enemies within combat range. Unload the CargoCarrier.
           self:__Unload( 1 )
-        end
-      end
-      if self:Is( "Guarding" ) then
-        if not self.Cargo:IsNear( CargoCarrier, 5 ) then
-          self:Follow()
-        end
-      end
-      if self:Is( "Following" ) then
-        local Distance = Coordinate:Get2DDistance( self.Cargo:GetCoordinate() )
-        self:F( { Distance = Distance } )
-        if Distance > 40 then
-          CargoCarrier:RouteStop()
-          self.CarrierStopped = true
         else
-          if self.CarrierStopped then
-            if self.Cargo:IsNear( CargoCarrier, 10 ) then
-              CargoCarrier:RouteResume()
-              self.CarrierStopped = nil
+          if self:Is( "Guarding" ) then
+            if not self.Cargo:IsNear( CargoCarrier, 5 ) then
+              self:Follow()
+            end
+          end
+          if self:Is( "Following" ) then
+            local Distance = Coordinate:Get2DDistance( self.Cargo:GetCoordinate() )
+            self:F( { Distance = Distance } )
+            if Distance > 40 then
+              CargoCarrier:RouteStop()
+              self.CarrierStopped = true
+            else
+              if self.CarrierStopped then
+                if self.Cargo:IsNear( CargoCarrier, 10 ) then
+                  CargoCarrier:RouteResume()
+                  self.CarrierStopped = nil
+                end
+              end
             end
           end
         end
@@ -304,10 +305,12 @@ function AI_CARGO_APC:onafterLoad( Carrier, From, Event, To )
     Carrier:RouteStop()
 
     for _, Cargo in pairs( self.CargoSet:GetSet() ) do
+      local Cargo = Cargo -- Cargo.Cargo#CARGO
+      self:F( Cargo )
       if Cargo:IsInLoadRadius( Carrier:GetCoordinate() ) then
-        self:__Board( 5 )
-        Cargo:Board( Carrier, 25 )
-        self.Cargo = Cargo
+        self:F( "In radius" )
+        self:__Board( 1, Cargo )
+        Cargo:Board( Carrier:GetUnit(1), 25 )
         break
       end
     end
@@ -316,16 +319,16 @@ function AI_CARGO_APC:onafterLoad( Carrier, From, Event, To )
 end
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP CargoCarrier
-function AI_CARGO_APC:onafterBoard( CargoCarrier, From, Event, To )
-  self:F( { CargoCarrier, From, Event, To } )
+-- @param Wrapper.Group#GROUP Carrier
+function AI_CARGO_APC:onafterBoard( Carrier, From, Event, To, Cargo )
+  self:F( { Carrier, From, Event, To, Cargo } )
 
-  if CargoCarrier and CargoCarrier:IsAlive() then
-    self:F({ IsLoaded = self.Cargo:IsLoaded() } )
-    if not self.Cargo:IsLoaded() then
-      self:__Board( 10 )
+  if Carrier and Carrier:IsAlive() then
+    self:F({ IsLoaded = Cargo:IsLoaded() } )
+    if not Cargo:IsLoaded() then
+      self:__Board( 10, Cargo )
     else
-      self:__Loaded( 1 )
+      self:__Loaded( 1, Cargo )
     end
   end
   
@@ -333,11 +336,12 @@ end
 
 --- @param #AI_CARGO_APC self
 -- @param Wrapper.Group#GROUP CargoCarrier
-function AI_CARGO_APC:onafterLoaded( CargoCarrier, From, Event, To )
-  self:F( { CargoCarrier, From, Event, To } )
+function AI_CARGO_APC:onafterLoaded( CargoCarrier, From, Event, To, Cargo )
+  self:F( { CargoCarrier, From, Event, To, Cargo } )
 
   if CargoCarrier and CargoCarrier:IsAlive() then
     CargoCarrier:RouteResume()
+    self.Cargo = Cargo
   end
   
 end
