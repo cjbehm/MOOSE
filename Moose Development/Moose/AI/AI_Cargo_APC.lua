@@ -182,11 +182,12 @@ function AI_CARGO_APC:FindCarrier( Coordinate, Radius )
       local Attributes = NearUnit:GetDesc()
       self:F({Desc=Attributes})
       if NearUnit:HasAttribute( "Trucks" ) then
-        self:SetCarrier( NearUnit )
-        break
+        return NearUnit:GetGroup()
       end
     end
   end
+  
+  return nil
 
 end
 

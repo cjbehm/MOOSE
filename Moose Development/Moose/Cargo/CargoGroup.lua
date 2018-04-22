@@ -451,14 +451,12 @@ do -- CARGO_GROUP
     local Cargo = self.CargoSet:GetFirst() -- #CARGO
 
     if Cargo then
-      self:F( { Cargo } )
       local Distance = 0
       if Cargo:IsLoaded() then
         Distance = Coordinate:Get2DDistance( Cargo.CargoCarrier:GetCoordinate() )
       else
         Distance = Coordinate:Get2DDistance( Cargo.CargoObject:GetCoordinate() )
       end
-      self:T( Distance )
       
       if Distance <= self.LoadRadius then
         return true
