@@ -59,7 +59,7 @@ do -- CARGO_GROUP
     local WeightGroup = 0
     
     local GroupName = CargoGroup:GetName()
-    local CargoName = GroupName:match("(.*)~CARGO")
+    local CargoName = GroupName:match("(.*)~CARGO") or GroupName
     self.CargoTemplate = UTILS.DeepCopy( _DATABASE:GetGroupTemplate( GroupName ) )
     
     CargoGroup:Destroy()
