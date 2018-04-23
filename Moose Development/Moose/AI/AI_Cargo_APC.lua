@@ -35,7 +35,7 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   self.CargoSet = CargoSet -- Core.Set#SET_CARGO
   self.CombatRadius = CombatRadius
 
-  self:SetStartState( "UnLoaded" ) 
+  self:SetStartState( "Unloaded" ) 
   
   self:AddTransition( "Unloaded", "Pickup", "*" )
   self:AddTransition( "Loaded", "Deploy", "*" )
@@ -49,7 +49,7 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   
   self:AddTransition( "*", "Monitor", "*" )
   self:AddTransition( "*", "Follow", "Following" )
-  self:AddTransition( "*", "Guard", "Guarding" )
+  self:AddTransition( "*", "Guard", "Unloaded" )
   
   self:AddTransition( "*", "Destroyed", "Destroyed" )
 
@@ -60,7 +60,7 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param #number Waypoint
+  -- @param Core.Point#COORDINATE Coordinate
   -- @return #boolean
   
   --- Pickup Handler OnAfter for AI_CARGO_APC
@@ -69,18 +69,18 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param #number Waypoint
+  -- @param Core.Point#COORDINATE Coordinate
   
   --- Pickup Trigger for AI_CARGO_APC
   -- @function [parent=#AI_CARGO_APC] Pickup
   -- @param #AI_CARGO_APC self
-  -- @param #number Waypoint
+  -- @param Core.Point#COORDINATE Coordinate
   
   --- Pickup Asynchronous Trigger for AI_CARGO_APC
   -- @function [parent=#AI_CARGO_APC] __Pickup
   -- @param #AI_CARGO_APC self
   -- @param #number Delay
-  -- @param #number Waypoint
+  -- @param Core.Point#COORDINATE Coordinate
   
   --- Deploy Handler OnBefore for AI_CARGO_APC
   -- @function [parent=#AI_CARGO_APC] OnBeforeDeploy
@@ -88,7 +88,7 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param #number Waypoint
+  -- @param Core.Point#COORDINATE Coordinate
   -- @return #boolean
   
   --- Deploy Handler OnAfter for AI_CARGO_APC
@@ -97,18 +97,28 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param #number Waypoint
+  -- @param Core.Point#COORDINATE Coordinate
   
   --- Deploy Trigger for AI_CARGO_APC
   -- @function [parent=#AI_CARGO_APC] Deploy
   -- @param #AI_CARGO_APC self
-  -- @param #number Waypoint
+  -- @param Core.Point#COORDINATE Coordinate
   
   --- Deploy Asynchronous Trigger for AI_CARGO_APC
   -- @function [parent=#AI_CARGO_APC] __Deploy
   -- @param #AI_CARGO_APC self
-  -- @param #number Waypoint
+  -- @param Core.Point#COORDINATE Coordinate
   -- @param #number Delay
+
+  
+  --- Loaded Handler OnAfter for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] OnAfterLoaded
+  -- @param #AI_CARGO_APC self
+  -- @param Wrapper.Group#GROUP APC
+  -- @param #string From
+  -- @param #string Event
+  -- @param #string To
+  
 
   self:__Monitor( 1 )
 
@@ -256,16 +266,16 @@ function AI_CARGO_APC:onafterMonitor( CargoCarrier, From, Event, To )
       local Coordinate = CargoCarrier:GetCoordinate()
       self.Zone:Scan( { Object.Category.UNIT } )
       if self.Zone:IsAllInZoneOfCoalition( self.Coalition ) then
-        if self:Is( "Unloaded" ) or self:Is( "Guarding" ) or self:Is( "Following" ) then
+        if self:Is( "Unloaded" ) or self:Is( "Following" ) then
           -- There are no enemies within combat range. Load the CargoCarrier.
-          self:__Load( 1 )
+          self:Load()
         end
       else
         if self:Is( "Loaded" ) then
           -- There are enemies within combat range. Unload the CargoCarrier.
           self:__Unload( 1 )
         else
-          if self:Is( "Guarding" ) then
+          if self:Is( "Unloaded" ) then
             if not self.Cargo:IsNear( CargoCarrier, 5 ) then
               self:Follow()
             end
@@ -299,23 +309,24 @@ end
 
 --- @param #AI_CARGO_APC self
 -- @param Wrapper.Group#GROUP Carrier
-function AI_CARGO_APC:onafterLoad( Carrier, From, Event, To )
+function AI_CARGO_APC:onbeforeLoad( Carrier, From, Event, To )
   self:F( { Carrier, From, Event, To } )
 
   if Carrier and Carrier:IsAlive() then
-    Carrier:RouteStop()
-
     for _, Cargo in pairs( self.CargoSet:GetSet() ) do
       local Cargo = Cargo -- Cargo.Cargo#CARGO
       self:F( Cargo )
       if Cargo:IsInLoadRadius( Carrier:GetCoordinate() ) then
         self:F( "In radius" )
+        Carrier:RouteStop()
         self:__Board( 1, Cargo )
         Cargo:Board( Carrier:GetUnit(1), 25 )
-        break
+        return true
       end
     end
   end
+  
+  return false
   
 end
 
@@ -442,27 +453,15 @@ end
 -- @param From
 -- @param Event
 -- @param To
--- @param #number Waypoint
+-- @param Core.Point#COORDINATE Coordinate
 -- @param #number Speed
-function AI_CARGO_APC:onafterPickup( Carrier, From, Event, To, Waypoint, Speed )
+function AI_CARGO_APC:onafterPickup( Carrier, From, Event, To, Coordinate, Speed )
 
   if Carrier and Carrier:IsAlive() then
 
     self.RoutePickup = true
-     
-    local Route = Carrier:GetTemplateRoutePoints()
     
-    
-    --- Now we're going to do something special, we're going to call a function from a waypoint action at the AIControllable...
-    Carrier:WayPointInitialize( Route )
-  
-    local Tasks = {}
-    
-    Tasks[#Tasks+1] = Carrier:TaskFunction( "AI_CARGO_ROUTE._Pickup", self )
-    Route[Waypoint].task = Carrier:TaskCombo( Tasks )
-
-    -- Now route the helicopter
-    Carrier:Route( Route, 0.5 )
+    Carrier:RouteGroundOnRoad( Coordinate, Speed, 1 )
   end
   
 end
@@ -473,23 +472,15 @@ end
 -- @param From
 -- @param Event
 -- @param To
--- @param #number Waypoint
+-- @param Core.Point#COORDINATE Coordinate
 -- @param #number Speed
-function AI_CARGO_APC:onafterDeploy( Carrier, From, Event, To, Waypoint, Speed )
+function AI_CARGO_APC:onafterDeploy( Carrier, From, Event, To, Coordinate, Speed )
 
   if Carrier and Carrier:IsAlive() then
 
     self.RouteDeploy = true
      
-    local Route = Carrier:GetTemplateRoutePoints()
-    
-    local Tasks = {}
-    
-    Tasks[#Tasks+1] = Carrier:TaskFunction( "AI_CARGO_ROUTE._Deploy", self )
-    Route[Waypoint].task = Carrier:TaskCombo( Tasks )
-
-    -- Now route the helicopter
-    Carrier:Route( Route, 0.5 )
+    Carrier:RouteGroundOnRoad( Coordinate, Speed, 1 )
   end
   
 end

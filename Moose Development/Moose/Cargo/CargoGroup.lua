@@ -458,6 +458,7 @@ do -- CARGO_GROUP
         Distance = Coordinate:Get2DDistance( Cargo.CargoObject:GetCoordinate() )
       end
       
+      self:F( { Distance = Distance, LoadRadius = self.LoadRadius } )
       if Distance <= self.LoadRadius then
         return true
       else
