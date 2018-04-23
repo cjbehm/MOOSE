@@ -119,6 +119,14 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   -- @param #string Event
   -- @param #string To
   
+  --- Unloaded Handler OnAfter for AI_CARGO_APC
+  -- @function [parent=#AI_CARGO_APC] OnAfterUnloaded
+  -- @param #AI_CARGO_APC self
+  -- @param Wrapper.Group#GROUP APC
+  -- @param #string From
+  -- @param #string Event
+  -- @param #string To
+  
 
   self:__Monitor( 1 )
 
