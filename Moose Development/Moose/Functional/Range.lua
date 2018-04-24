@@ -1786,7 +1786,7 @@ function RANGE:_AddF10Commands(_unitName)
   
         -- Main F10 menu: F10/On the Range/<Range Name>/
         if RANGE.MenuF10[_gid] == nil then
-          RANGE.MenuF10[_gid]=missionCommands.addSubMenuForGroup(_gid, "On the Range")
+          RANGE.MenuF10[_gid]=missionCommands.addSubMenuForGroup(_gid, "Practice Range")
         end
         local _rangePath    = missionCommands.addSubMenuForGroup(_gid, self.rangename, RANGE.MenuF10[_gid])
         local _statsPath    = missionCommands.addSubMenuForGroup(_gid, "Statistics",   _rangePath)
