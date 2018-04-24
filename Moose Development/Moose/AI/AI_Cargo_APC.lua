@@ -214,18 +214,18 @@ end
 --- Follow Infantry to the Carrier.
 -- @param #AI_CARGO_APC self
 -- @param #AI_CARGO_APC Me
--- @param Wrapper.Group#GROUP CargoCarrier
+-- @param Wrapper.Group#GROUP APC
 -- @param Wrapper.Group#GROUP InfantryGroup
 -- @return #AI_CARGO_APC
-function AI_CARGO_APC:FollowToCarrier( Me, CargoCarrier, InfantryGroup )
+function AI_CARGO_APC:FollowToCarrier( Me, APC, InfantryGroup )
 
   self:F( { self = self:GetClassNameAndID(), InfantryGroup = InfantryGroup:GetName() } )
   
   --if self:Is( "Following" ) then
 
-  if CargoCarrier:IsAlive() then
+  if APC:IsAlive() then
     -- We check if the Cargo is near to the CargoCarrier.
-    if InfantryGroup:IsPartlyInZone( ZONE_UNIT:New( "Radius", CargoCarrier, 5 ) ) then
+    if InfantryGroup:IsPartlyInZone( ZONE_UNIT:New( "Radius", APC, 5 ) ) then
   
       -- The Cargo does not need to follow the Carrier.
       Me:Guard()
@@ -246,12 +246,12 @@ function AI_CARGO_APC:FollowToCarrier( Me, CargoCarrier, InfantryGroup )
         self:F({FromGround=FromGround})
         table.insert( Waypoints, FromGround )
   
-        local ToCoord = CargoCarrier:GetCoordinate():GetRandomCoordinateInRadius( 10, 5 )
+        local ToCoord = APC:GetCoordinate():GetRandomCoordinateInRadius( 10, 5 )
         local ToGround = ToCoord:WaypointGround( 10, "Diamond" )
         self:F({ToGround=ToGround})
         table.insert( Waypoints, ToGround )
         
-        local TaskRoute = InfantryGroup:TaskFunction( "AI_CARGO_APC.FollowToCarrier", Me, CargoCarrier, InfantryGroup )
+        local TaskRoute = InfantryGroup:TaskFunction( "AI_CARGO_APC.FollowToCarrier", Me, APC, InfantryGroup )
         
         self:F({Waypoints = Waypoints})
         local Waypoint = Waypoints[#Waypoints]
@@ -265,13 +265,13 @@ end
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP CargoCarrier
-function AI_CARGO_APC:onafterMonitor( CargoCarrier, From, Event, To )
-  self:F( { CargoCarrier, From, Event, To } )
+-- @param Wrapper.Group#GROUP APC
+function AI_CARGO_APC:onafterMonitor( APC, From, Event, To )
+  self:F( { APC, From, Event, To } )
 
-  if CargoCarrier and CargoCarrier:IsAlive() then
+  if APC and APC:IsAlive() then
     if self.CarrierCoordinate then
-      local Coordinate = CargoCarrier:GetCoordinate()
+      local Coordinate = APC:GetCoordinate()
       self.Zone:Scan( { Object.Category.UNIT } )
       if self.Zone:IsAllInZoneOfCoalition( self.Coalition ) then
         if self:Is( "Unloaded" ) or self:Is( "Following" ) then
@@ -284,7 +284,7 @@ function AI_CARGO_APC:onafterMonitor( CargoCarrier, From, Event, To )
           self:__Unload( 1 )
         else
           if self:Is( "Unloaded" ) then
-            if not self.Cargo:IsNear( CargoCarrier, 5 ) then
+            if not self.Cargo:IsNear( APC, 5 ) then
               self:Follow()
             end
           end
@@ -292,12 +292,12 @@ function AI_CARGO_APC:onafterMonitor( CargoCarrier, From, Event, To )
             local Distance = Coordinate:Get2DDistance( self.Cargo:GetCoordinate() )
             self:F( { Distance = Distance } )
             if Distance > 40 then
-              CargoCarrier:RouteStop()
+              APC:RouteStop()
               self.CarrierStopped = true
             else
               if self.CarrierStopped then
-                if self.Cargo:IsNear( CargoCarrier, 10 ) then
-                  CargoCarrier:RouteResume()
+                if self.Cargo:IsNear( APC, 10 ) then
+                  APC:RouteResume()
                   self.CarrierStopped = nil
                 end
               end
@@ -307,7 +307,7 @@ function AI_CARGO_APC:onafterMonitor( CargoCarrier, From, Event, To )
       end
       
     end
-    self.CarrierCoordinate = CargoCarrier:GetCoordinate()
+    self.CarrierCoordinate = APC:GetCoordinate()
   end
   
   self:__Monitor( -5 )
@@ -316,25 +316,35 @@ end
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP Carrier
-function AI_CARGO_APC:onbeforeLoad( Carrier, From, Event, To )
-  self:F( { Carrier, From, Event, To } )
+-- @param Wrapper.Group#GROUP APC
+function AI_CARGO_APC:onbeforeLoad( APC, From, Event, To )
+  self:F( { APC, From, Event, To } )
 
-  if Carrier and Carrier:IsAlive() then
-    for _, Cargo in pairs( self.CargoSet:GetSet() ) do
-      local Cargo = Cargo -- Cargo.Cargo#CARGO
-      self:F( Cargo )
-      if Cargo:IsInLoadRadius( Carrier:GetCoordinate() ) then
-        self:F( "In radius" )
-        Carrier:RouteStop()
-        self:__Board( 1, Cargo )
-        Cargo:Board( Carrier:GetUnit(1), 25 )
-        return true
+  local Boarding = false
+  self.BoardingCount = 0
+
+  if APC and APC:IsAlive() then
+    for _, APCUnit in pairs( APC:GetUnits() ) do
+      local APCUnit = APCUnit -- Wrapper.Unit#UNIT
+      for _, Cargo in pairs( self.CargoSet:GetSet() ) do
+        local Cargo = Cargo -- Cargo.Cargo#CARGO
+        self:F( { IsUnLoaded = Cargo:IsUnLoaded() } )
+        if Cargo:IsUnLoaded() then
+          if Cargo:IsInLoadRadius( APCUnit:GetCoordinate() ) then
+            self:F( { "In radius", APCUnit:GetName() } )
+            APC:RouteStop()
+            Cargo:Board( APCUnit, 25 )
+            self:__Board( 1, Cargo )
+            Boarding = true
+            self.BoardingCount = self.BoardingCount + 1
+            break
+          end
+        end
       end
     end
   end
-  
-  return false
+
+  return Boarding
   
 end
 
@@ -348,62 +358,73 @@ function AI_CARGO_APC:onafterBoard( Carrier, From, Event, To, Cargo )
     if not Cargo:IsLoaded() then
       self:__Board( 10, Cargo )
     else
-      self:__Loaded( 1, Cargo )
+      self:__Loaded( 1 )
     end
   end
   
 end
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP CargoCarrier
-function AI_CARGO_APC:onafterLoaded( CargoCarrier, From, Event, To, Cargo )
-  self:F( { CargoCarrier, From, Event, To, Cargo } )
+-- @param Wrapper.Group#GROUP APC
+function AI_CARGO_APC:onbeforeLoaded( APC, From, Event, To )
+  self:F( { APC, From, Event, To } )
 
-  if CargoCarrier and CargoCarrier:IsAlive() then
-    CargoCarrier:RouteResume()
-    self.Cargo = Cargo
+  if APC and APC:IsAlive() then
+    self.BoardingCount = self.BoardingCount - 1
+    
   end
+  
+  if self.BoardingCount == 0 then
+    APC:RouteResume()
+  end
+  
+  return self.BoardingCount == 0
   
 end
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP CargoCarrier
-function AI_CARGO_APC:onafterUnload( CargoCarrier, From, Event, To )
-  self:F( { CargoCarrier, From, Event, To } )
+-- @param Wrapper.Group#GROUP APC
+function AI_CARGO_APC:onafterUnload( APC, From, Event, To )
+  self:F( { APC, From, Event, To } )
 
-  if CargoCarrier and CargoCarrier:IsAlive() then
-    CargoCarrier:RouteStop()
-    self.Cargo:UnBoard()
-    self:__Unboard( 10 ) 
+  if APC and APC:IsAlive() then
+    for _, APCUnit in pairs( APC:GetUnits() ) do
+      local APCUnit = APCUnit -- Wrapper.Unit#UNIT
+      APC:RouteStop()
+      for _, Cargo in pairs( APCUnit:GetCargo() ) do
+        Cargo:UnBoard()
+        self:__Unboard( 10, Cargo )
+      end 
+    end
   end
   
 end
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP CargoCarrier
-function AI_CARGO_APC:onafterUnboard( CargoCarrier, From, Event, To )
-  self:F( { CargoCarrier, From, Event, To } )
+-- @param Wrapper.Group#GROUP APC
+function AI_CARGO_APC:onafterUnboard( APC, From, Event, To, Cargo )
+  self:F( { APC, From, Event, To } )
 
-  if CargoCarrier and CargoCarrier:IsAlive() then
-    if not self.Cargo:IsUnLoaded() then
-      self:__Unboard( 10 ) 
+  if APC and APC:IsAlive() then
+    if not Cargo:IsUnLoaded() then
+      self:__Unboard( 10, Cargo ) 
     else
-      self:__Unloaded( 1 )
+      self:__Unloaded( 1, Cargo )
     end
   end
   
 end
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP CargoCarrier
-function AI_CARGO_APC:onafterUnloaded( CargoCarrier, From, Event, To )
-  self:F( { CargoCarrier, From, Event, To } )
+-- @param Wrapper.Group#GROUP APC
+function AI_CARGO_APC:onafterUnloaded( APC, From, Event, To, Cargo )
+  self:F( { APC, From, Event, To, Cargo } )
 
-  if CargoCarrier and CargoCarrier:IsAlive() then
+  if APC and APC:IsAlive() then
     self:Guard()
-    self.CargoCarrier = CargoCarrier
-    CargoCarrier:RouteResume()
+    self.CargoCarrier = APC
+    APC:RouteResume()
   end
   
 end

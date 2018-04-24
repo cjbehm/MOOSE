@@ -171,10 +171,10 @@ do -- CARGO_GROUP
 
   --- Enter Loaded State.
   -- @param #CARGO_GROUP self
-  -- @param Wrapper.Unit#UNIT CargoCarrier
   -- @param #string Event
   -- @param #string From
   -- @param #string To
+  -- @param Wrapper.Unit#UNIT CargoCarrier
   function CARGO_GROUP:onenterLoaded( From, Event, To, CargoCarrier, ... )
     --self:F( { From, Event, To, CargoCarrier, ...} )
     
@@ -187,6 +187,7 @@ do -- CARGO_GROUP
     
     --self.CargoObject:Destroy()
     self.CargoCarrier = CargoCarrier
+    self.CargoCarrier:AddCargo( self )
     
   end
 
@@ -307,7 +308,7 @@ do -- CARGO_GROUP
   
       -- For each Cargo object within the CARGO_GROUP, route each object to the CargoLoadPointVec2
       for CargoID, Cargo in pairs( self.CargoSet:GetSet() ) do
-        self:T( Cargo.current )
+        self:T( { Cargo:GetName(), Cargo.current } )
         if not Cargo:is( "UnLoaded" ) and not Cargo:IsDestroyed() then
           UnBoarded = false
         end
@@ -361,6 +362,9 @@ do -- CARGO_GROUP
       )
   
     end
+    
+    self.CargoCarrier:RemoveCargo( self )
+    self.CargoCarrier = nil
     
   end
 
