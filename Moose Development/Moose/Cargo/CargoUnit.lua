@@ -146,13 +146,13 @@ do -- CARGO_UNIT
     local Distance = 5
   
     if From == "UnBoarding" then
-      if self:IsNear( ToPointVec2, NearRadius ) then
+      --if self:IsNear( ToPointVec2, NearRadius ) then
         return true
-      else
+      --else
         
-        self:__UnBoarding( 1, ToPointVec2, NearRadius )
-      end
-      return false
+        --self:__UnBoarding( 1, ToPointVec2, NearRadius )
+      --end
+      --return false
     end
   
   end
