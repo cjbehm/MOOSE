@@ -556,9 +556,9 @@ function AI_PATROL_ZONE:SetDetectionZone( DetectionZone )
   self:F2()
 
   if DetectionZone then  
-    self.DetectZone = DetectionZone
+    self.DetectionZone = DetectionZone
   else
-    self.DetectZone = nil
+    self.DetectionZone = nil
   end
 end
 
