@@ -53,47 +53,47 @@ do -- CARGO_GROUP
     self:F( { Type, Name, LoadRadius } )
   
     self.CargoSet = SET_CARGO:New()
+    self.CargoGroup = CargoGroup
+    self.Grouped = true
+    self.CargoUnitTemplate = {}
     
     self:SetDeployed( false )
     
     local WeightGroup = 0
     
+    self.CargoGroup:Destroy()
+
     local GroupName = CargoGroup:GetName()
-    local CargoName = GroupName:match("(.*)~CARGO") or GroupName
+    self.CargoName = GroupName:match("(.*)~CARGO") or GroupName
     self.CargoTemplate = UTILS.DeepCopy( _DATABASE:GetGroupTemplate( GroupName ) )
+
+    local GroupTemplate = UTILS.DeepCopy( self.CargoTemplate )
+    GroupTemplate.name = self.CargoName .. "#CARGO"
+    GroupTemplate.groupId = nil
     
-    CargoGroup:Destroy()
+    GroupTemplate.units = {}
     
-    -- We iterate through the group template and for each unit in the template, we create a new group with one unit.
     for UnitID, UnitTemplate in pairs( self.CargoTemplate.units ) do
-      
-      local GroupTemplate = UTILS.DeepCopy( self.CargoTemplate )
-      --local GroupName = env.getValueDictByKey( GroupTemplate.name )
-      
-      -- We create a new group object with one unit...
-      -- First we prepare the template...
-      GroupTemplate.name = CargoName .. "#CARGO#" .. UnitID
-      GroupTemplate.groupId = nil
-      GroupTemplate.units = {}
-      GroupTemplate.units[1] = UnitTemplate
-      local UnitName = UnitTemplate.name .. "#CARGO"
-      GroupTemplate.units[1].name = UnitTemplate.name .. "#CARGO"
-  
-  
-      -- Then we register the new group in the database
-      local CargoGroup = GROUP:NewTemplate( GroupTemplate, GroupTemplate.CoalitionID, GroupTemplate.CategoryID, GroupTemplate.CountryID)
-      
-      -- Now we spawn the new group based on the template created.
-      _DATABASE:Spawn( GroupTemplate )
+      UnitTemplate.name = UnitTemplate.name .. "#CARGO"
+      local CargoUnitName = UnitTemplate.name 
+      self.CargoUnitTemplate[CargoUnitName] = UnitTemplate      
+
+       GroupTemplate.units[#GroupTemplate.units+1] = self.CargoUnitTemplate[CargoUnitName]
+       GroupTemplate.units[#GroupTemplate.units].unitId = nil
       
       -- And we register the spawned unit as part of the CargoSet.
-      local Unit = UNIT:FindByName( UnitName )
+      local Unit = UNIT:Register( CargoUnitName )
       --local WeightUnit = Unit:GetDesc().massEmpty
       --WeightGroup = WeightGroup + WeightUnit
-      local CargoUnit = CARGO_UNIT:New( Unit, Type, UnitName, 10 )
-      self.CargoSet:Add( UnitName, CargoUnit )
+      local CargoUnit = CARGO_UNIT:New( Unit, Type, CargoUnitName, 10 )
+      self.CargoSet:Add( CargoUnitName, CargoUnit )
     end
-  
+
+    -- Then we register the new group in the database
+    self.CargoGroup = GROUP:NewTemplate( GroupTemplate, GroupTemplate.CoalitionID, GroupTemplate.CategoryID, GroupTemplate.CountryID)
+    
+    -- Now we spawn the new group based on the template created.
+    _DATABASE:Spawn( GroupTemplate )
   
     self:SetWeight( WeightGroup )
     self.CargoLimit = 10
@@ -112,13 +112,108 @@ do -- CARGO_GROUP
     return self
   end
 
+  
+  --- Ungroup the cargo group into individual groups with one unit.
+  -- This is required because by default a group will move in formation and this is really an issue for group control.
+  -- Therefore this method is made to be able to ungroup a group.
+  -- This works for ground only groups.
+  -- @param #CARGO_GROUP self
+  function CARGO_GROUP:Ungroup()
+
+    if self.Grouped == true then
+    
+      self.Grouped = false
+      
+      self.CargoGroup:Destroy()
+      
+      for CargoUnitName, CargoUnit in pairs( self.CargoSet:GetSet() ) do
+        local CargoUnit = CargoUnit -- Cargo.CargoUnit#CARGO_UNIT
+
+        if CargoUnit:IsUnLoaded() then
+          local GroupTemplate = UTILS.DeepCopy( self.CargoTemplate )
+          --local GroupName = env.getValueDictByKey( GroupTemplate.name )
+          
+          -- We create a new group object with one unit...
+          -- First we prepare the template...
+          GroupTemplate.name = self.CargoName .. "#CARGO#" .. CargoUnitName 
+          GroupTemplate.groupId = nil
+          
+          if CargoUnit:IsUnLoaded() then
+            GroupTemplate.units = {}
+            GroupTemplate.units[1] = self.CargoUnitTemplate[CargoUnitName]
+            GroupTemplate.units[#GroupTemplate.units].unitId = nil
+            GroupTemplate.units[#GroupTemplate.units].x = CargoUnit:GetX()
+            GroupTemplate.units[#GroupTemplate.units].y = CargoUnit:GetY()
+            GroupTemplate.units[#GroupTemplate.units].heading = CargoUnit:GetHeading()
+          end
+      
+      
+          -- Then we register the new group in the database
+          local CargoGroup = GROUP:NewTemplate( GroupTemplate, GroupTemplate.CoalitionID, GroupTemplate.CategoryID, GroupTemplate.CountryID)
+          
+          -- Now we spawn the new group based on the template created.
+          _DATABASE:Spawn( GroupTemplate )
+        end
+      end
+    end
+  
+  end
+
+  --- Regroup the cargo group into one group with multiple unit.
+  -- This is required because by default a group will move in formation and this is really an issue for group control.
+  -- Therefore this method is made to be able to regroup a group.
+  -- This works for ground only groups.
+  -- @param #CARGO_GROUP self
+  function CARGO_GROUP:Regroup()
+  
+    self:F("Regroup")
+
+    if self.Grouped == false then
+    
+      self.Grouped = true
+      
+      local GroupTemplate = UTILS.DeepCopy( self.CargoTemplate )
+      GroupTemplate.name = self.CargoName .. "#CARGO"
+      GroupTemplate.groupId = nil
+      GroupTemplate.units = {}
+
+      for CargoUnitName, CargoUnit in pairs( self.CargoSet:GetSet() ) do
+        local CargoUnit = CargoUnit -- Cargo.CargoUnit#CARGO_UNIT
+
+        self:F( { CargoUnit:GetName(), UnLoaded = CargoUnit:IsUnLoaded() } )
+
+        if CargoUnit:IsUnLoaded() then
+    
+          CargoUnit.CargoObject:Destroy()
+
+          GroupTemplate.units[#GroupTemplate.units+1] = self.CargoUnitTemplate[CargoUnitName]
+          GroupTemplate.units[#GroupTemplate.units].unitId = nil
+          GroupTemplate.units[#GroupTemplate.units].x = CargoUnit:GetX()
+          GroupTemplate.units[#GroupTemplate.units].y = CargoUnit:GetY()
+          GroupTemplate.units[#GroupTemplate.units].heading = CargoUnit:GetHeading()
+        end
+      end
+
+      -- Then we register the new group in the database
+      self.CargoGroup = GROUP:NewTemplate( GroupTemplate, GroupTemplate.CoalitionID, GroupTemplate.CategoryID, GroupTemplate.CountryID)
+
+      self:F( { "Regroup", GroupTemplate } )
+        
+      -- Now we spawn the new group based on the template created.
+      _DATABASE:Spawn( GroupTemplate )
+    end
+  
+  end
+
+
   --- @param #CARGO_GROUP self
   -- @param Core.Event#EVENTDATA EventData 
   function CARGO_GROUP:OnEventCargoDead( EventData )
+    self:I( EventData )
 
-  local Destroyed = false
+    local Destroyed = false
   
-    if self:IsDestroyed() or self:IsUnLoaded() or self:IsBoarding() then
+    if self:IsDestroyed() or self:IsUnLoaded() or self:IsBoarding() or self:IsUnboarding() then
       Destroyed = true
       for CargoID, CargoData in pairs( self.CargoSet:GetSet() ) do
         local Cargo = CargoData -- #CARGO
@@ -245,14 +340,6 @@ do -- CARGO_GROUP
     end
     
   end
-  
-  --- Get the amount of cargo units in the group.
-  -- @param #CARGO_GROUP self
-  -- @return #CARGO_GROUP
-  function CARGO_GROUP:GetCount()
-    return self.CargoSet:Count()
-  end
-
 
   --- Enter UnBoarding State.
   -- @param #CARGO_GROUP self
@@ -275,10 +362,12 @@ do -- CARGO_GROUP
   
       -- For each Cargo object within the CARGO_GROUP, route each object to the CargoLoadPointVec2
       self.CargoSet:ForEach(
+        --- @param Cargo.Cargo#CARGO Cargo
         function( Cargo, NearRadius )
-          
-          Cargo:__UnBoard( Timer, ToPointVec2, NearRadius )
-          Timer = Timer + 3
+          if not Cargo:IsDestroyed() then
+            Cargo:__UnBoard( Timer, ToPointVec2, NearRadius )
+            Timer = Timer + 3
+          end
         end, { NearRadius }
       )
       
@@ -375,8 +464,8 @@ do -- CARGO_GROUP
   -- @return #nil There is no valid Cargo in the CargoGroup.
   function CARGO_GROUP:GetCoordinate()
     self:F()
-    
-    local Cargo = self.CargoSet:GetFirst()
+
+    local Cargo = self:GetFirstAlive() -- Cargo.Cargo#CARGO
     
     if Cargo then
       return Cargo.CargoObject:GetCoordinate()
@@ -391,26 +480,37 @@ do -- CARGO_GROUP
   -- @return #boolean false if the CargoGroup is dead.
   function CARGO_GROUP:IsAlive()
 
-    local Alive = true
-  
-    -- For each Cargo within the CargoSet, check if the Cargo is Alive.
-    -- When the Cargo is Loaded, the Cargo is in the CargoCarrier, so we check if the CargoCarrier is alive.
-    -- When the Cargo is not Loaded, the Cargo is the CargoObject, so we check if the CargoObject is alive.
-    self.CargoSet:ForEach(
-      function( Cargo )
-        if self:IsLoaded() then
-          Alive = Alive == true and Cargo.CargoCarrier:IsAlive()
-        else
-          Alive = Alive == true and Cargo.CargoObject:IsAlive()
-        end 
-      end
-    )
-    
-    return Alive
+    local Cargo = self:GetFirstAlive() -- Cargo.Cargo#CARGO
+    return Cargo ~= nil
   
   end
 
   
+  --- Get the first alive Cargo Unit of the Cargo Group.
+  -- @param #CARGO_GROUP self
+  -- @return #CARGO_GROUP
+  function CARGO_GROUP:GetFirstAlive()
+    
+    local CargoFirstAlive = nil
+    
+    for _, Cargo in pairs( self.CargoSet:GetSet() ) do
+      if not Cargo:IsDestroyed() then
+        CargoFirstAlive = Cargo
+        break
+      end
+    end
+    return CargoFirstAlive
+  end
+
+  
+  --- Get the amount of cargo units in the group.
+  -- @param #CARGO_GROUP self
+  -- @return #CARGO_GROUP
+  function CARGO_GROUP:GetCount()
+    return self.CargoSet:Count()
+  end
+
+
   --- Route Cargo to Coordinate and randomize locations.
   -- @param #CARGO_GROUP self
   -- @param Core.Point#COORDINATE Coordinate
@@ -436,7 +536,7 @@ do -- CARGO_GROUP
   function CARGO_GROUP:IsNear( CargoCarrier, NearRadius )
     --self:F( {NearRadius = NearRadius } )
     
-    local Cargo = self.CargoSet:GetFirst() -- #CARGO
+    local Cargo = self:GetFirstAlive() -- Cargo.Cargo#CARGO
     
     if Cargo then
       return Cargo:IsNear( CargoCarrier:GetCoordinate(), NearRadius )
@@ -452,7 +552,7 @@ do -- CARGO_GROUP
   function CARGO_GROUP:IsInLoadRadius( Coordinate )
     --self:F( { Coordinate } )
   
-    local Cargo = self.CargoSet:GetFirst() -- #CARGO
+    local Cargo = self:GetFirstAlive() -- Cargo.Cargo#CARGO
 
     if Cargo then
       local Distance = 0
@@ -482,7 +582,7 @@ do -- CARGO_GROUP
   function CARGO_GROUP:IsInReportRadius( Coordinate )
     --self:F( { Coordinate } )
   
-    local Cargo = self.CargoSet:GetFirst() -- #CARGO
+    local Cargo = self:GetFirstAlive() -- Cargo.Cargo#CARGO
 
     if Cargo then
       self:F( { Cargo } )

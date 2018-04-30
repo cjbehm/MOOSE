@@ -359,7 +359,7 @@ function CONTROLLABLE:SetTask( DCSTask, WaitTime )
         local Controller = self:_GetController()
         Controller:setTask( DCSTask )
       else
-        BASE:E( DCSControllableName .. " is not alive anymore. Cannot set DCSTask " .. DCSTask )
+        BASE:E( { DCSControllableName .. " is not alive anymore.", DCSTask = DCSTask } )
       end
     end
 

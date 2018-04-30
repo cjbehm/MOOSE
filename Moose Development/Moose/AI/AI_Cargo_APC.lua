@@ -45,7 +45,7 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   self:AddTransition( "Boarding", "Loaded", "Loaded" )
   self:AddTransition( "Loaded", "Unload", "Unboarding" )
   self:AddTransition( "Unboarding", "Unboard", "Unboarding" )
-  self:AddTransition( "Unboarding", "Unloaded", "Unloaded" )
+  self:AddTransition( { "Unboarding", "Unloaded" }, "Unloaded", "Unloaded" )
   
   self:AddTransition( "*", "Monitor", "*" )
   self:AddTransition( "*", "Follow", "Following" )
@@ -274,7 +274,7 @@ function AI_CARGO_APC:onafterMonitor( APC, From, Event, To )
       local Coordinate = APC:GetCoordinate()
       self.Zone:Scan( { Object.Category.UNIT } )
       if self.Zone:IsAllInZoneOfCoalition( self.Coalition ) then
-        if self:Is( "Unloaded" ) or self:Is( "Following" ) then
+        if self:Is( "Unloaded" ) or self:Is( "Following" ) or self:Is( "Unboarding" ) then
           -- There are no enemies within combat range. Load the CargoCarrier.
           self:Load()
         end
@@ -294,16 +294,18 @@ function AI_CARGO_APC:onafterMonitor( APC, From, Event, To )
           if self:Is( "Following" ) then
             for _, Cargo in pairs( self.CargoSet:GetSet() ) do
               local Cargo = Cargo -- Cargo.Cargo#CARGO
-              local Distance = Coordinate:Get2DDistance( Cargo:GetCoordinate() )
-              self:F( { Distance = Distance } )
-              if Distance > 40 then
-                APC:RouteStop()
-                self.CarrierStopped = true
-              else
-                if self.CarrierStopped then
-                  if Cargo:IsNear( APC, 10 ) then
-                    APC:RouteResume()
-                    self.CarrierStopped = nil
+              if Cargo:IsAlive() then
+                local Distance = Coordinate:Get2DDistance( Cargo:GetCoordinate() )
+                self:F( { Distance = Distance } )
+                if Distance > 40 then
+                  APC:RouteStop()
+                  self.CarrierStopped = true
+                else
+                  if self.CarrierStopped then
+                    if Cargo:IsNear( APC, 10 ) then
+                      APC:RouteResume()
+                      self.CarrierStopped = nil
+                    end
                   end
                 end
               end
@@ -339,6 +341,7 @@ function AI_CARGO_APC:onbeforeLoad( APC, From, Event, To )
           if Cargo:IsInLoadRadius( APCUnit:GetCoordinate() ) then
             self:F( { "In radius", APCUnit:GetName() } )
             APC:RouteStop()
+            --Cargo:Ungroup()
             Cargo:Board( APCUnit, 25 )
             self:__Board( 1, Cargo )
             Boarding = true
@@ -410,7 +413,7 @@ end
 --- @param #AI_CARGO_APC self
 -- @param Wrapper.Group#GROUP APC
 function AI_CARGO_APC:onafterUnboard( APC, From, Event, To, Cargo )
-  self:F( { APC, From, Event, To } )
+  self:F( { APC, From, Event, To, Cargo:GetName() } )
 
   if APC and APC:IsAlive() then
     if not Cargo:IsUnLoaded() then
@@ -424,14 +427,32 @@ end
 
 --- @param #AI_CARGO_APC self
 -- @param Wrapper.Group#GROUP APC
-function AI_CARGO_APC:onafterUnloaded( APC, From, Event, To, Cargo )
-  self:F( { APC, From, Event, To, Cargo } )
+function AI_CARGO_APC:onbeforeUnloaded( APC, From, Event, To, Cargo )
+  self:F( { APC, From, Event, To, Cargo:GetName() } )
+
+  local AllUnloaded = true
+
+  --Cargo:Regroup()
 
   if APC and APC:IsAlive() then
-    self:Guard()
-    self.CargoCarrier = APC
-    APC:RouteResume()
+    for _, CargoCheck in pairs( self.CargoSet:GetSet() ) do
+      local CargoCheck = CargoCheck -- Cargo.Cargo#CARGO
+      self:F( { CargoCheck:GetName(), IsUnLoaded = CargoCheck:IsUnLoaded() } )
+      if CargoCheck:IsUnLoaded() == false then
+        AllUnloaded = false
+        break
+      end
+    end
+    
+    if AllUnloaded == true then
+      self:Guard()
+      self.CargoCarrier = APC
+      APC:RouteResume()
+    end
   end
+  
+  self:F( { AllUnloaded = AllUnloaded } )
+  return AllUnloaded
   
 end
 
@@ -443,16 +464,10 @@ function AI_CARGO_APC:onafterFollow( APC, From, Event, To, Cargo )
 
   self:F( "Follow" )
   if APC and APC:IsAlive() then
-    Cargo.CargoSet:ForEach(
-      --- @param Core.Cargo#CARGO Cargo
-      function( Cargo )
-        self:F( { "Follow", Cargo.CargoObject:GetName() } )
-        if Cargo.CargoObject:IsAlive() == true then
-          self:F( { "Follow", Cargo.CargoObject:GetID() } )
-          self:FollowToCarrier( self, APC, Cargo.CargoObject:GetGroup() )
-        end
-      end
-    )
+    if Cargo.CargoGroup:IsAlive() == true then
+      self:F( { "Follow", Cargo.CargoGroup:GetID() } )
+      self:FollowToCarrier( self, APC, Cargo.CargoGroup )
+    end
   end
   
 end
