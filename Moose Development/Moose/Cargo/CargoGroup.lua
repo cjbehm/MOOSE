@@ -511,6 +511,15 @@ do -- CARGO_GROUP
   end
 
 
+  --- Get the amount of cargo units in the group.
+  -- @param #CARGO_GROUP self
+  -- @return #CARGO_GROUP
+  function CARGO_GROUP:GetGroup( Cargo )
+    local Cargo = Cargo or self:GetFirstAlive() -- Cargo.Cargo#CARGO
+    return Cargo.CargoObject:GetGroup()
+  end
+
+
   --- Route Cargo to Coordinate and randomize locations.
   -- @param #CARGO_GROUP self
   -- @param Core.Point#COORDINATE Coordinate
@@ -534,12 +543,15 @@ do -- CARGO_GROUP
   -- @return #boolean The Cargo is near to the Carrier.
   -- @return #nil The Cargo is not near to the Carrier.
   function CARGO_GROUP:IsNear( CargoCarrier, NearRadius )
-    --self:F( {NearRadius = NearRadius } )
+    self:F( {NearRadius = NearRadius } )
     
-    local Cargo = self:GetFirstAlive() -- Cargo.Cargo#CARGO
-    
-    if Cargo then
-      return Cargo:IsNear( CargoCarrier:GetCoordinate(), NearRadius )
+    for _, Cargo in pairs( self.CargoSet:GetSet() ) do
+      local Cargo = Cargo -- Cargo.Cargo#CARGO
+      if Cargo:IsAlive() then
+        if Cargo:IsNear( CargoCarrier:GetCoordinate(), NearRadius ) then
+          return true
+        end
+      end
     end
     
     return nil

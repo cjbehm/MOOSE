@@ -215,9 +215,11 @@ end
 -- @param #AI_CARGO_APC self
 -- @param #AI_CARGO_APC Me
 -- @param Wrapper.Group#GROUP APC
--- @param Wrapper.Group#GROUP InfantryGroup
+-- @param Cargo.CargoGroup#CARGO_GROUP Cargo
 -- @return #AI_CARGO_APC
-function AI_CARGO_APC:FollowToCarrier( Me, APC, InfantryGroup )
+function AI_CARGO_APC:FollowToCarrier( Me, APC, CargoGroup )
+
+  local InfantryGroup = CargoGroup:GetGroup()
 
   self:F( { self = self:GetClassNameAndID(), InfantryGroup = InfantryGroup:GetName() } )
   
@@ -251,7 +253,7 @@ function AI_CARGO_APC:FollowToCarrier( Me, APC, InfantryGroup )
         self:F({ToGround=ToGround})
         table.insert( Waypoints, ToGround )
         
-        local TaskRoute = InfantryGroup:TaskFunction( "AI_CARGO_APC.FollowToCarrier", Me, APC, InfantryGroup )
+        local TaskRoute = InfantryGroup:TaskFunction( "AI_CARGO_APC.FollowToCarrier", Me, APC, CargoGroup )
         
         self:F({Waypoints = Waypoints})
         local Waypoint = Waypoints[#Waypoints]
@@ -295,14 +297,12 @@ function AI_CARGO_APC:onafterMonitor( APC, From, Event, To )
             for _, Cargo in pairs( self.CargoSet:GetSet() ) do
               local Cargo = Cargo -- Cargo.Cargo#CARGO
               if Cargo:IsAlive() then
-                local Distance = Coordinate:Get2DDistance( Cargo:GetCoordinate() )
-                self:F( { Distance = Distance } )
-                if Distance > 40 then
+                if not Cargo:IsNear( APC, 40 ) then
                   APC:RouteStop()
                   self.CarrierStopped = true
                 else
                   if self.CarrierStopped then
-                    if Cargo:IsNear( APC, 10 ) then
+                    if Cargo:IsNear( APC, 20 ) then
                       APC:RouteResume()
                       self.CarrierStopped = nil
                     end
@@ -466,7 +466,7 @@ function AI_CARGO_APC:onafterFollow( APC, From, Event, To, Cargo )
   if APC and APC:IsAlive() then
     if Cargo.CargoGroup:IsAlive() == true then
       self:F( { "Follow", Cargo.CargoGroup:GetID() } )
-      self:FollowToCarrier( self, APC, Cargo.CargoGroup )
+      self:FollowToCarrier( self, APC, Cargo )
     end
   end
   
