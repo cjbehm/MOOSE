@@ -584,17 +584,21 @@ function AI_CARGO_APC:onafterPickup( APC, From, Event, To, Coordinate, Speed )
 
   if APC and APC:IsAlive() then
 
-    self.RoutePickup = true
-    
-    local Waypoints = APC:TaskGroundOnRoad( Coordinate, Speed )
-
-    local TaskFunction = APC:TaskFunction( "AI_CARGO_APC._Pickup", self )
-    
-    self:F({Waypoints = Waypoints})
-    local Waypoint = Waypoints[#Waypoints]
-    APC:SetTaskWaypoint( Waypoint, TaskFunction ) -- Set for the given Route at Waypoint 2 the TaskRouteToZone.
+    if Coordinate then
+      self.RoutePickup = true
+      
+      local Waypoints = APC:TaskGroundOnRoad( Coordinate, Speed )
   
-    APC:Route( Waypoints, 1 ) -- Move after a random seconds to the Route. See the Route method for details.
+      local TaskFunction = APC:TaskFunction( "AI_CARGO_APC._Pickup", self )
+      
+      self:F({Waypoints = Waypoints})
+      local Waypoint = Waypoints[#Waypoints]
+      APC:SetTaskWaypoint( Waypoint, TaskFunction ) -- Set for the given Route at Waypoint 2 the TaskRouteToZone.
+    
+      APC:Route( Waypoints, 1 ) -- Move after a random seconds to the Route. See the Route method for details.
+    else
+      AI_CARGO_APC._Pickup( APC, self )
+    end
   end
   
 end
