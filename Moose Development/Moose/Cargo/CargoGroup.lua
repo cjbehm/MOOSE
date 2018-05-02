@@ -549,6 +549,7 @@ do -- CARGO_GROUP
       local Cargo = Cargo -- Cargo.Cargo#CARGO
       if Cargo:IsAlive() then
         if Cargo:IsNear( CargoCarrier:GetCoordinate(), NearRadius ) then
+          self:F( "Near" )
           return true
         end
       end

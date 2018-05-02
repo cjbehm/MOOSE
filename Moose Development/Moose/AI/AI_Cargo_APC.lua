@@ -60,8 +60,14 @@
 -- 
 -- ## Cargo deployment.
 --  
--- Using the @{#AI_CARGO_APC.Deploy}() method, you are able to direct the APCs towards a point on the battlefield to unboard the cargo at the specific location. 
+-- Using the @{#AI_CARGO_APC.Deploy}() method, you are able to direct the APCs towards a point on the battlefield to unboard/unload the cargo at the specific coordinate. 
 -- The APCs will follow nearby roads as much as possible, to ensure fast and clean cargo transportation between the objects and villages in the simulation environment.
+-- 
+-- ## Cargo pickup.
+--  
+-- Using the @{#AI_CARGO_APC.Pickup}() method, you are able to direct the APCs towards a point on the battlefield to board/load the cargo at the specific coordinate. 
+-- The APCs will follow nearby roads as much as possible, to ensure fast and clean cargo transportation between the objects and villages in the simulation environment.
+-- 
 -- 
 -- 
 -- @field #AI_CARGO_APC
@@ -180,6 +186,7 @@ function AI_CARGO_APC:New( CargoCarrier, CargoSet, CombatRadius )
   self:__Monitor( 1 )
 
   self:SetCarrier( CargoCarrier )
+  self.Transporting = false
   
   return self
 end
@@ -232,6 +239,11 @@ function AI_CARGO_APC:SetCarrier( CargoCarrier )
   return self
 end
 
+
+function AI_CARGO_APC:IsTransporting()
+
+  return self.Transporting == true
+end
 
 --- Find a free Carrier within a range.
 -- @param #AI_CARGO_APC self
@@ -322,33 +334,35 @@ function AI_CARGO_APC:onafterMonitor( APC, From, Event, To )
 
   if APC and APC:IsAlive() then
     if self.CarrierCoordinate then
-      local Coordinate = APC:GetCoordinate()
-      self.Zone:Scan( { Object.Category.UNIT } )
-      if self.Zone:IsAllInZoneOfCoalition( self.Coalition ) then
-        if self:Is( "Unloaded" ) or self:Is( "Following" ) or self:Is( "Unboarding" ) then
-          -- There are no enemies within combat range. Load the CargoCarrier.
-          self:Load()
-        end
-      else
-        if self:Is( "Loaded" ) then
-          -- There are enemies within combat range. Unload the CargoCarrier.
-          self:__Unload( 1 )
-        else
-          if self:Is( "Unloaded" ) then
-            self:Follow()
+      if self:IsTransporting() then
+        local Coordinate = APC:GetCoordinate()
+        self.Zone:Scan( { Object.Category.UNIT } )
+        if self.Zone:IsAllInZoneOfCoalition( self.Coalition ) then
+          if self:Is( "Unloaded" ) or self:Is( "Following" ) then
+            -- There are no enemies within combat range. Load the CargoCarrier.
+            self:Load()
           end
-          if self:Is( "Following" ) then
-            for APCUnit, Cargo in pairs( self.APC_Cargo ) do
-              local Cargo = Cargo -- Cargo.Cargo#CARGO
-              if Cargo:IsAlive() then
-                if not Cargo:IsNear( APCUnit, 40 ) then
-                  APCUnit:RouteStop()
-                  self.CarrierStopped = true
-                else
-                  if self.CarrierStopped then
-                    if Cargo:IsNear( APCUnit, 25 ) then
-                      APCUnit:RouteResume()
-                      self.CarrierStopped = nil
+        else
+          if self:Is( "Loaded" ) then
+            -- There are enemies within combat range. Unload the CargoCarrier.
+            self:__Unload( 1 )
+          else
+            if self:Is( "Unloaded" ) then
+              self:Follow()
+            end
+            if self:Is( "Following" ) then
+              for APCUnit, Cargo in pairs( self.APC_Cargo ) do
+                local Cargo = Cargo -- Cargo.Cargo#CARGO
+                if Cargo:IsAlive() then
+                  if not Cargo:IsNear( APCUnit, 40 ) then
+                    APCUnit:RouteStop()
+                    self.CarrierStopped = true
+                  else
+                    if self.CarrierStopped then
+                      if Cargo:IsNear( APCUnit, 25 ) then
+                        APCUnit:RouteResume()
+                        self.CarrierStopped = nil
+                      end
                     end
                   end
                 end
@@ -376,6 +390,7 @@ function AI_CARGO_APC:onbeforeLoad( APC, From, Event, To )
   self.BoardingCount = 0
 
   if APC and APC:IsAlive() then
+    self.APC_Cargo = {}
     for _, APCUnit in pairs( APC:GetUnits() ) do
       local APCUnit = APCUnit -- Wrapper.Unit#UNIT
       for _, Cargo in pairs( self.CargoSet:GetSet() ) do
@@ -430,6 +445,7 @@ function AI_CARGO_APC:onbeforeLoaded( APC, From, Event, To )
   if APC and APC:IsAlive() then
     for APCUnit, Cargo in pairs( self.APC_Cargo ) do
       local Cargo = Cargo -- Cargo.Cargo#CARGO
+      self:F( { IsLoaded = Cargo:IsLoaded(), IsDestroyed = Cargo:IsDestroyed() } )
       if not Cargo:IsLoaded() and not Cargo:IsDestroyed() then
         Loaded = false
       end
@@ -501,6 +517,7 @@ function AI_CARGO_APC:onbeforeUnloaded( APC, From, Event, To, Cargo )
     if AllUnloaded == true then
       self:Guard()
       self.CargoCarrier = APC
+      self.APC_Cargo = {}
     end
   end
   
@@ -530,63 +547,81 @@ end
 
 
 --- @param #AI_CARGO_APC 
--- @param Wrapper.Group#GROUP Carrier
-function AI_CARGO_APC._Pickup( Carrier )
+-- @param Wrapper.Group#GROUP APC
+function AI_CARGO_APC._Pickup( APC, self )
 
-  Carrier:F( { "AI_CARGO_APC._Pickup:", Carrier:GetName() } )
+  APC:F( { "AI_CARGO_APC._Pickup:", APC:GetName() } )
 
-  if Carrier:IsAlive() then
-    Carrier:__Load( 1 )
+  if APC:IsAlive() then
+    self:Load()
+    self.Transporting = true
   end
 end
 
 
 --- @param #AI_CARGO_APC 
--- @param Wrapper.Group#GROUP Carrier
-function AI_CARGO_APC._Deploy( Carrier )
+-- @param Wrapper.Group#GROUP APC
+function AI_CARGO_APC._Deploy( APC, self )
 
-  Carrier:F( { "AI_CARGO_APC._Deploy:", Carrier:GetName() } )
+  APC:F( { "AI_CARGO_APC._Deploy:", APC } )
 
-  if Carrier:IsAlive() then
-    Carrier:__Unload( 1 )
+  if APC:IsAlive() then
+    self:Unload()
+    self.Transporting = false
   end
 end
 
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP Carrier
+-- @param Wrapper.Group#GROUP APC
 -- @param From
 -- @param Event
 -- @param To
 -- @param Core.Point#COORDINATE Coordinate
 -- @param #number Speed
-function AI_CARGO_APC:onafterPickup( Carrier, From, Event, To, Coordinate, Speed )
+function AI_CARGO_APC:onafterPickup( APC, From, Event, To, Coordinate, Speed )
 
-  if Carrier and Carrier:IsAlive() then
+  if APC and APC:IsAlive() then
 
     self.RoutePickup = true
     
-    Carrier:RouteGroundOnRoad( Coordinate, Speed, 1 )
+    local Waypoints = APC:TaskGroundOnRoad( Coordinate, Speed )
+
+    local TaskFunction = APC:TaskFunction( "AI_CARGO_APC._Pickup", self )
+    
+    self:F({Waypoints = Waypoints})
+    local Waypoint = Waypoints[#Waypoints]
+    APC:SetTaskWaypoint( Waypoint, TaskFunction ) -- Set for the given Route at Waypoint 2 the TaskRouteToZone.
+  
+    APC:Route( Waypoints, 1 ) -- Move after a random seconds to the Route. See the Route method for details.
   end
   
 end
 
 
 --- @param #AI_CARGO_APC self
--- @param Wrapper.Group#GROUP Carrier
+-- @param Wrapper.Group#GROUP APC
 -- @param From
 -- @param Event
 -- @param To
 -- @param Core.Point#COORDINATE Coordinate
 -- @param #number Speed
-function AI_CARGO_APC:onafterDeploy( Carrier, From, Event, To, Coordinate, Speed )
+function AI_CARGO_APC:onafterDeploy( APC, From, Event, To, Coordinate, Speed )
 
-  if Carrier and Carrier:IsAlive() then
+  if APC and APC:IsAlive() then
 
     self.RouteDeploy = true
      
-    Carrier:RouteGroundOnRoad( Coordinate, Speed, 1 )
+    local Waypoints = APC:TaskGroundOnRoad( Coordinate, Speed )
+
+    local TaskFunction = APC:TaskFunction( "AI_CARGO_APC._Deploy", self )
+    
+    self:F({Waypoints = Waypoints})
+    local Waypoint = Waypoints[#Waypoints]
+    APC:SetTaskWaypoint( Waypoint, TaskFunction ) -- Set for the given Route at Waypoint 2 the TaskRouteToZone.
+  
+    APC:Route( Waypoints, 1 ) -- Move after a random seconds to the Route. See the Route method for details.
   end
   
 end
