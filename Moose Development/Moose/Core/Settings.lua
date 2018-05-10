@@ -193,7 +193,7 @@
 -- @field #SETTINGS
 SETTINGS = {
   ClassName = "SETTINGS",
-  ShowPlayerMenu = true,
+  ShowPlayerMenu = false,
 }
 
 
