@@ -58,6 +58,7 @@ DATABASE = {
   ZONENAMES = {},
   HITS = {},
   DESTROYS = {},
+  ZONES = {},
 }
 
 local _DATABASECoalition =
@@ -242,35 +243,100 @@ function DATABASE:FindAirbase( AirbaseName )
   return AirbaseFound
 end
 
---- Adds a Cargo based on the Cargo Name in the DATABASE.
--- @param #DATABASE self
--- @param #string CargoName The name of the airbase
-function DATABASE:AddCargo( Cargo )
 
-  if not self.CARGOS[Cargo.Name] then
-    self.CARGOS[Cargo.Name] = Cargo
+
+do -- cargo
+
+  --- Adds a Cargo based on the Cargo Name in the DATABASE.
+  -- @param #DATABASE self
+  -- @param #string CargoName The name of the airbase
+  function DATABASE:AddCargo( Cargo )
+  
+    if not self.CARGOS[Cargo.Name] then
+      self.CARGOS[Cargo.Name] = Cargo
+    end
   end
-end
+  
+  
+  --- Deletes a Cargo from the DATABASE based on the Cargo Name.
+  -- @param #DATABASE self
+  -- @param #string CargoName The name of the airbase
+  function DATABASE:DeleteCargo( CargoName )
+  
+    self.CARGOS[CargoName] = nil 
+  end
+  
+  --- Finds an CARGO based on the CargoName.
+  -- @param #DATABASE self
+  -- @param #string CargoName
+  -- @return Wrapper.Cargo#CARGO The found CARGO.
+  function DATABASE:FindCargo( CargoName )
+  
+    local CargoFound = self.CARGOS[CargoName]
+    return CargoFound
+  end
+  
+  --- Checks if the Template name has a ~CARGO tag.
+  -- If yes, the group is a cargo.
+  -- @param #DATABASE self
+  -- @param #string TemplateName
+  -- @return #boolean
+  function DATABASE:IsCargo( TemplateName )
 
+    TemplateName = env.getValueDictByKey( TemplateName )
+  
+    local Cargo = TemplateName:match( "~(CARGO)" )
 
---- Deletes a Cargo from the DATABASE based on the Cargo Name.
--- @param #DATABASE self
--- @param #string CargoName The name of the airbase
-function DATABASE:DeleteCargo( CargoName )
+    return Cargo and Cargo == "CARGO"    
+  end
 
-  self.CARGOS[CargoName] = nil 
-end
+  --- Private method that registers new Static Templates within the DATABASE Object.
+  -- @param #DATABASE self
+  -- @return #DATABASE self
+  function DATABASE:RegisterCargos()
 
---- Finds an CARGO based on the CargoName.
--- @param #DATABASE self
--- @param #string CargoName
--- @return Wrapper.Cargo#CARGO The found CARGO.
-function DATABASE:FindCargo( CargoName )
+  
+    for CargoGroupName, CargoGroup in pairs( self.GROUPS ) do
+      if self:IsCargo( CargoGroupName ) then
+        local CargoInfo = CargoGroupName:match("~CARGO(.*)")
+        local CargoParam = CargoInfo and CargoInfo:match( "%((.*)%)")
+        local CargoName = CargoGroupName:match("(.*)~CARGO")
+        local Type = CargoParam and CargoParam:match( "T=([%a%d ]+),?")
+        local Name = CargoParam and CargoParam:match( "N=([%a%d]+),?") or CargoName
+        local LoadRadius = CargoParam and tonumber( CargoParam:match( "RR=([%a%d]+),?") )
+        local NearRadius = CargoParam and tonumber( CargoParam:match( "NR=([%a%d]+),?") )
+        
+        self:F({"Register CargoGroup:",Type=Type,Name=Name,LoadRadius=LoadRadius,NearRadius=NearRadius})
+        CARGO_GROUP:New( CargoGroup, Type, Name, LoadRadius, NearRadius )
+      end
+    end
+    
+    for CargoStaticName, CargoStatic in pairs( self.STATICS ) do
+      if self:IsCargo( CargoStaticName ) then
+        local CargoInfo = CargoStaticName:match("~CARGO(.*)")
+        local CargoParam = CargoInfo and CargoInfo:match( "%((.*)%)")
+        local CargoName = CargoStaticName:match("(.*)~CARGO")
+        local Type = CargoParam and CargoParam:match( "T=([%a%d ]+),?")
+        local Category = CargoParam and CargoParam:match( "C=([%a%d ]+),?")
+        local Name = CargoParam and CargoParam:match( "N=([%a%d]+),?") or CargoName
+        local LoadRadius = CargoParam and tonumber( CargoParam:match( "RR=([%a%d]+),?") )
+        local NearRadius = CargoParam and tonumber( CargoParam:match( "NR=([%a%d]+),?") )
+        
+        if Category == "SLING" then
+          self:F({"Register CargoSlingload:",Type=Type,Name=Name,LoadRadius=LoadRadius,NearRadius=NearRadius})
+          CARGO_SLINGLOAD:New( CargoStatic, Type, Name, LoadRadius, NearRadius )
+        else
+          if Category == "CRATE" then
+            self:F({"Register CargoCrate:",Type=Type,Name=Name,LoadRadius=LoadRadius,NearRadius=NearRadius})
+            CARGO_CRATE:New( CargoStatic, Type, Name, LoadRadius, NearRadius )
+          end
+        end
+      end
+    end
+    
+  end
 
-  local CargoFound = self.CARGOS[CargoName]
-  return CargoFound
-end
-
+end -- cargo
 
 --- Finds a CLIENT based on the ClientName.
 -- @param #DATABASE self
@@ -688,7 +754,7 @@ function DATABASE:_RegisterAirbases()
 
       local DCSAirbaseName = DCSAirbase:getName()
 
-      self:E( { "Register Airbase:", DCSAirbaseName } )
+      self:E( { "Register Airbase:", DCSAirbaseName, DCSAirbase:getID() } )
       self:AddAirbase( DCSAirbaseName )
     end
   end
@@ -1010,7 +1076,6 @@ function DATABASE:_RegisterTemplates()
       
       local CoalitionSide = coalition.side[string.upper(CoalitionName)]
 
-      ----------------------------------------------
       -- build nav points DB
       self.Navpoints[CoalitionName] = {}
       if coa_data.nav_points then --navpoints
@@ -1025,8 +1090,9 @@ function DATABASE:_RegisterTemplates()
             self.Navpoints[CoalitionName][nav_ind]['point']['y'] = 0
             self.Navpoints[CoalitionName][nav_ind]['point']['z'] = nav_data.y
           end
+        end
       end
-      end
+
       -------------------------------------------------
       if coa_data.country then --there is a country table
         for cntry_id, cntry_data in pairs(coa_data.country) do
@@ -1082,6 +1148,8 @@ function DATABASE:_RegisterTemplates()
   for ZoneID, ZoneData in pairs( env.mission.triggers.zones ) do
     local ZoneName = ZoneData.name
     self.ZONENAMES[ZoneName] = ZoneName
+    self.ZONES[ZoneName] = ZONE:New( ZoneName )
+    self:I( "Added ZONE " .. ZoneName )
   end
 
   return self

@@ -274,20 +274,18 @@ do -- COORDINATE
   
   
 
-  --TODO: check this to replace
-  --- Calculate the distance from a reference @{DCSTypes#Vec2}.
+  --- Calculate the distance from a reference @{#COORDINATE}.
   -- @param #COORDINATE self
-  -- @param Dcs.DCSTypes#Vec2 Vec2Reference The reference @{DCSTypes#Vec2}.
-  -- @return Dcs.DCSTypes#Distance The distance from the reference @{DCSTypes#Vec2} in meters.
-  function COORDINATE:DistanceFromVec2( Vec2Reference )
-    self:F2( Vec2Reference )
+  -- @param #COORDINATE PointVec2Reference The reference @{#COORDINATE}.
+  -- @return Dcs.DCSTypes#Distance The distance from the reference @{#COORDINATE} in meters.
+  function COORDINATE:DistanceFromPointVec2( PointVec2Reference )
+    self:F2( PointVec2Reference )
 
-    local Distance = ( ( Vec2Reference.x - self.x ) ^ 2 + ( Vec2Reference.y - self.z ) ^2 ) ^0.5
+    local Distance = ( ( PointVec2Reference.x - self.x ) ^ 2 + ( PointVec2Reference.z - self.z ) ^2 ) ^ 0.5
 
     self:T2( Distance )
     return Distance
   end
-
 
   --- Add a Distance in meters from the COORDINATE orthonormal plane, with the given angle, and calculate the new COORDINATE.
   -- @param #COORDINATE self
@@ -471,8 +469,8 @@ do -- COORDINATE
   -- @param height (Optional) parameter specifying the height ASL.
   -- @return Temperature in Degrees Celsius.
   function COORDINATE:GetTemperature(height)
+    self:F2(height)
     local y=height or self.y
-    env.info("FF height = "..y)
     local point={x=self.x, y=height or self.y, z=self.z}
     -- get temperature [K] and pressure [Pa] at point
     local T,P=atmosphere.getTemperatureAndPressure(point)
@@ -895,11 +893,13 @@ do -- COORDINATE
   function COORDINATE:WaypointGround( Speed, Formation )
     self:F2( { Formation, Speed } )
 
+ 
     local RoutePoint = {}
     RoutePoint.x = self.x
     RoutePoint.y = self.z
 
     RoutePoint.action = Formation or ""
+    --RoutePoint.formation_template = Formation and "" or nil
 
 
     RoutePoint.speed = ( Speed or 20 ) / 3.6
@@ -942,11 +942,15 @@ do -- COORDINATE
   function COORDINATE:GetPathOnRoad(ToCoord)
     local Path={}
     local path = land.findPathOnRoads("roads", self.x, self.z, ToCoord.x, ToCoord.z)
-    for i, v in ipairs(path) do
-      --self:E(v)
-      local coord=COORDINATE:NewFromVec2(v)
-      Path[#Path+1]=COORDINATE:NewFromVec2(v)
-    end
+    Path[#Path+1]=COORDINATE:NewFromVec2(path[1])
+    Path[#Path+1]=COORDINATE:NewFromVec2(path[#path])
+    -- I've removed this stuff because it severely slows down DCS in case of paths with a lot of segments.
+    -- Just the beginning and the end point is sufficient.
+--    for i, v in ipairs(path) do
+--      self:I(v)
+--      local coord=COORDINATE:NewFromVec2(v)
+--      Path[#Path+1]=COORDINATE:NewFromVec2(v)
+--    end
     return Path
   end
 

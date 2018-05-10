@@ -236,19 +236,36 @@ function GROUP:IsAlive()
 end
 
 --- Destroys the DCS Group and all of its DCS Units.
--- Note that this destroy method also raises a destroy event at run-time.
--- So all event listeners will catch the destroy event of this DCS Group.
+-- Note that this destroy method also can raise a destroy event at run-time.
+-- So all event listeners will catch the destroy event of this group for each unit in the group.
+-- To raise these events, provide the `GenerateEvent` parameter.
 -- @param #GROUP self
--- @param #boolean GenerateEvent
+-- @param #boolean GenerateEvent true if you want to generate a crash or dead event for each unit.
+-- @usage
+-- -- Air unit example: destroy the Helicopter and generate a S_EVENT_CRASH for each unit in the Helicopter group.
+-- Helicopter = GROUP:FindByName( "Helicopter" )
+-- Helicopter:Destroy( true )
+-- @usage
+-- -- Ground unit example: destroy the Tanks and generate a S_EVENT_DEAD for each unit in the Tanks group.
+-- Tanks = GROUP:FindByName( "Tanks" )
+-- Tanks:Destroy( true )
+-- @usage
+-- -- Ship unit example: destroy the Ship silently.
+-- Ship = GROUP:FindByName( "Ship" )
+-- Ship:Destroy( true )
 function GROUP:Destroy( GenerateEvent )
   self:F2( self.GroupName )
 
   local DCSGroup = self:GetDCSObject()
 
   if DCSGroup then
-    if not GenerateEvent then
+    if GenerateEvent and GenerateEvent == true then
       for Index, UnitData in pairs( DCSGroup:getUnits() ) do
-        self:CreateEventCrash( timer.getTime(), UnitData )
+        if self:IsAir() then
+          self:CreateEventCrash( timer.getTime(), UnitData )
+        else
+          self:CreateEventDead( timer.getTime(), UnitData )
+        end
       end
     end
     USERFLAG:New( self:GetName() ):Set( 100 )
@@ -1141,7 +1158,7 @@ function GROUP:Respawn( Template, Reset )
     else
       for UnitID, TemplateUnitData in pairs( Template.units ) do
         self:F( "Reset"  )
-        local GroupUnitVec3 = { x = TemplateUnitData.x, y = TemplateUnitData.alt, z = TemplateUnitData.z }
+        local GroupUnitVec3 = { x = TemplateUnitData.x, y = TemplateUnitData.alt, z = TemplateUnitData.y }
         if Zone then
           if self.InitRespawnRandomizePositionZone then
             GroupUnitVec3 = Zone:GetRandomVec3()
@@ -1174,7 +1191,101 @@ function GROUP:Respawn( Template, Reset )
 end
 
 
+--- @param Wrapper.Group#GROUP self
+function GROUP:RespawnAtAirbase( AirbaseRespawn, Takeoff, TakeoffAltitude ) -- R2.4
+  self:F( { AirbaseRespawn, Takeoff, TakeoffAltitude } )
 
+  local PointVec3 = AirbaseRespawn:GetPointVec3()
+
+  Takeoff = Takeoff or SPAWN.Takeoff.Hot
+  
+  local SpawnTemplate = self:GetTemplate()
+
+  if SpawnTemplate then
+
+    local SpawnPoint = SpawnTemplate.route.points[1] 
+
+    -- These are only for ships.
+    SpawnPoint.linkUnit = nil
+    SpawnPoint.helipadId = nil
+    SpawnPoint.airdromeId = nil
+
+    local AirbaseID = AirbaseRespawn:GetID()
+    local AirbaseCategory = AirbaseRespawn:GetDesc().category
+    self:F( { AirbaseCategory = AirbaseCategory, Ship = Airbase.Category.SHIP, Helipad = Airbase.Category.HELIPAD, Airdrome = Airbase.Category.AIRDROME } )
+    
+    if AirbaseCategory == Airbase.Category.SHIP then
+      SpawnPoint.linkUnit = AirbaseID
+      SpawnPoint.helipadId = AirbaseID
+    elseif AirbaseCategory == Airbase.Category.HELIPAD then
+      SpawnPoint.linkUnit = AirbaseID
+      SpawnPoint.helipadId = AirbaseID
+    elseif AirbaseCategory == Airbase.Category.AIRDROME then
+      SpawnPoint.airdromeId = AirbaseID
+    end
+
+    SpawnPoint.alt = 0
+            
+    SpawnPoint.type = GROUPTEMPLATE.Takeoff[Takeoff][1] -- type
+    SpawnPoint.action = GROUPTEMPLATE.Takeoff[Takeoff][2] -- action
+    
+
+    -- Translate the position of the Group Template to the Vec3.
+    for UnitID = 1, #SpawnTemplate.units do
+      self:T( 'Before Translation SpawnTemplate.units['..UnitID..'].x = ' .. SpawnTemplate.units[UnitID].x .. ', SpawnTemplate.units['..UnitID..'].y = ' .. SpawnTemplate.units[UnitID].y )
+
+      -- These cause a lot of confusion.
+      local UnitTemplate = SpawnTemplate.units[UnitID]
+
+      UnitTemplate.parking = 15
+      UnitTemplate.parking_id = "30"
+      UnitTemplate.alt = 0
+
+      local SX = UnitTemplate.x
+      local SY = UnitTemplate.y 
+      local BX = SpawnPoint.x
+      local BY = SpawnPoint.y
+      local TX = PointVec3.x + ( SX - BX )
+      local TY = PointVec3.z + ( SY - BY )
+      
+      UnitTemplate.x = TX
+      UnitTemplate.y = TY
+      
+      if Takeoff == GROUP.Takeoff.Air then
+        UnitTemplate.alt = PointVec3.y + ( TakeoffAltitude or 200 )
+      --else
+      --  UnitTemplate.alt = PointVec3.y + 10
+      end
+      self:T( 'After Translation SpawnTemplate.units['..UnitID..'].x = ' .. UnitTemplate.x .. ', SpawnTemplate.units['..UnitID..'].y = ' .. UnitTemplate.y )
+    end
+    
+    SpawnPoint.x = PointVec3.x
+    SpawnPoint.y = PointVec3.z
+    
+    if Takeoff == GROUP.Takeoff.Air then
+      SpawnPoint.alt = PointVec3.y + ( TakeoffAltitude or 200 )
+    --else
+    --  SpawnPoint.alt = PointVec3.y + 10
+    end
+
+    SpawnTemplate.x = PointVec3.x
+    SpawnTemplate.y = PointVec3.z
+    
+    local GroupSpawned = self:Respawn( SpawnTemplate )
+    
+    -- When spawned in the air, we need to generate a Takeoff Event
+    
+    if Takeoff == GROUP.Takeoff.Air then
+      for UnitID, UnitSpawned in pairs( GroupSpawned:GetUnits() ) do
+        SCHEDULER:New( nil, BASE.CreateEventTakeoff, { GroupSpawned, timer.getTime(), UnitSpawned:GetDCSObject() } , 1 )
+      end
+    end
+
+    return GroupSpawned
+  end
+  
+  return nil
+end
 
 
 --- Return the mission template of the group.
@@ -1300,7 +1411,7 @@ do -- Route methods
   -- @param #number Speed (optional) The Speed, if no Speed is given, the maximum Speed of the first unit is selected. 
   -- @return #GROUP
   function GROUP:RouteRTB( RTBAirbase, Speed )
-    self:F2( { RTBAirbase, Speed } )
+    self:F( { RTBAirbase:GetName(), Speed } )
   
     local DCSGroup = self:GetDCSObject()
   
@@ -1341,9 +1452,7 @@ do -- Route methods
         Template.route.points = Points
         self:Respawn( Template )
     
-        self:Route( Points )
-
-        self:Respawn(Template)
+        --self:Route( Points )
       else
         self:ClearTasks()
       end

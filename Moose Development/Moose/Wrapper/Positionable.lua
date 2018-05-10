@@ -391,7 +391,7 @@ function POSITIONABLE:GetVelocityVec3()
 
   local DCSPositionable = self:GetDCSObject()
   
-  if DCSPositionable then
+  if DCSPositionable and DCSPositionable:isExist() then
     local PositionableVelocityVec3 = DCSPositionable:getVelocity()
     self:T3( PositionableVelocityVec3 )
     return PositionableVelocityVec3
@@ -433,7 +433,7 @@ function POSITIONABLE:GetVelocityKMH()
 
   local DCSPositionable = self:GetDCSObject()
   
-  if DCSPositionable then
+  if DCSPositionable and DCSPositionable:isExist() then
     local VelocityVec3 = self:GetVelocityVec3()
     local Velocity = ( VelocityVec3.x ^ 2 + VelocityVec3.y ^ 2 + VelocityVec3.z ^ 2 ) ^ 0.5 -- in meters / sec
     local Velocity = Velocity * 3.6 -- now it is in km/h.
@@ -452,7 +452,7 @@ function POSITIONABLE:GetVelocityMPS()
 
   local DCSPositionable = self:GetDCSObject()
   
-  if DCSPositionable then
+  if DCSPositionable and DCSPositionable:isExist() then
     local VelocityVec3 = self:GetVelocityVec3()
     local Velocity = ( VelocityVec3.x ^ 2 + VelocityVec3.y ^ 2 + VelocityVec3.z ^ 2 ) ^ 0.5 -- in meters / sec
     self:T3( Velocity )
@@ -807,6 +807,15 @@ function POSITIONABLE:AddCargo( Cargo )
   self.__.Cargo[Cargo] = Cargo
   return self
 end
+
+--- Get all contained cargo.
+-- @param #POSITIONABLE self
+-- @return #POSITIONABLE
+function POSITIONABLE:GetCargo()
+  return self.__.Cargo
+end
+
+
 
 --- Remove cargo.
 -- @param #POSITIONABLE self
