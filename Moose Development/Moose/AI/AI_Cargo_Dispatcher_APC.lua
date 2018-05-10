@@ -39,6 +39,9 @@ AI_CARGO_DISPATCHER_APC = {
 --- @field #AI_CARGO_DISPATCHER_APC.AI_CARGO_APC 
 AI_CARGO_DISPATCHER_APC.AICargoAPC = {}
 
+--- @field #AI_CARGO_DISPATCHER_APC.PickupCargo
+AI_CARGO_DISPATCHER_APC.PickupCargo = {}
+
 --- Creates a new AI_CARGO_DISPATCHER_APC object.
 -- @param #AI_CARGO_DISPATCHER_APC self
 -- @param Core.Set#SET_GROUP SetAPC
@@ -73,9 +76,12 @@ function AI_CARGO_DISPATCHER_APC:New( SetAPC, SetCargo, SetDeployZones )
   self:AddTransition( "*", "Unloading", "*" )
   self:AddTransition( "*", "Unloaded", "*" )
   
-  self.PickupTimeInterval = 120
+  self.MonitorTimeInterval = 120
+  self.CombatRadius = 500
   self.DeployRadiusInner = 200
   self.DeployRadiusOuter = 500
+  
+  self:Monitor( 1 )
   
   return self
 end
@@ -96,63 +102,87 @@ function AI_CARGO_DISPATCHER_APC:onafterMonitor()
       self.AICargoAPC[APC] = AI_CARGO_APC:New( APC, self.SetCargo, self.CombatRadius )
       AICargoAPC = self.AICargoAPC[APC]
       
-      function AICargoAPC.OnAfterPickup( AICargoAPC, APC )
-        self.AICargoAPC = AICargoAPC
-        self:Pickup( APC )
+      function AICargoAPC.OnAfterPickup( AICargoAPC, APC, From, Event, To, Cargo )
+        self:Pickup( APC, Cargo )
       end
       
       function AICargoAPC.OnAfterLoad( AICargoAPC, APC )
-        self.AICargoAPC = AICargoAPC
         self:Load( APC )
       end
 
-      function AICargoAPC.OnAfterLoaded( AICargoAPC, APC )
-        self.AICargoAPC = AICargoAPC
-        self:Loaded( APC )
+      function AICargoAPC.OnAfterLoaded( AICargoAPC, APC, From, Event, To, Cargo )
+        self:Loaded( APC, Cargo )
       end
 
       function AICargoAPC.OnAfterDeploy( AICargoAPC, APC )
-        self.AICargoAPC = AICargoAPC
         self:Deploy( APC )
       end      
 
       function AICargoAPC.OnAfterUnload( AICargoAPC, APC )
-        self.AICargoAPC = AICargoAPC
         self:Unload( APC )
       end      
 
       function AICargoAPC.OnAfterUnloaded( AICargoAPC, APC )
-        self.AICargoAPC = AICargoAPC
         self:Unloaded( APC )
       end      
     end
 
     -- The Pickup sequence ...
     -- Check if this APC need to go and Pickup something...
-    if not AICargoAPC:IsTransporting() == true then
+    self:I( { IsTransporting = AICargoAPC:IsTransporting() } )
+    if AICargoAPC:IsTransporting() == false then
       -- ok, so there is a free APC
       -- now find the first cargo that is Unloaded
-      local FirstCargoUnloaded = self.SetCargo:FirstCargoUnLoaded()
-      if FirstCargoUnloaded then
-        AICargoAPC:Pickup( FirstCargoUnloaded:GetCoordinate() )
+      
+      local PickupCargo = nil
+      
+      for CargoName, Cargo in pairs( self.SetCargo:GetSet() ) do
+        if Cargo:IsUnLoaded() and not Cargo:IsDeployed() then
+          if not self.PickupCargo[Cargo] then
+            self.PickupCargo[Cargo] = APC
+            PickupCargo = Cargo
+            break
+          end
+        end
+      end
+      if PickupCargo then
+        AICargoAPC:Pickup( PickupCargo:GetCoordinate(), 70 )
         break
       end
     end
   end
 
+  self:__Monitor( self.MonitorTimeInterval )
+
   return self
 end
 
 
+
+--- Make a APC run for a cargo deploy action after the cargo Pickup trigger has been initiated, by default.
+-- @param #AI_CARGO_DISPATCHER_APC self
+-- @param Wrapper.Group#GROUP APC
+-- @return #AI_CARGO_DISPATCHER_APC
+function AI_CARGO_DISPATCHER_APC:onafterPickup( From, Event, To, APC, Cargo )
+  return self
+end
 
 --- Make a APC run for a cargo deploy action after the cargo has been loaded, by default.
 -- @param #AI_CARGO_DISPATCHER_APC self
 -- @param Wrapper.Group#GROUP APC
 -- @return #AI_CARGO_DISPATCHER_APC
-function AI_CARGO_DISPATCHER_APC:OnAfterLoaded( APC )
+function AI_CARGO_DISPATCHER_APC:OnAfterLoaded( From, Event, To, APC, Cargo )
 
-  self:Deploy( self.SetDeployZones:GetRandomZone():GetCoordinate():GetRandomCoordinateInRadius( self.DeployRadiusInner, self.DeployRadiusOuter ) )
+  self:I( { "Loaded Dispatcher", APC } )
+  local RandomZone = self.SetDeployZones:GetRandomZone()
+  self:I( { RandomZone = RandomZone } )
+  
+  self.AICargoAPC[APC]:Deploy( RandomZone:GetCoordinate(), 70 )
+  self.PickupCargo[Cargo] = nil
 
   return self
 end
+
+
+
 
