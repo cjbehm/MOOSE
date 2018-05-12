@@ -188,9 +188,11 @@ function AI_CARGO_DISPATCHER:onafterMonitor()
         AI_Cargo:Pickup( PickupCargo:GetCoordinate() )
         break
       else
-        if not self.CarrierHome[Carrier] then
-          self.CarrierHome[Carrier] = true
-          AI_Cargo:Home( self.HomeZone:GetRandomPointVec2() )
+        if self.HomeZone then
+          if not self.CarrierHome[Carrier] then
+            self.CarrierHome[Carrier] = true
+            AI_Cargo:Home( self.HomeZone:GetRandomPointVec2() )
+          end
         end
       end
     end
