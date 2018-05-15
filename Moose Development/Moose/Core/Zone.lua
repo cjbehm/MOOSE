@@ -114,6 +114,8 @@ function ZONE_BASE:New( ZoneName )
   return self
 end
 
+
+
 --- Returns the name of the zone.
 -- @param #ZONE_BASE self
 -- @return #string The name of the zone.
@@ -149,10 +151,16 @@ end
 -- @param Dcs.DCSTypes#Vec3 Vec3 The point to test.
 -- @return #boolean true if the Vec3 is within the zone.
 function ZONE_BASE:IsVec3InZone( Vec3 )
-  self:F2( Vec3 )
-
   local InZone = self:IsVec2InZone( { x = Vec3.x, y = Vec3.z } )
+  return InZone
+end
 
+--- Returns if a Coordinate is within the zone.
+-- @param #ZONE_BASE self
+-- @param Core.Point#COORDINATE Coordinate The coordinate to test.
+-- @return #boolean true if the coordinate is within the zone.
+function ZONE_BASE:IsCoordinateInZone( Coordinate )
+  local InZone = self:IsVec2InZone( Coordinate:GetVec2() )
   return InZone
 end
 
@@ -161,10 +169,7 @@ end
 -- @param Core.Point#POINT_VEC2 PointVec2 The PointVec2 to test.
 -- @return #boolean true if the PointVec2 is within the zone.
 function ZONE_BASE:IsPointVec2InZone( PointVec2 )
-  self:F2( PointVec2 )
-  
   local InZone = self:IsVec2InZone( PointVec2:GetVec2() )
-
   return InZone
 end
 
@@ -173,10 +178,7 @@ end
 -- @param Core.Point#POINT_VEC3 PointVec3 The PointVec3 to test.
 -- @return #boolean true if the PointVec3 is within the zone.
 function ZONE_BASE:IsPointVec3InZone( PointVec3 )
-  self:F2( PointVec3 )
-
   local InZone = self:IsPointVec2InZone( PointVec3 )
-
   return InZone
 end
 
@@ -185,8 +187,6 @@ end
 -- @param #ZONE_BASE self
 -- @return #nil.
 function ZONE_BASE:GetVec2()
-  self:F2( self.ZoneName )
-
   return nil 
 end
 
@@ -962,6 +962,17 @@ function ZONE:New( ZoneName )
   return self
 end
 
+--- Find a zone in the _DATABASE using the name of the zone.
+-- @param #ZONE_BASE self
+-- @param #string ZoneName The name of the zone.
+-- @return #ZONE_BASE self
+function ZONE:FindByName( ZoneName )
+  
+  local ZoneFound = _DATABASE:FindZone( ZoneName )
+  return ZoneFound
+end
+
+
 
 --- @type ZONE_UNIT
 -- @field Wrapper.Unit#UNIT ZoneUNIT
@@ -989,6 +1000,9 @@ function ZONE_UNIT:New( ZoneName, ZoneUNIT, Radius )
 
   self.ZoneUNIT = ZoneUNIT
   self.LastVec2 = ZoneUNIT:GetVec2()
+  
+  -- Zone objects are added to the _DATABASE and SET_ZONE objects.
+  _EVENTDISPATCHER:CreateEventNewZone( self )
   
   return self
 end
@@ -1078,6 +1092,9 @@ function ZONE_GROUP:New( ZoneName, ZoneGROUP, Radius )
   self:F( { ZoneName, ZoneGROUP:GetVec2(), Radius } )
 
   self._.ZoneGROUP = ZoneGROUP
+
+  -- Zone objects are added to the _DATABASE and SET_ZONE objects.
+  _EVENTDISPATCHER:CreateEventNewZone( self )
   
   return self
 end

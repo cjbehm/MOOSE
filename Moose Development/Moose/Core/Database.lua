@@ -58,6 +58,7 @@ DATABASE = {
   ZONENAMES = {},
   HITS = {},
   DESTROYS = {},
+  ZONES = {},
 }
 
 local _DATABASECoalition =
@@ -95,6 +96,8 @@ function DATABASE:New()
   self:HandleEvent( EVENTS.Hit, self.AccountHits )
   self:HandleEvent( EVENTS.NewCargo )
   self:HandleEvent( EVENTS.DeleteCargo )
+  self:HandleEvent( EVENTS.NewZone )
+  self:HandleEvent( EVENTS.DeleteZone )
   
   -- Follow alive players and clients
   --self:HandleEvent( EVENTS.PlayerEnterUnit, self._EventOnPlayerEnterUnit ) -- This is not working anymore!, handling this through the birth event.
@@ -242,6 +245,52 @@ function DATABASE:FindAirbase( AirbaseName )
   return AirbaseFound
 end
 
+
+do -- Zones
+
+  --- Finds a @{Zone} based on the zone name.
+  -- @param #DATABASE self
+  -- @param #string ZoneName The name of the zone.
+  -- @return Core.Zone#ZONE_BASE The found ZONE.
+  function DATABASE:FindZone( ZoneName )
+  
+    local ZoneFound = self.ZONES[ZoneName]
+    return ZoneFound
+  end
+  
+  --- Adds a @{Zone} based on the zone name in the DATABASE.
+  -- @param #DATABASE self
+  -- @param #string ZoneName The name of the zone.
+  -- @param Core.Zone#ZONE_BASE Zone The zone.
+  function DATABASE:AddZone( ZoneName, Zone )
+  
+    if not self.ZONES[ZoneName] then
+      self.ZONES[ZoneName] = Zone
+    end
+  end
+  
+  
+  --- Deletes a @{Zone} from the DATABASE based on the zone name.
+  -- @param #DATABASE self
+  -- @param #string ZoneName The name of the zone.
+  function DATABASE:DeleteZone( ZoneName )
+  
+    self.ZONES[ZoneName] = nil 
+  end
+  
+  --- Finds an @{Zone} based on the zone name in the DATABASE.
+  -- @param #DATABASE self
+  -- @param #string ZoneName
+  -- @return Core.Zone#ZONE_BASE The found @{Zone}.
+  function DATABASE:FindZone( ZoneName )
+  
+    local ZoneFound = self.ZONES[ZoneName]
+    return ZoneFound
+  end
+
+
+
+end
 
 
 do -- cargo
@@ -1038,6 +1087,31 @@ function DATABASE:OnEventDeleteCargo( EventData )
 end
 
 
+--- Handles the OnEventNewZone event.
+-- @param #DATABASE self
+-- @param Core.Event#EVENTDATA EventData
+function DATABASE:OnEventNewZone( EventData )
+  self:F2( { EventData } )
+
+  if EventData.Zone then
+    self:AddZone( EventData.Zone )
+  end
+end
+
+
+--- Handles the OnEventDeleteZone.
+-- @param #DATABASE self
+-- @param Core.Event#EVENTDATA EventData
+function DATABASE:OnEventDeleteZone( EventData )
+  self:F2( { EventData } )
+
+  if EventData.Zone then
+    self:DeleteZone( EventData.Zone.ZoneName )
+  end
+end
+
+
+
 --- Gets the player settings
 -- @param #DATABASE self
 -- @param #string PlayerName
@@ -1075,7 +1149,6 @@ function DATABASE:_RegisterTemplates()
       
       local CoalitionSide = coalition.side[string.upper(CoalitionName)]
 
-      ----------------------------------------------
       -- build nav points DB
       self.Navpoints[CoalitionName] = {}
       if coa_data.nav_points then --navpoints
@@ -1090,8 +1163,9 @@ function DATABASE:_RegisterTemplates()
             self.Navpoints[CoalitionName][nav_ind]['point']['y'] = 0
             self.Navpoints[CoalitionName][nav_ind]['point']['z'] = nav_data.y
           end
+        end
       end
-      end
+
       -------------------------------------------------
       if coa_data.country then --there is a country table
         for cntry_id, cntry_data in pairs(coa_data.country) do
@@ -1147,6 +1221,8 @@ function DATABASE:_RegisterTemplates()
   for ZoneID, ZoneData in pairs( env.mission.triggers.zones ) do
     local ZoneName = ZoneData.name
     self.ZONENAMES[ZoneName] = ZoneName
+    self:AddZone( ZoneName, ZONE:New( ZoneName ) )
+    self:I( "Added ZONE " .. ZoneName )
   end
 
   return self

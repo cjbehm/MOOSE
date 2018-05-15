@@ -31,6 +31,20 @@ do -- CARGO_GROUP
   --
   -- The CARGO\_GROUP class defines a cargo that is represented by a @{Group} object within the simulator.
   -- The cargo can be Loaded, UnLoaded, Boarded, UnBoarded to and from Carriers.
+  -- 
+  -- The above cargo classes are used by the AI\_CARGO\_ classes to allow AI groups to transport cargo:
+  -- 
+  --   * AI Armoured Personnel Carriers to transport cargo and engage in battles, using the @{AI.AI_Cargo_APC#AI_CARGO_APC} class.
+  --   * AI Helicopters to transport cargo, using the @{AI.AI_Cargo_Helicopter#AI_CARGO_HELICOPTER} class.
+  --   * AI Planes to transport cargo, using the @{AI.AI_Cargo_Plane#AI_CARGO_PLANE} class.
+  --   * AI Ships is planned.
+  -- 
+  -- The above cargo classes are also used by the TASK\_CARGO\_ classes to allow human players to transport cargo as part of a tasking:
+  -- 
+  --   * @{Tasking.Task_Cargo_Transport#TASK_CARGO_TRANSPORT} to transport cargo by human players.
+  --   * @{Tasking.Task_Cargo_Transport#TASK_CARGO_CSAR} to transport downed pilots by human players.
+  -- 
+  -- The
   --
   -- @field #CARGO_GROUP CARGO_GROUP
   -- 
@@ -473,6 +487,36 @@ do -- CARGO_GROUP
     
     return nil
   end
+
+  --- Get the x position of the cargo.
+  -- @param #CARGO_GROUP self
+  -- @return #number
+  function CARGO:GetX()
+
+    local Cargo = self:GetFirstAlive() -- Cargo.Cargo#CARGO
+
+    if Cargo then
+      return Cargo:GetCoordinate().x
+    end 
+    
+    return nil
+  end
+  
+  --- Get the y position of the cargo.
+  -- @param #CARGO_GROUP self
+  -- @return #number
+  function CARGO:GetY()
+
+    local Cargo = self:GetFirstAlive() -- Cargo.Cargo#CARGO
+
+    if Cargo then
+      return Cargo:GetCoordinate().z
+    end
+    
+    return nil 
+  end
+  
+
 
   --- Check if the CargoGroup is alive.
   -- @param #CARGO_GROUP self

@@ -798,15 +798,16 @@ end
 -- @param #CONTROLLABLE self
 -- @param #number Altitude The altitude to hold the position.
 -- @param #number Speed The speed flying when holding the position.
+-- @param Core.Point#COORDINATE Coordinate The coordinate where to orbit.
 -- @return #CONTROLLABLE self
-function CONTROLLABLE:TaskOrbitCircle( Altitude, Speed )
+function CONTROLLABLE:TaskOrbitCircle( Altitude, Speed, Coordinate )
   self:F2( { self.ControllableName, Altitude, Speed } )
 
   local DCSControllable = self:GetDCSObject()
 
   if DCSControllable then
-    local ControllablePoint = self:GetVec2()
-    return self:TaskOrbitCircleAtVec2( ControllablePoint, Altitude, Speed )
+    local OrbitVec2 = Coordinate and Coordinate:GetVec2() or self:GetVec2()
+    return self:TaskOrbitCircleAtVec2( OrbitVec2, Altitude, Speed )
   end
 
   return nil
@@ -1050,9 +1051,10 @@ end
 -- @param Dcs.DCSTypes#Vec2 Vec2 The point to fire at.
 -- @param Dcs.DCSTypes#Distance Radius The radius of the zone to deploy the fire at.
 -- @param #number AmmoCount (optional) Quantity of ammunition to expand (omit to fire until ammunition is depleted).
+-- @param #number WeaponType (optional) Enum for weapon type ID. This value is only required if you want the group firing to use a specific weapon, for instance using the task on a ship to force it to fire guided missiles at targets within cannon range. See http://wiki.hoggit.us/view/DCS_enum_weapon_flag 
 -- @return Dcs.DCSTasking.Task#Task The DCS task structure.
-function CONTROLLABLE:TaskFireAtPoint( Vec2, Radius, AmmoCount )
-  self:F2( { self.ControllableName, Vec2, Radius, AmmoCount } )
+function CONTROLLABLE:TaskFireAtPoint( Vec2, Radius, AmmoCount, WeaponType )
+  self:F2( { self.ControllableName, Vec2, Radius, AmmoCount, WeaponType } )
 
   -- FireAtPoint = {
   --   id = 'FireAtPoint',
@@ -1077,6 +1079,10 @@ function CONTROLLABLE:TaskFireAtPoint( Vec2, Radius, AmmoCount )
   if AmmoCount then
     DCSTask.params.expendQty = AmmoCount
     DCSTask.params.expendQtyEnabled = true
+  end
+  
+  if WeaponType then
+    DCSTask.params.weaponType=WeaponType
   end
 
   self:T3( { DCSTask } )
