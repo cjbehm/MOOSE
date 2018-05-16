@@ -23,12 +23,56 @@
 -- CARGO derived objects must be declared within the mission to make the AI\_CARGO\_DISPATCHER object recognize the cargo.
 -- Please consult the @{Cargo} module for more information. 
 -- 
+-- ## 1. AI\_CARGO\_DISPATCHER constructor
+--   
+--   * @{#AI_CARGO_DISPATCHER.New}(): Creates a new AI\_CARGO\_DISPATCHER object.
+-- 
+-- ## 2. AI\_CARGO\_DISPATCHER is a FSM
+-- 
+-- ![Process](..\Presentations\AI_PATROL\Dia2.JPG)
+-- 
+-- ### 2.1. AI\_CARGO\_DISPATCHER States
+-- 
+--   * **Dispatching**: The process is dispatching.
+-- 
+-- ### 2.2. AI\_CARGO\_DISPATCHER Events
+-- 
+--   * **Monitor**: Monitor and take action.
+--   * **Pickup**: Pickup cargo.
+--   * **Load**: Load the cargo.
+--   * **Loaded**: Flag that the cargo is loaded.
+--   * **Deploy**: Deploy cargo to a location.
+--   * **Unload**: Unload the cargo.
+--   * **Unloaded**: Flag that the cargo is unloaded.
+--   * **Home**: A Carrier is going home.
+-- 
+-- ## 3. Set the pickup parameters.
+-- 
+-- Several parameters can be set to pickup cargo:
+-- 
+--    * @{#AI_CARGO_DISPATCHER.SetPickupRadius}(): Sets or randomizes the pickup location for the carrier around the cargo coordinate in a radius defined an outer and optional inner radius. 
+--    * @{#AI_CARGO_DISPATCHER.SetPickupSpeed}(): Set the speed or randomizes the speed in km/h to pickup the cargo.
+--    
+-- ## 4. Set the deploy parameters.
+-- 
+-- Several parameters can be set to deploy cargo:
+-- 
+--    * @{#AI_CARGO_DISPATCHER.SetDeployRadius}(): Sets or randomizes the deploy location for the carrier around the cargo coordinate in a radius defined an outer and an optional inner radius. 
+--    * @{#AI_CARGO_DISPATCHER.SetDeploySpeed}(): Set the speed or randomizes the speed in km/h to deploy the cargo.
+-- 
+-- ## 5. Set the home zone when there isn't any more cargo to pickup.
+-- 
+-- A home zone can be specified to where the Carriers will move when there isn't any cargo left for pickup.
+-- Use @{#AI_CARGO_DISPATCHER.SetHomeZone}() to specify the home zone.
+-- 
+-- If no home zone is specified, the carriers will wait near the deploy zone for a new pickup command.   
 -- 
 -- 
+--   
 -- @field #AI_CARGO_DISPATCHER
 AI_CARGO_DISPATCHER = {
   ClassName = "AI_CARGO_DISPATCHER",
-  SetAPC = nil,
+  SetCarrier = nil,
   SetDeployZones = nil,
   AI_CARGO_APC = {}
 }
@@ -46,23 +90,23 @@ AI_CARGO_DISPATCHER.PickupCargo = {}
 
 --- Creates a new AI_CARGO_DISPATCHER object.
 -- @param #AI_CARGO_DISPATCHER self
--- @param Core.Set#SET_GROUP SetAPC
+-- @param Core.Set#SET_GROUP SetCarrier
 -- @param Core.Set#SET_CARGO SetCargo
 -- @param Core.Set#SET_ZONE SetDeployZone
 -- @return #AI_CARGO_DISPATCHER
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- SetAPC = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
+-- SetCarrier = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
 -- SetCargo = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
 -- SetDeployZone = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZone )
+-- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
 -- 
-function AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZones )
+function AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZones )
 
   local self = BASE:Inherit( self, FSM:New() ) -- #AI_CARGO_DISPATCHER
 
-  self.SetAPC = SetAPC -- Core.Set#SET_GROUP
+  self.SetCarrier = SetCarrier -- Core.Set#SET_GROUP
   self.SetCargo = SetCargo -- Core.Set#SET_CARGO
   self.SetDeployZones = SetDeployZones -- Core.Set#SET_ZONE
 
@@ -84,7 +128,15 @@ function AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZones )
   self.DeployRadiusInner = 200
   self.DeployRadiusOuter = 500
   
+  self.PickupCargo = {}
   self.CarrierHome = {}
+  
+  -- Put a Dead event handler on SetCarrier, to ensure that when a carrier is destroyed, that all internal parameters are reset.
+  function SetCarrier.OnAfterRemoved( SetCarrier, From, Event, To, CarrierName, Carrier )
+    self:F( { Carrier = Carrier:GetName() } )
+    self.PickupCargo[Carrier] = nil
+    self.CarrierHome[Carrier] = nil
+  end
   
   return self
 end
@@ -99,7 +151,7 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZone )
+-- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
 -- 
 -- -- Set the home coordinate
 -- local HomeZone = ZONE:New( "Home" )
@@ -132,7 +184,7 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZone )
+-- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
 -- 
 -- -- Set the carrier to land within a band around the cargo coordinate between 500 and 300 meters!
 -- AICargoDispatcher:SetPickupRadius( 500, 300 )
@@ -157,7 +209,7 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZone )
+-- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
 -- 
 -- -- Set the minimum pickup speed to be 100 km/h and the maximum speed to be 200 km/h.
 -- AICargoDispatcher:SetPickupSpeed( 200, 100 )
@@ -190,7 +242,7 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZone )
+-- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
 -- 
 -- -- Set the carrier to land within a band around the cargo coordinate between 500 and 300 meters!
 -- AICargoDispatcher:SetDeployRadius( 500, 300 )
@@ -215,7 +267,7 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZone )
+-- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
 -- 
 -- -- Set the minimum deploy speed to be 100 km/h and the maximum speed to be 200 km/h.
 -- AICargoDispatcher:SetDeploySpeed( 200, 100 )
@@ -239,7 +291,7 @@ end
 -- @return #AI_CARGO_DISPATCHER
 function AI_CARGO_DISPATCHER:onafterMonitor()
 
-  for APCGroupName, Carrier in pairs( self.SetAPC:GetSet() ) do
+  for APCGroupName, Carrier in pairs( self.SetCarrier:GetSet() ) do
     local Carrier = Carrier -- Wrapper.Group#GROUP
     local AI_Cargo = self.AI_Cargo[Carrier]
     if not AI_Cargo then
@@ -290,9 +342,14 @@ function AI_CARGO_DISPATCHER:onafterMonitor()
           local CargoCoordinate = Cargo:GetCoordinate()
           local CoordinateFree = true
           for APC, Coordinate in pairs( self.PickupCargo ) do
-            if CargoCoordinate:Get2DDistance( Coordinate ) <= 25 then
-              CoordinateFree = false
-              break
+            if APC:IsAlive() == true then
+              -- TODO check if APC still alive.
+              if CargoCoordinate:Get2DDistance( Coordinate ) <= 25 then
+                CoordinateFree = false
+                break
+              end
+            else
+              self.PickupCargo[APC] = nil
             end
           end
           if CoordinateFree == true then
