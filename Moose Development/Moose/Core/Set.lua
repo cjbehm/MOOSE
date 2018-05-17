@@ -173,7 +173,8 @@ end
 --- Removes a @{Base#BASE} object from the @{Set#SET_BASE} and derived classes, based on the Object Name.
 -- @param #SET_BASE self
 -- @param #string ObjectName
-function SET_BASE:Remove( ObjectName )
+-- @param NoTriggerEvent (optional) When `true`, the :Remove() method will not trigger a **Removed** event.
+function SET_BASE:Remove( ObjectName, NoTriggerEvent )
   self:F2( { ObjectName = ObjectName } )
 
   local Object = self.Set[ObjectName]
@@ -186,7 +187,10 @@ function SET_BASE:Remove( ObjectName )
         break
       end
     end
-    self:Removed( ObjectName, Object )
+    -- When NoTriggerEvent is true, then no Removed event will be triggered.
+    if not NoTriggerEvent then
+      self:Removed( ObjectName, Object )
+    end
   end
 end
 
@@ -201,7 +205,7 @@ function SET_BASE:Add( ObjectName, Object )
 
   -- Ensure that the existing element is removed from the Set before a new one is inserted to the Set
   if self.Set[ObjectName] then
-    self:Remove( ObjectName )
+    self:Remove( ObjectName, true )
   end
   self.Set[ObjectName] = Object
   table.insert( self.Index, ObjectName )
