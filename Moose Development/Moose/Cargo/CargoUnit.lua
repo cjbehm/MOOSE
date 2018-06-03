@@ -1,8 +1,4 @@
---- **Cargo** -- Management of single cargo logistics, which are based on a @{Unit} object.
---
--- ===
---
--- ![Banner Image](..\Presentations\CARGO\Dia1.JPG)
+--- **Cargo** -- Management of single cargo logistics, which are based on a @{Wrapper.Unit} object.
 --
 -- ===
 -- 
@@ -17,7 +13,8 @@
 -- 
 -- ===
 -- 
--- @module CargoUnit
+-- @module Cargo.CargoUnit
+-- @image Cargo_Units.JPG
 
 do -- CARGO_UNIT
 
@@ -25,9 +22,7 @@ do -- CARGO_UNIT
   -- @type CARGO_UNIT
   -- @extends Cargo.Cargo#CARGO_REPRESENTABLE
   
-  --- # CARGO\_UNIT class, extends @{#CARGO_REPRESENTABLE}
-  -- 
-  -- The CARGO\_UNIT class defines a cargo that is represented by a UNIT object within the simulator, and can be transported by a carrier.
+  --- Defines a cargo that is represented by a UNIT object within the simulator, and can be transported by a carrier.
   -- Use the event functions as described above to Load, UnLoad, Board, UnBoard the CARGO\_UNIT objects to and from carriers.
   -- 
   -- ===

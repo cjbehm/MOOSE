@@ -17,16 +17,14 @@
 -- 
 -- ===
 -- 
--- @module Unit
+-- @module Wrapper.Unit
+-- @image Wrapper_Unit.JPG
 
 
 --- @type UNIT
 -- @extends Wrapper.Controllable#CONTROLLABLE
 
---- 
--- # UNIT class, extends @{Controllable#CONTROLLABLE}
--- 
--- For each DCS Unit object alive within a running mission, a UNIT wrapper object (instance) will be created within the _@{DATABASE} object.
+--- For each DCS Unit object alive within a running mission, a UNIT wrapper object (instance) will be created within the _@{DATABASE} object.
 -- This is done at the beginning of the mission (when the mission starts), and dynamically when new DCS Unit objects are spawned (using the @{SPAWN} class).
 --  
 -- The UNIT class **does not contain a :New()** method, rather it provides **:Find()** methods to retrieve the object reference
@@ -47,7 +45,7 @@
 -- 
 -- The DCS Unit APIs are used extensively within MOOSE. The UNIT class has for each DCS Unit API a corresponding method.
 -- To be able to distinguish easily in your code the difference between a UNIT API call and a DCS Unit API call,
--- the first letter of the method is also capitalized. So, by example, the DCS Unit method @{DCSWrapper.Unit#Unit.getName}()
+-- the first letter of the method is also capitalized. So, by example, the DCS Unit method @{DCS#Unit.getName}()
 -- is implemented in the UNIT class as @{#UNIT.GetName}().
 -- 
 -- ## Smoke, Flare Units
@@ -75,7 +73,7 @@
 -- 
 -- ### Zones range
 -- 
--- To test whether the Unit is within a **zone**, use the @{#UNIT.IsInZone}() or the @{#UNIT.IsNotInZone}() methods. Any zone can be tested on, but the zone must be derived from @{Zone#ZONE_BASE}. 
+-- To test whether the Unit is within a **zone**, use the @{#UNIT.IsInZone}() or the @{#UNIT.IsNotInZone}() methods. Any zone can be tested on, but the zone must be derived from @{Core.Zone#ZONE_BASE}. 
 -- 
 -- ### Unit range
 -- 
@@ -118,7 +116,7 @@ end
 
 --- Finds a UNIT from the _DATABASE using a DCSUnit object.
 -- @param #UNIT self
--- @param Dcs.DCSWrapper.Unit#Unit DCSUnit An existing DCS Unit object reference.
+-- @param DCS#Unit DCSUnit An existing DCS Unit object reference.
 -- @return #UNIT self
 function UNIT:Find( DCSUnit )
 
@@ -147,7 +145,7 @@ end
 
 
 --- @param #UNIT self
--- @return Dcs.DCSWrapper.Unit#Unit
+-- @return DCS#Unit
 function UNIT:GetDCSObject()
 
   local DCSUnit = Unit.getByName( self.UnitName )
@@ -190,7 +188,7 @@ function UNIT:Destroy( GenerateEvent )
 end
 
 
---- Respawn the @{Unit} using a (tweaked) template of the parent Group.
+--- Respawn the @{Wrapper.Unit} using a (tweaked) template of the parent Group.
 -- 
 -- This function will:
 -- 
@@ -313,7 +311,7 @@ end
 function UNIT:IsAlive()
   self:F3( self.UnitName )
 
-  local DCSUnit = self:GetDCSObject() -- Dcs.DCSUnit#Unit
+  local DCSUnit = self:GetDCSObject() -- DCS#Unit
   
   if DCSUnit then
     local UnitIsAlive  = DCSUnit:isExist() and DCSUnit:isActive()
@@ -354,7 +352,7 @@ end
 function UNIT:GetPlayerName()
   self:F2( self.UnitName )
 
-  local DCSUnit = self:GetDCSObject() -- Dcs.DCSUnit#Unit
+  local DCSUnit = self:GetDCSObject() -- DCS#Unit
   
   if DCSUnit then
   
@@ -396,6 +394,23 @@ function UNIT:GetNumber()
   if DCSUnit then
     local UnitNumber = DCSUnit:getNumber()
     return UnitNumber
+  end
+
+  return nil
+end
+
+
+--- Returns the unit's max speed in km/h derived from the DCS descriptors.
+-- @param #UNIT self
+-- @return #number Speed in km/h. 
+function UNIT:GetSpeedMax()
+  self:F2( self.UnitName )
+
+  local Desc = self:GetDesc()
+  
+  if Desc then
+    local SpeedMax = Desc.speedMax
+    return SpeedMax*3.6
   end
 
   return nil
@@ -443,7 +458,7 @@ end
 
 --- Returns the Unit's ammunition.
 -- @param #UNIT self
--- @return Dcs.DCSWrapper.Unit#Unit.Ammo
+-- @return DCS#Unit.Ammo
 -- @return #nil The DCS Unit is not existing or alive.  
 function UNIT:GetAmmo()
   self:F2( self.UnitName )
@@ -460,7 +475,7 @@ end
 
 --- Returns the unit sensors.
 -- @param #UNIT self
--- @return Dcs.DCSWrapper.Unit#Unit.Sensors
+-- @return DCS#Unit.Sensors
 -- @return #nil The DCS Unit is not existing or alive.  
 function UNIT:GetSensors()
   self:F2( self.UnitName )
@@ -524,7 +539,7 @@ end
 --  * Second value is the object of the radar's interest. Not nil only if at least one radar of the unit is tracking a target.
 -- @param #UNIT self
 -- @return #boolean  Indicates if at least one of the unit's radar(s) is on.
--- @return Dcs.DCSWrapper.Object#Object The object of the radar's interest. Not nil only if at least one radar of the unit is tracking a target.
+-- @return DCS#Object The object of the radar's interest. Not nil only if at least one radar of the unit is tracking a target.
 -- @return #nil The DCS Unit is not existing or alive.  
 function UNIT:GetRadar()
   self:F2( self.UnitName )
@@ -556,9 +571,9 @@ function UNIT:GetFuel()
   return nil
 end
 
---- Returns a list of one @{Unit}.
+--- Returns a list of one @{Wrapper.Unit}.
 -- @param #UNIT self
--- @return #list<Wrapper.Unit#UNIT> A list of one @{Unit}.
+-- @return #list<Wrapper.Unit#UNIT> A list of one @{Wrapper.Unit}.
 function UNIT:GetUnits()
   self:F2( { self.UnitName } )
   local DCSUnit = self:GetDCSObject()
@@ -778,7 +793,7 @@ end
 --- Returns true if the unit is within a @{Zone}.
 -- @param #UNIT self
 -- @param Core.Zone#ZONE_BASE Zone The zone to test.
--- @return #boolean Returns true if the unit is within the @{Zone#ZONE_BASE}
+-- @return #boolean Returns true if the unit is within the @{Core.Zone#ZONE_BASE}
 function UNIT:IsInZone( Zone )
   self:F2( { self.UnitName, Zone } )
 
@@ -793,7 +808,7 @@ end
 --- Returns true if the unit is not within a @{Zone}.
 -- @param #UNIT self
 -- @param Core.Zone#ZONE_BASE Zone The zone to test.
--- @return #boolean Returns true if the unit is not within the @{Zone#ZONE_BASE}
+-- @return #boolean Returns true if the unit is not within the @{Core.Zone#ZONE_BASE}
 function UNIT:IsNotInZone( Zone )
   self:F2( { self.UnitName, Zone } )
 

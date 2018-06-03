@@ -1,4 +1,4 @@
---- **Cargo** -- Management of grouped cargo logistics, which are based on a @{Group} object.
+--- **Cargo** -- Management of grouped cargo logistics, which are based on a @{Wrapper.Group} object.
 --
 -- ===
 --
@@ -17,7 +17,8 @@
 -- 
 -- ===
 -- 
--- @module CargoGroup
+-- @module Cargo.CargoGroup
+-- @image Cargo_Groups.JPG
 
 
 do -- CARGO_GROUP
@@ -27,9 +28,7 @@ do -- CARGO_GROUP
   -- @field Core.Set#SET_CARGO CargoSet The collection of derived CARGO objects.
   -- @field #string GroupName The name of the CargoGroup.
   
-  --- # CARGO\_GROUP class
-  --
-  -- The CARGO\_GROUP class defines a cargo that is represented by a @{Group} object within the simulator.
+  --- Defines a cargo that is represented by a @{Wrapper.Group} object within the simulator.
   -- The cargo can be Loaded, UnLoaded, Boarded, UnBoarded to and from Carriers.
   -- 
   -- The above cargo classes are used by the AI\_CARGO\_ classes to allow AI groups to transport cargo:
@@ -53,7 +52,7 @@ do -- CARGO_GROUP
   }
 
   --- CARGO_GROUP constructor.
-  -- This make a new CARGO_GROUP from a @{Group} object.
+  -- This make a new CARGO_GROUP from a @{Wrapper.Group} object.
   -- It will "ungroup" the group object within the sim, and will create a @{Set} of individual Unit objects.
   -- @param #CARGO_GROUP self
   -- @param Wrapper.Group#GROUP CargoGroup
@@ -78,7 +77,7 @@ do -- CARGO_GROUP
     self.CargoGroup:Destroy()
 
     local GroupName = CargoGroup:GetName()
-    self.CargoName = GroupName:match("(.*)~CARGO") or GroupName
+    self.CargoName = Name
     self.CargoTemplate = UTILS.DeepCopy( _DATABASE:GetGroupTemplate( GroupName ) )
 
     local GroupTemplate = UTILS.DeepCopy( self.CargoTemplate )
@@ -233,7 +232,7 @@ do -- CARGO_GROUP
     if self:IsDestroyed() or self:IsUnLoaded() or self:IsBoarding() or self:IsUnboarding() then
       Destroyed = true
       for CargoID, CargoData in pairs( self.CargoSet:GetSet() ) do
-        local Cargo = CargoData -- #CARGO
+        local Cargo = CargoData -- Cargo.Cargo#CARGO
         if Cargo:IsAlive() then
           Destroyed = false
         else
@@ -667,7 +666,7 @@ do -- CARGO_GROUP
     self:F( { "Respawning" } )
 
     for CargoID, CargoData in pairs( self.CargoSet:GetSet() ) do
-      local Cargo = CargoData -- #CARGO
+      local Cargo = CargoData -- Cargo.Cargo#CARGO
       Cargo:Destroy()
       Cargo:SetStartState( "UnLoaded" )
     end
@@ -713,7 +712,7 @@ do -- CARGO_GROUP
   -- @param Utilities.Utils#FLARECOLOR FlareColor
   function CARGO_GROUP:Flare( FlareColor )
 
-    local Cargo = self.CargoSet:GetFirst() -- #CARGO
+    local Cargo = self.CargoSet:GetFirst() -- Cargo.Cargo#CARGO
     if Cargo then
       Cargo:Flare( FlareColor )
     end
@@ -725,7 +724,7 @@ do -- CARGO_GROUP
   -- @param #number Radius The radius of randomization around the center of the first element of the CargoGroup.
   function CARGO_GROUP:Smoke( SmokeColor, Radius )
 
-    local Cargo = self.CargoSet:GetFirst() -- #CARGO
+    local Cargo = self.CargoSet:GetFirst() -- Cargo.Cargo#CARGO
 
     if Cargo then
       Cargo:Smoke( SmokeColor, Radius )
@@ -733,14 +732,14 @@ do -- CARGO_GROUP
   end
   
   --- Check if the first element of the CargoGroup is the given @{Zone}.
-  -- @param #CARGO self
+  -- @param #CARGO_GROUP self
   -- @param Core.Zone#ZONE_BASE Zone
   -- @return #boolean **true** if the first element of the CargoGroup is in the Zone
   -- @return #boolean **false** if there is no element of the CargoGroup in the Zone.
   function CARGO_GROUP:IsInZone( Zone )
     --self:F( { Zone } )
   
-    local Cargo = self.CargoSet:GetFirst() -- #CARGO
+    local Cargo = self.CargoSet:GetFirst() -- Cargo.Cargo#CARGO
 
     if Cargo then
       return Cargo:IsInZone( Zone )

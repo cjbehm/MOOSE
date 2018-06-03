@@ -8,7 +8,8 @@
 -- 
 -- ===
 -- 
--- @module Task
+-- @module Tasking.Task
+-- @image MOOSE.JPG
 
 --- @type TASK
 -- @field Core.Scheduler#SCHEDULER TaskScheduler
@@ -21,7 +22,7 @@
 -- @extends Core.Fsm#FSM_TASK
 
 --- 
--- # TASK class, extends @{Base#BASE}
+-- # TASK class, extends @{Core.Base#BASE}
 -- 
 -- ## The TASK class implements the methods for task orchestration within MOOSE. 
 -- 
@@ -30,9 +31,9 @@
 --   * @{#TASK.AssignToGroup}():Assign a task to a group (of players).
 --   * @{#TASK.AddProcess}():Add a @{Process} to a task.
 --   * @{#TASK.RemoveProcesses}():Remove a running @{Process} from a running task.
---   * @{#TASK.SetStateMachine}():Set a @{Fsm} to a task.
---   * @{#TASK.RemoveStateMachine}():Remove @{Fsm} from a task.
---   * @{#TASK.HasStateMachine}():Enquire if the task has a @{Fsm}
+--   * @{#TASK.SetStateMachine}():Set a @{Core.Fsm} to a task.
+--   * @{#TASK.RemoveStateMachine}():Remove @{Core.Fsm} from a task.
+--   * @{#TASK.HasStateMachine}():Enquire if the task has a @{Core.Fsm}
 --   * @{#TASK.AssignToUnit}(): Assign a task to a unit. (Needs to be implemented in the derived classes from @{#TASK}.
 --   * @{#TASK.UnAssignFromUnit}(): Unassign the task from a unit.
 --   * @{#TASK.SetTimeOut}(): Set timer in seconds before task gets cancelled if not assigned.
@@ -186,7 +187,7 @@ function TASK:New( Mission, SetGroupAssign, TaskName, TaskType, TaskBriefing )
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param Wrapper.Unit#UNIT PlayerUnit The @{Unit} of the player.
+  -- @param Wrapper.Unit#UNIT PlayerUnit The @{Wrapper.Unit} of the player.
   -- @param #string PlayerName The name of the player.
   -- @return #boolean
   
@@ -196,20 +197,20 @@ function TASK:New( Mission, SetGroupAssign, TaskName, TaskType, TaskBriefing )
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param Wrapper.Unit#UNIT PlayerUnit The @{Unit} of the player.
+  -- @param Wrapper.Unit#UNIT PlayerUnit The @{Wrapper.Unit} of the player.
   -- @param #string PlayerName The name of the player.
   
   --- Goal Trigger for TASK
   -- @function [parent=#TASK] Goal
   -- @param #TASK self
-  -- @param Wrapper.Unit#UNIT PlayerUnit The @{Unit} of the player.
+  -- @param Wrapper.Unit#UNIT PlayerUnit The @{Wrapper.Unit} of the player.
   -- @param #string PlayerName The name of the player.
   
   --- Goal Asynchronous Trigger for TASK
   -- @function [parent=#TASK] __Goal
   -- @param #TASK self
   -- @param #number Delay
-  -- @param Wrapper.Unit#UNIT PlayerUnit The @{Unit} of the player.
+  -- @param Wrapper.Unit#UNIT PlayerUnit The @{Wrapper.Unit} of the player.
   -- @param #string PlayerName The name of the player.
   
   
@@ -489,7 +490,7 @@ do -- Group Assignment
   end
   
   
-  --- Set @{Group} assigned to the @{Task}.
+  --- Set @{Wrapper.Group} assigned to the @{Task}.
   -- @param #TASK self
   -- @param Wrapper.Group#GROUP TaskGroup
   -- @return #TASK
@@ -519,7 +520,7 @@ do -- Group Assignment
     return self
   end
   
-  --- Clear the @{Group} assignment from the @{Task}.
+  --- Clear the @{Wrapper.Group} assignment from the @{Task}.
   -- @param #TASK self
   -- @param Wrapper.Group#GROUP TaskGroup
   -- @return #TASK
@@ -563,7 +564,7 @@ do -- Group Assignment
   end
 
 
-  --- Assign the @{Task} to a @{Group}.
+  --- Assign the @{Task} to a @{Wrapper.Group}.
   -- @param #TASK self
   -- @param Wrapper.Group#GROUP TaskGroup
   -- @return #TASK
@@ -598,7 +599,7 @@ do -- Group Assignment
     return self
   end
   
-  --- UnAssign the @{Task} from a @{Group}.
+  --- UnAssign the @{Task} from a @{Wrapper.Group}.
   -- @param #TASK self
   -- @param Wrapper.Group#GROUP TaskGroup
   function TASK:UnAssignFromGroup( TaskGroup )
@@ -633,7 +634,7 @@ function TASK:HasGroup( FindGroup )
 
 end
 
---- Assign the @{Task} to an alive @{Unit}.
+--- Assign the @{Task} to an alive @{Wrapper.Unit}.
 -- @param #TASK self
 -- @param Wrapper.Unit#UNIT TaskUnit
 -- @return #TASK self
@@ -652,7 +653,7 @@ function TASK:AssignToUnit( TaskUnit )
   return self
 end
 
---- UnAssign the @{Task} from an alive @{Unit}.
+--- UnAssign the @{Task} from an alive @{Wrapper.Unit}.
 -- @param #TASK self
 -- @param Wrapper.Unit#UNIT TaskUnit
 -- @return #TASK self
@@ -677,7 +678,7 @@ function TASK:SetTimeOut ( Timer )
   return self
 end
 
---- Send a message of the @{Task} to the assigned @{Group}s.
+--- Send a message of the @{Task} to the assigned @{Wrapper.Group}s.
 -- @param #TASK self
 function TASK:MessageToGroups( Message )
   self:F( { Message = Message } )
@@ -694,7 +695,7 @@ function TASK:MessageToGroups( Message )
 end
 
 
---- Send the briefng message of the @{Task} to the assigned @{Group}s.
+--- Send the briefng message of the @{Task} to the assigned @{Wrapper.Group}s.
 -- @param #TASK self
 function TASK:SendBriefingToAssignedGroups()
   self:F2()
@@ -709,7 +710,7 @@ function TASK:SendBriefingToAssignedGroups()
 end
 
 
---- UnAssign the @{Task} from the @{Group}s.
+--- UnAssign the @{Task} from the @{Wrapper.Group}s.
 -- @param #TASK self
 function TASK:UnAssignFromGroups()
   self:F2()
@@ -874,7 +875,7 @@ function TASK:RemoveMenu( MenuTime )
 end
 
 
---- Remove the menu option of the @{Task} for a @{Group}.
+--- Remove the menu option of the @{Task} for a @{Wrapper.Group}.
 -- @param #TASK self
 -- @param Wrapper.Group#GROUP TaskGroup
 -- @param #number MenuTime
@@ -905,7 +906,7 @@ function TASK:RefreshMenus( TaskGroup, MenuTime )
   
 end
 
---- Remove the assigned menu option of the @{Task} for a @{Group}.
+--- Remove the assigned menu option of the @{Task} for a @{Wrapper.Group}.
 -- @param #TASK self
 -- @param Wrapper.Group#GROUP TaskGroup
 -- @param #number MenuTime
@@ -1001,7 +1002,7 @@ end
 
 
 -- TODO: Obscolete?
---- Fail processes from @{Task} with key @{Unit}
+--- Fail processes from @{Task} with key @{Wrapper.Unit}
 -- @param #TASK self
 -- @param #string TaskUnitName
 -- @return #TASK self
@@ -1013,7 +1014,7 @@ function TASK:FailProcesses( TaskUnitName )
   end
 end
 
---- Add a FiniteStateMachine to @{Task} with key Task@{Unit}
+--- Add a FiniteStateMachine to @{Task} with key Task@{Wrapper.Unit}
 -- @param #TASK self
 -- @param Wrapper.Unit#UNIT TaskUnit
 -- @param Core.Fsm#FSM_PROCESS Fsm
@@ -1026,7 +1027,7 @@ function TASK:SetStateMachine( TaskUnit, Fsm )
   return Fsm
 end
 
---- Gets the FiniteStateMachine of @{Task} with key Task@{Unit}
+--- Gets the FiniteStateMachine of @{Task} with key Task@{Wrapper.Unit}
 -- @param #TASK self
 -- @param Wrapper.Unit#UNIT TaskUnit
 -- @return Core.Fsm#FSM_PROCESS
@@ -1036,7 +1037,7 @@ function TASK:GetStateMachine( TaskUnit )
   return self.Fsm[TaskUnit]
 end
 
---- Remove FiniteStateMachines from @{Task} with key Task@{Unit}
+--- Remove FiniteStateMachines from @{Task} with key Task@{Wrapper.Unit}
 -- @param #TASK self
 -- @param Wrapper.Unit#UNIT TaskUnit
 -- @return #TASK self
@@ -1060,7 +1061,7 @@ function TASK:RemoveStateMachine( TaskUnit )
 end
 
 
---- Checks if there is a FiniteStateMachine assigned to Task@{Unit} for @{Task}
+--- Checks if there is a FiniteStateMachine assigned to Task@{Wrapper.Unit} for @{Task}
 -- @param #TASK self
 -- @param Wrapper.Unit#UNIT TaskUnit
 -- @return #TASK self
@@ -1675,7 +1676,7 @@ do -- Task Control Menu
   
   --- Init Task Control Menu
   -- @param #TASK self
-  -- @param Wrapper.Unit#UNIT TaskUnit The @{Unit} that contains a player.
+  -- @param Wrapper.Unit#UNIT TaskUnit The @{Wrapper.Unit} that contains a player.
   -- @return Task Control Menu Refresh ID
   function TASK:InitTaskControlMenu( TaskUnit )
 
@@ -1686,7 +1687,7 @@ do -- Task Control Menu
   
   --- Get Task Control Menu
   -- @param #TASK self
-  -- @param Wrapper.Unit#UNIT TaskUnit The @{Unit} that contains a player.
+  -- @param Wrapper.Unit#UNIT TaskUnit The @{Wrapper.Unit} that contains a player.
   -- @return Core.Menu#MENU_GROUP TaskControlMenu The Task Control Menu
   function TASK:GetTaskControlMenu( TaskUnit, TaskName )
   
@@ -1706,7 +1707,7 @@ do -- Task Control Menu
 
   --- Remove Task Control Menu
   -- @param #TASK self
-  -- @param Wrapper.Unit#UNIT TaskUnit The @{Unit} that contains a player.
+  -- @param Wrapper.Unit#UNIT TaskUnit The @{Wrapper.Unit} that contains a player.
   function TASK:RemoveTaskControlMenu( TaskUnit )
   
     if self.TaskControlMenu then
@@ -1717,7 +1718,7 @@ do -- Task Control Menu
   
   --- Refresh Task Control Menu
   -- @param #TASK self
-  -- @param Wrapper.Unit#UNIT TaskUnit The @{Unit} that contains a player.
+  -- @param Wrapper.Unit#UNIT TaskUnit The @{Wrapper.Unit} that contains a player.
   -- @param MenuTime The refresh time that was used to refresh the Task Control Menu items.
   -- @param MenuTag The tag.
   function TASK:RefreshTaskControlMenu( TaskUnit, MenuTime, MenuTag )

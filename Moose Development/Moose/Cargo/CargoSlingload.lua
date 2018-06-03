@@ -1,10 +1,6 @@
 --- **Cargo** -- Management of single cargo crates, which are based on a @{Static} object. The cargo can only be slingloaded.
 --
 -- ===
---
--- ![Banner Image](..\Presentations\CARGO\Dia1.JPG)
---
--- ===
 -- 
 -- ### [Demo Missions]()
 -- 
@@ -17,7 +13,8 @@
 -- 
 -- ===
 -- 
--- @module CargoCrate
+-- @module Cargo.CargoSlingload
+-- @image Cargo_Slingload.JPG
 
 
 do -- CARGO_SLINGLOAD
@@ -26,9 +23,7 @@ do -- CARGO_SLINGLOAD
   -- @type CARGO_SLINGLOAD
   -- @extends Cargo.Cargo#CARGO_REPRESENTABLE
   
-  --- # CARGO\_CRATE class, extends @{#CARGO_REPRESENTABLE}
-  -- 
-  -- The CARGO\_CRATE class defines a cargo that is represented by a UNIT object within the simulator, and can be transported by a carrier.
+  --- Defines a cargo that is represented by a UNIT object within the simulator, and can be transported by a carrier.
   -- 
   -- ===
   -- 
@@ -87,8 +82,8 @@ do -- CARGO_SLINGLOAD
   
   
   --- Check if the cargo can be Slingloaded.
-  -- @param #CARGO self
-  function CARGO:CanSlingload()
+  -- @param #CARGO_SLINGLOAD self
+  function CARGO_SLINGLOAD:CanSlingload()
     return true
   end
   

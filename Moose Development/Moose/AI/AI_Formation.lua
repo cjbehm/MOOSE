@@ -2,11 +2,7 @@
 -- 
 -- ===
 -- 
--- ![Banner Image](..\Presentations\AI_FORMATION\Dia1.JPG)
--- 
--- ===
--- 
--- AI_FORMATION makes AI @{GROUP}s fly in formation of various compositions.
+-- AI_FORMATION makes AI @{Wrapper.Group}s fly in formation of various compositions.
 -- The AI_FORMATION class models formations in a different manner than the internal DCS formation logic!!!
 -- The purpose of the class is to:
 -- 
@@ -45,13 +41,14 @@
 -- 
 -- ===
 --   
--- @module AI_Formation
+-- @module AI.AI_Formation
+-- @image AI_Large_Formations.JPG
 
 --- AI_FORMATION class
 -- @type AI_FORMATION
--- @extends Fsm#FSM_SET
--- @field Unit#UNIT FollowUnit
--- @field Set#SET_GROUP FollowGroupSet
+-- @extends Core.Fsm#FSM_SET
+-- @field Wrapper.Unit#UNIT FollowUnit
+-- @field Core.Set#SET_GROUP FollowGroupSet
 -- @field #string FollowName
 -- @field #AI_FORMATION.MODE FollowMode The mode the escort is in.
 -- @field Scheduler#SCHEDULER FollowScheduler The instance of the SCHEDULER class.
@@ -61,9 +58,7 @@
 -- @field DCSTypes#AI.Option.Air.val.REACTION_ON_THREAT OptionReactionOnThreat Which REACTION_ON_THREAT is set to the FollowGroup.
 
 
---- # AI_FORMATION class, extends @{Fsm#FSM_SET}
--- 
--- The #AI_FORMATION class allows you to build large formations, make AI follow a @{Client#CLIENT} (player) leader or a @{Unit#UNIT} (AI) leader.
+--- Build large formations, make AI follow a @{Wrapper.Client#CLIENT} (player) leader or a @{Wrapper.Unit#UNIT} (AI) leader.
 --
 -- AI_FORMATION makes AI @{GROUP}s fly in formation of various compositions.
 -- The AI_FORMATION class models formations in a different manner than the internal DCS formation logic!!!
@@ -89,25 +84,25 @@
 -- 
 -- Create a new SPAWN object with the @{#AI_FORMATION.New} method:
 --
---   * @{Follow#AI_FORMATION.New}(): Creates a new AI_FORMATION object from a @{Group#GROUP} for a @{Client#CLIENT} or a @{Unit#UNIT}, with an optional briefing text.
+--   * @{#AI_FORMATION.New}(): Creates a new AI_FORMATION object from a @{Wrapper.Group#GROUP} for a @{Wrapper.Client#CLIENT} or a @{Wrapper.Unit#UNIT}, with an optional briefing text.
 --
 -- ## Formation methods
 -- 
 -- The following methods can be used to set or change the formation:
 -- 
---  * @{AI_Formation#AI_FORMATION.FormationLine}(): Form a line formation (core formation function).
---  * @{AI_Formation#AI_FORMATION.FormationTrail}(): Form a trail formation.
---  * @{AI_Formation#AI_FORMATION.FormationLeftLine}(): Form a left line formation.
---  * @{AI_Formation#AI_FORMATION.FormationRightLine}(): Form a right line formation.
---  * @{AI_Formation#AI_FORMATION.FormationRightWing}(): Form a right wing formation.
---  * @{AI_Formation#AI_FORMATION.FormationLeftWing}(): Form a left wing formation.
---  * @{AI_Formation#AI_FORMATION.FormationCenterWing}(): Form a center wing formation.
---  * @{AI_Formation#AI_FORMATION.FormationCenterVic}(): Form a Vic formation (same as CenterWing.
---  * @{AI_Formation#AI_FORMATION.FormationCenterBoxed}(): Form a center boxed formation.
+--  * @{#AI_FORMATION.FormationLine}(): Form a line formation (core formation function).
+--  * @{#AI_FORMATION.FormationTrail}(): Form a trail formation.
+--  * @{#AI_FORMATION.FormationLeftLine}(): Form a left line formation.
+--  * @{#AI_FORMATION.FormationRightLine}(): Form a right line formation.
+--  * @{#AI_FORMATION.FormationRightWing}(): Form a right wing formation.
+--  * @{#AI_FORMATION.FormationLeftWing}(): Form a left wing formation.
+--  * @{#AI_FORMATION.FormationCenterWing}(): Form a center wing formation.
+--  * @{#AI_FORMATION.FormationCenterVic}(): Form a Vic formation (same as CenterWing.
+--  * @{#AI_FORMATION.FormationCenterBoxed}(): Form a center boxed formation.
 --  
 -- ## Randomization
 -- 
--- Use the method @{AI_Formation#AI_FORMATION.SetFlightRandomization}() to simulate the formation flying errors that pilots make while in formation. Is a range set in meters.
+-- Use the method @{AI.AI_Formation#AI_FORMATION.SetFlightRandomization}() to simulate the formation flying errors that pilots make while in formation. Is a range set in meters.
 --
 -- @usage
 -- local FollowGroupSet = SET_GROUP:New():FilterCategories("plane"):FilterCoalitions("blue"):FilterPrefixes("Follow"):FilterStart()
@@ -147,7 +142,7 @@ AI_FORMATION = {
 
 --- AI_FORMATION class constructor for an AI group
 -- @param #AI_FORMATION self
--- @param Unit#UNIT FollowUnit The UNIT leading the FolllowGroupSet.
+-- @param Wrapper.Unit#UNIT FollowUnit The UNIT leading the FolllowGroupSet.
 -- @param Core.Set#SET_GROUP FollowGroupSet The group AI escorting the FollowUnit.
 -- @param #string FollowName Name of the escort.
 -- @return #AI_FORMATION self
@@ -155,8 +150,8 @@ function AI_FORMATION:New( FollowUnit, FollowGroupSet, FollowName, FollowBriefin
   local self = BASE:Inherit( self, FSM_SET:New( FollowGroupSet ) )
   self:F( { FollowUnit, FollowGroupSet, FollowName } )
 
-  self.FollowUnit = FollowUnit -- Unit#UNIT
-  self.FollowGroupSet = FollowGroupSet -- Set#SET_GROUP
+  self.FollowUnit = FollowUnit -- Wrapper.Unit#UNIT
+  self.FollowGroupSet = FollowGroupSet -- Core.Set#SET_GROUP
   
   self:SetFlightRandomization( 2 )
   
@@ -906,7 +901,7 @@ function AI_FORMATION:onafterFormationBox( FollowGroupSet, From , Event , To, XS
 end
 
 
---- Use the method @{AI_Formation#AI_FORMATION.SetFlightRandomization}() to make the air units in your formation randomize their flight a bit while in formation.
+--- Use the method @{AI.AI_Formation#AI_FORMATION.SetFlightRandomization}() to make the air units in your formation randomize their flight a bit while in formation.
 -- @param #AI_FORMATION self
 -- @param #number FlightRandomization The formation flying errors that pilots can make while in formation. Is a range set in meters.
 -- @return #AI_FORMATION

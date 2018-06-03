@@ -8,7 +8,8 @@
 -- 
 -- ===
 -- 
--- @module Task_Cargo_Dispatcher
+-- @module Tasking.Task_Cargo_Dispatcher
+-- @image MOOSE.JPG
 
 do -- TASK_CARGO_DISPATCHER
 
@@ -22,11 +23,7 @@ do -- TASK_CARGO_DISPATCHER
   -- @field Tasking.Task#TASK Task
   
 
-  --- # TASK_CARGO_DISPATCHER class, extends @{Task_Manager#TASK_MANAGER}
-  -- 
-  -- ![Banner Image](..\Presentations\TASK_CARGO_DISPATCHER\Dia1.JPG)
-  -- 
-  -- The @{#TASK_CARGO_DISPATCHER} class implements the dynamic dispatching of cargo tasks.
+  --- Implements the dynamic dispatching of cargo tasks.
   -- 
   -- ![Banner Image](..\Presentations\TASK_CARGO_DISPATCHER\Dia3.JPG)
   -- 
@@ -85,7 +82,7 @@ do -- TASK_CARGO_DISPATCHER
   -- therefore less CAP and GCI flights will spawn and this will tend to make just the border area active rather than a melee over the whole map. 
   -- It all depends on what the desired effect is. 
   -- 
-  -- EWR networks are **dynamically constructed**, that is, they form part of the @{Functional#DETECTION_BASE} object that is given as the input parameter of the TASK\_A2A\_DISPATCHER class.
+  -- EWR networks are **dynamically constructed**, that is, they form part of the @{Functional.Detection#DETECTION_BASE} object that is given as the input parameter of the TASK\_A2A\_DISPATCHER class.
   -- By defining in a **smart way the names or name prefixes of the groups** with EWR capable units, these groups will be **automatically added or deleted** from the EWR network, 
   -- increasing or decreasing the radar coverage of the Early Warning System.
   -- 
@@ -187,7 +184,7 @@ do -- TASK_CARGO_DISPATCHER
   --- TASK_CARGO_DISPATCHER constructor.
   -- @param #TASK_CARGO_DISPATCHER self
   -- @param Tasking.Mission#MISSION Mission The mission for which the task dispatching is done.
-  -- @param Set#SET_GROUP SetGroup The set of groups that can join the tasks within the mission.
+  -- @param Core.Set#SET_GROUP SetGroup The set of groups that can join the tasks within the mission.
   -- @return #TASK_CARGO_DISPATCHER self
   function TASK_CARGO_DISPATCHER:New( Mission, SetGroup )
   
@@ -498,7 +495,7 @@ do -- TASK_CARGO_DISPATCHER
   
   --- Evaluates of a CSAR task needs to be started.
   -- @param #TASK_CARGO_DISPATCHER self
-  -- @return Set#SET_CARGO The SetCargo to be rescued.
+  -- @return Core.Set#SET_CARGO The SetCargo to be rescued.
   -- @return #nil If there is no CSAR task required.
   function TASK_CARGO_DISPATCHER:EvaluateCSAR( CSARUnit )
   
@@ -515,7 +512,7 @@ do -- TASK_CARGO_DISPATCHER
 
   
 
-  --- Assigns tasks to the @{Set#SET_GROUP}.
+  --- Assigns tasks to the @{Core.Set#SET_GROUP}.
   -- @param #TASK_CARGO_DISPATCHER self
   -- @return #boolean Return true if you want the task assigning to continue... false will cancel the loop.
   function TASK_CARGO_DISPATCHER:ManageTasks()

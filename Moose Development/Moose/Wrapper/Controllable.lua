@@ -9,19 +9,17 @@
 -- ===
 -- 
 -- @module Wrapper.Controllable
-
+-- @image Wrapper_Controllable.JPG
 
 
 --- @type CONTROLLABLE
 -- @extends Wrapper.Positionable#POSITIONABLE
--- @field Dcs.DCSWrapper.Controllable#Controllable DCSControllable The DCS controllable class.
+-- @field DCS#Controllable DCSControllable The DCS controllable class.
 -- @field #string ControllableName The name of the controllable.
 
 
 
---- # CONTROLLABLE class, extends @{Positionable#POSITIONABLE}
--- 
--- CONTROLLABLE is a wrapper class to handle the "DCS Controllable objects", which are Groups and Units:
+--- Wrapper class to handle the "DCS Controllable objects", which are Groups and Units:
 --
 --  * Support all DCS Controllable APIs.
 --  * Enhance with Controllable specific APIs not in the DCS Controllable API set.
@@ -37,7 +35,7 @@
 -- ## CONTROLLABLE Task methods
 -- 
 -- Several controllable task methods are available that help you to prepare tasks. 
--- These methods return a string consisting of the task description, which can then be given to either a @{Controllable#CONTROLLABLE.PushTask} or @{Controllable#SetTask} method to assign the task to the CONTROLLABLE.
+-- These methods return a string consisting of the task description, which can then be given to either a @{Wrapper.Controllable#CONTROLLABLE.PushTask} or @{Wrapper.Controllable#SetTask} method to assign the task to the CONTROLLABLE.
 -- Tasks are specific for the category of the CONTROLLABLE, more specific, for AIR, GROUND or AIR and GROUND. 
 -- Each task description where applicable indicates for which controllable category the task is valid.
 -- There are 2 main subdivisions of tasks: Assigned tasks and EnRoute tasks.
@@ -63,7 +61,7 @@
 --   * @{#CONTROLLABLE.TaskHold}: (GROUND) Hold ground controllable from moving.
 --   * @{#CONTROLLABLE.TaskHoldPosition}: (AIR) Hold position at the current position of the first unit of the controllable.
 --   * @{#CONTROLLABLE.TaskLand}: (AIR HELICOPTER) Landing at the ground. For helicopters only.
---   * @{#CONTROLLABLE.TaskLandAtZone}: (AIR) Land the controllable at a @{Zone#ZONE_RADIUS).
+--   * @{#CONTROLLABLE.TaskLandAtZone}: (AIR) Land the controllable at a @{Core.Zone#ZONE_RADIUS).
 --   * @{#CONTROLLABLE.TaskOrbitCircle}: (AIR) Orbit at the current position of the first unit of the controllable at a specified alititude.
 --   * @{#CONTROLLABLE.TaskOrbitCircleAtVec2}: (AIR) Orbit at a specified position at a specified alititude during a specified duration with a specified speed.
 --   * @{#CONTROLLABLE.TaskRefueling}: (AIR) Refueling from the nearest tanker. No parameters.
@@ -173,7 +171,7 @@ CONTROLLABLE = {
 
 --- Create a new CONTROLLABLE from a DCSControllable
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSWrapper.Controllable#Controllable ControllableName The DCS Controllable name
+-- @param #string ControllableName The DCS Controllable name
 -- @return #CONTROLLABLE self
 function CONTROLLABLE:New( ControllableName )
   local self = BASE:Inherit( self, POSITIONABLE:New( ControllableName ) ) -- #CONTROLLABLE
@@ -188,7 +186,7 @@ end
 
 --- Get the controller for the CONTROLLABLE.
 -- @param #CONTROLLABLE self
--- @return Dcs.DCSController#Controller
+-- @return DCS#Controller
 function CONTROLLABLE:_GetController()
   local DCSControllable = self:GetDCSObject()
 
@@ -398,13 +396,13 @@ end
 
 --- Return a condition section for a controlled task.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTime#Time time
+-- @param DCS#Time time
 -- @param #string userFlag
 -- @param #boolean userFlagValue
 -- @param #string condition
--- @param Dcs.DCSTime#Time duration
+-- @param DCS#Time duration
 -- @param #number lastWayPoint
--- return Dcs.DCSTasking.Task#Task
+-- return DCS#Task
 function CONTROLLABLE:TaskCondition( time, userFlag, userFlagValue, condition, duration, lastWayPoint )
   self:F2( { time, userFlag, userFlagValue, condition, duration, lastWayPoint } )
 
@@ -422,9 +420,9 @@ end
 
 --- Return a Controlled Task taking a Task and a TaskCondition.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTasking.Task#Task DCSTask
--- @param #DCSStopCondition DCSStopCondition
--- @return Dcs.DCSTasking.Task#Task
+-- @param DCS#Task DCSTask
+-- @param DCS#DCSStopCondition DCSStopCondition
+-- @return DCS#Task
 function CONTROLLABLE:TaskControlled( DCSTask, DCSStopCondition )
   self:F2( { DCSTask, DCSStopCondition } )
 
@@ -444,8 +442,8 @@ end
 
 --- Return a Combo Task taking an array of Tasks.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTasking.Task#TaskArray DCSTasks Array of @{DCSTasking.Task#Task}
--- @return Dcs.DCSTasking.Task#Task
+-- @param DCS#TaskArray DCSTasks Array of @{DCSTasking.Task#Task}
+-- @return DCS#Task
 function CONTROLLABLE:TaskCombo( DCSTasks )
   self:F2( { DCSTasks } )
 
@@ -468,8 +466,8 @@ end
 
 --- Return a WrappedAction Task taking a Command.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSCommand#Command DCSCommand
--- @return Dcs.DCSTasking.Task#Task
+-- @param DCS#Command DCSCommand
+-- @return DCS#Task
 function CONTROLLABLE:TaskWrappedAction( DCSCommand, Index )
   self:F2( { DCSCommand } )
 
@@ -492,8 +490,8 @@ end
 --- Set a Task at a Waypoint using a Route list.
 -- @param #CONTROLLABLE self
 -- @param #table Waypoint The Waypoint!
--- @param Dcs.DCSTasking.Task#Task Task The Task structure to be executed!
--- @return Dcs.DCSTasking.Task#Task
+-- @param DCS#Task Task The Task structure to be executed!
+-- @return DCS#Task
 function CONTROLLABLE:SetTaskWaypoint( Waypoint, Task )
 
   Waypoint.task = self:TaskCombo( { Task } )
@@ -507,7 +505,7 @@ end
 
 --- Executes a command action
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSCommand#Command DCSCommand
+-- @param DCS#Command DCSCommand
 -- @return #CONTROLLABLE self
 function CONTROLLABLE:SetCommand( DCSCommand )
   self:F2( DCSCommand )
@@ -527,7 +525,7 @@ end
 -- @param #CONTROLLABLE self
 -- @param #number FromWayPoint
 -- @param #number ToWayPoint
--- @return Dcs.DCSTasking.Task#Task
+-- @return DCS#Task
 -- @usage
 -- --- This test demonstrates the use(s) of the SwitchWayPoint method of the GROUP class.
 -- HeliGroup = GROUP:FindByName( "Helicopter" )
@@ -566,7 +564,7 @@ end
 --   
 -- @param #CONTROLLABLE self
 -- @param #boolean StopRoute true if the ground unit needs to stop, false if it needs to continue to move.
--- @return Dcs.DCSTasking.Task#Task
+-- @return DCS#Task
 function CONTROLLABLE:CommandStopRoute( StopRoute )
   self:F2( { StopRoute } )
 
@@ -589,12 +587,12 @@ end
 -- @param #CONTROLLABLE self
 -- @param Wrapper.Controllable#CONTROLLABLE AttackGroup The Controllable to be attacked.
 -- @param #number WeaponType (optional) Bitmask of weapon types those allowed to use. If parameter is not defined that means no limits on weapon usage.
--- @param Dcs.DCSTypes#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
+-- @param DCS#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
 -- @param #number AttackQty (optional) This parameter limits maximal quantity of attack. The aicraft/controllable will not make more attack than allowed even if the target controllable not destroyed and the aicraft/controllable still have ammo. If not defined the aircraft/controllable will attack target until it will be destroyed or until the aircraft/controllable will run out of ammo.
--- @param Dcs.DCSTypes#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
--- @param Dcs.DCSTypes#Distance Altitude (optional) Desired attack start altitude. Controllable/aircraft will make its attacks from the altitude. If the altitude is too low or too high to use weapon aircraft/controllable will choose closest altitude to the desired attack start altitude. If the desired altitude is defined controllable/aircraft will not attack from safe altitude.
+-- @param DCS#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
+-- @param DCS#Distance Altitude (optional) Desired attack start altitude. Controllable/aircraft will make its attacks from the altitude. If the altitude is too low or too high to use weapon aircraft/controllable will choose closest altitude to the desired attack start altitude. If the desired altitude is defined controllable/aircraft will not attack from safe altitude.
 -- @param #boolean AttackQtyLimit (optional) The flag determines how to interpret attackQty parameter. If the flag is true then attackQty is a limit on maximal attack quantity for "AttackGroup" and "AttackUnit" tasks. If the flag is false then attackQty is a desired attack quantity for "Bombing" and "BombingRunway" tasks.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskAttackGroup( AttackGroup, WeaponType, WeaponExpend, AttackQty, Direction, Altitude, AttackQtyLimit )
   self:F2( { self.ControllableName, AttackGroup, WeaponType, WeaponExpend, AttackQty, Direction, Altitude, AttackQtyLimit } )
 
@@ -646,13 +644,13 @@ end
 -- @param #CONTROLLABLE self
 -- @param Wrapper.Unit#UNIT AttackUnit The UNIT.
 -- @param #boolean GroupAttack (optional) If true, all units in the group will attack the Unit when found.
--- @param Dcs.DCSTypes#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
+-- @param DCS#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
 -- @param #number AttackQty (optional) This parameter limits maximal quantity of attack. The aicraft/controllable will not make more attack than allowed even if the target controllable not destroyed and the aicraft/controllable still have ammo. If not defined the aircraft/controllable will attack target until it will be destroyed or until the aircraft/controllable will run out of ammo.
--- @param Dcs.DCSTypes#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
+-- @param DCS#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
 -- @param #number Altitude (optional) The altitude from where to attack.
 -- @param #boolean Visible (optional) not a clue.
 -- @param #number WeaponType (optional) The WeaponType.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskAttackUnit( AttackUnit, GroupAttack, WeaponExpend, AttackQty, Direction, Altitude, Visible, WeaponType )
   self:F2( { self.ControllableName,          AttackUnit, GroupAttack, WeaponExpend, AttackQty, Direction, Altitude, Visible, WeaponType } )
 
@@ -682,14 +680,14 @@ end
 
 --- (AIR) Delivering weapon at the point on the ground. 
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Vec2 Vec2 2D-coordinates of the point to deliver weapon at.
+-- @param DCS#Vec2 Vec2 2D-coordinates of the point to deliver weapon at.
 -- @param #boolean GroupAttack (optional) If true, all units in the group will attack the Unit when found.
--- @param Dcs.DCSTypes#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
+-- @param DCS#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
 -- @param #number AttackQty (optional) This parameter limits maximal quantity of attack. The aicraft/controllable will not make more attack than allowed even if the target controllable not destroyed and the aicraft/controllable still have ammo. If not defined the aircraft/controllable will attack target until it will be destroyed or until the aircraft/controllable will run out of ammo.
--- @param Dcs.DCSTypes#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
+-- @param DCS#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
 -- @param #number Altitude (optional) The altitude from where to attack.
 -- @param #number WeaponType (optional) The WeaponType.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskBombing( Vec2, GroupAttack, WeaponExpend, AttackQty, Direction, Altitude, WeaponType )
   self:F2( { self.ControllableName, Vec2, GroupAttack, WeaponExpend, AttackQty, Direction, Altitude, WeaponType } )
 
@@ -716,14 +714,14 @@ end
 
 --- (AIR) Attacking the map object (building, structure, e.t.c).
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Vec2 Vec2 2D-coordinates of the point to deliver weapon at.
+-- @param DCS#Vec2 Vec2 2D-coordinates of the point to deliver weapon at.
 -- @param #boolean GroupAttack (optional) If true, all units in the group will attack the Unit when found.
--- @param Dcs.DCSTypes#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
+-- @param DCS#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
 -- @param #number AttackQty (optional) This parameter limits maximal quantity of attack. The aicraft/controllable will not make more attack than allowed even if the target controllable not destroyed and the aicraft/controllable still have ammo. If not defined the aircraft/controllable will attack target until it will be destroyed or until the aircraft/controllable will run out of ammo.
--- @param Dcs.DCSTypes#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
+-- @param DCS#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
 -- @param #number Altitude (optional) The altitude from where to attack.
 -- @param #number WeaponType (optional) The WeaponType.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskAttackMapObject( Vec2, GroupAttack, WeaponExpend, AttackQty, Direction, Altitude, WeaponType )
   self:F2( { self.ControllableName, Vec2, GroupAttack, WeaponExpend, AttackQty, Direction, Altitude, WeaponType } )
 
@@ -751,9 +749,9 @@ end
 
 --- (AIR) Orbit at a specified position at a specified alititude during a specified duration with a specified speed.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Vec2 Point The point to hold the position.
--- @param #number Altitude The altitude to hold the position.
--- @param #number Speed The speed flying when holding the position.
+-- @param DCS#Vec2 Point The point to hold the position.
+-- @param #number Altitude The altitude [m] to hold the position.
+-- @param #number Speed The speed [m/s] flying when holding the position.
 -- @return #CONTROLLABLE self
 function CONTROLLABLE:TaskOrbitCircleAtVec2( Point, Altitude, Speed )
   self:F2( { self.ControllableName, Point, Altitude, Speed } )
@@ -796,8 +794,8 @@ end
 
 --- (AIR) Orbit at the current position of the first unit of the controllable at a specified alititude.
 -- @param #CONTROLLABLE self
--- @param #number Altitude The altitude to hold the position.
--- @param #number Speed The speed flying when holding the position.
+-- @param #number Altitude The altitude [m] to hold the position.
+-- @param #number Speed The speed [m/s] flying when holding the position.
 -- @param Core.Point#COORDINATE Coordinate The coordinate where to orbit.
 -- @return #CONTROLLABLE self
 function CONTROLLABLE:TaskOrbitCircle( Altitude, Speed, Coordinate )
@@ -834,11 +832,11 @@ end
 -- @param #CONTROLLABLE self
 -- @param Wrapper.Airbase#AIRBASE Airbase Airbase to attack.
 -- @param #number WeaponType (optional) Bitmask of weapon types those allowed to use. If parameter is not defined that means no limits on weapon usage.
--- @param Dcs.DCSTypes#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
+-- @param DCS#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
 -- @param #number AttackQty (optional) This parameter limits maximal quantity of attack. The aicraft/controllable will not make more attack than allowed even if the target controllable not destroyed and the aicraft/controllable still have ammo. If not defined the aircraft/controllable will attack target until it will be destroyed or until the aircraft/controllable will run out of ammo.
--- @param Dcs.DCSTypes#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
+-- @param DCS#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
 -- @param #boolean ControllableAttack (optional) Flag indicates that the target must be engaged by all aircrafts of the controllable. Has effect only if the task is assigned to a controllable, not to a single aircraft.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskBombingRunway( Airbase, WeaponType, WeaponExpend, AttackQty, Direction, ControllableAttack )
   self:F2( { self.ControllableName, Airbase, WeaponType, WeaponExpend, AttackQty, Direction, ControllableAttack } )
 
@@ -873,7 +871,7 @@ end
 
 --- (AIR) Refueling from the nearest tanker. No parameters.
 -- @param #CONTROLLABLE self
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskRefueling()
   self:F2( { self.ControllableName } )
 
@@ -895,7 +893,7 @@ end
 
 --- (AIR HELICOPTER) Landing at the ground. For helicopters only.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Vec2 Point The point where to land.
+-- @param DCS#Vec2 Point The point where to land.
 -- @param #number Duration The duration in seconds to stay on the ground.
 -- @return #CONTROLLABLE self
 function CONTROLLABLE:TaskLandAtVec2( Point, Duration )
@@ -932,7 +930,7 @@ function CONTROLLABLE:TaskLandAtVec2( Point, Duration )
   return DCSTask
 end
 
---- (AIR) Land the controllable at a @{Zone#ZONE_RADIUS).
+--- (AIR) Land the controllable at a @{Core.Zone#ZONE_RADIUS).
 -- @param #CONTROLLABLE self
 -- @param Core.Zone#ZONE Zone The zone where to land.
 -- @param #number Duration The duration in seconds to stay on the ground.
@@ -960,9 +958,9 @@ end
 -- If another controllable is on land the unit / controllable will orbit around. 
 -- @param #CONTROLLABLE self
 -- @param Wrapper.Controllable#CONTROLLABLE FollowControllable The controllable to be followed.
--- @param Dcs.DCSTypes#Vec3 Vec3 Position of the unit / lead unit of the controllable relative lead unit of another controllable in frame reference oriented by course of lead unit of another controllable. If another controllable is on land the unit / controllable will orbit around.
+-- @param DCS#Vec3 Vec3 Position of the unit / lead unit of the controllable relative lead unit of another controllable in frame reference oriented by course of lead unit of another controllable. If another controllable is on land the unit / controllable will orbit around.
 -- @param #number LastWaypointIndex Detach waypoint of another controllable. Once reached the unit / controllable Follow task is finished.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskFollow( FollowControllable, Vec3, LastWaypointIndex )
   self:F2( { self.ControllableName, FollowControllable, Vec3, LastWaypointIndex } )
 
@@ -1002,11 +1000,11 @@ end
 -- The unit / controllable will also protect that controllable from threats of specified types.
 -- @param #CONTROLLABLE self
 -- @param Wrapper.Controllable#CONTROLLABLE EscortControllable The controllable to be escorted.
--- @param Dcs.DCSTypes#Vec3 Vec3 Position of the unit / lead unit of the controllable relative lead unit of another controllable in frame reference oriented by course of lead unit of another controllable. If another controllable is on land the unit / controllable will orbit around.
+-- @param DCS#Vec3 Vec3 Position of the unit / lead unit of the controllable relative lead unit of another controllable in frame reference oriented by course of lead unit of another controllable. If another controllable is on land the unit / controllable will orbit around.
 -- @param #number LastWaypointIndex Detach waypoint of another controllable. Once reached the unit / controllable Follow task is finished.
 -- @param #number EngagementDistanceMax Maximal distance from escorted controllable to threat. If the threat is already engaged by escort escort will disengage if the distance becomes greater than 1.5 * engagementDistMax. 
--- @param Dcs.DCSTypes#AttributeNameArray TargetTypes Array of AttributeName that is contains threat categories allowed to engage. 
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @param DCS#AttributeNameArray TargetTypes Array of AttributeName that is contains threat categories allowed to engage. 
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskEscort( FollowControllable, Vec3, LastWaypointIndex, EngagementDistance, TargetTypes )
   self:F2( { self.ControllableName, FollowControllable, Vec3, LastWaypointIndex, EngagementDistance, TargetTypes } )
 
@@ -1048,11 +1046,11 @@ end
 
 --- (GROUND) Fire at a VEC2 point until ammunition is finished.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Vec2 Vec2 The point to fire at.
--- @param Dcs.DCSTypes#Distance Radius The radius of the zone to deploy the fire at.
+-- @param DCS#Vec2 Vec2 The point to fire at.
+-- @param DCS#Distance Radius The radius of the zone to deploy the fire at.
 -- @param #number AmmoCount (optional) Quantity of ammunition to expand (omit to fire until ammunition is depleted).
 -- @param #number WeaponType (optional) Enum for weapon type ID. This value is only required if you want the group firing to use a specific weapon, for instance using the task on a ship to force it to fire guided missiles at targets within cannon range. See http://wiki.hoggit.us/view/DCS_enum_weapon_flag 
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskFireAtPoint( Vec2, Radius, AmmoCount, WeaponType )
   self:F2( { self.ControllableName, Vec2, Radius, AmmoCount, WeaponType } )
 
@@ -1091,7 +1089,7 @@ end
 
 --- (GROUND) Hold ground controllable from moving.
 -- @param #CONTROLLABLE self
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskHold()
   self:F2( { self.ControllableName } )
 
@@ -1120,9 +1118,9 @@ end
 -- @param #CONTROLLABLE self
 -- @param Wrapper.Controllable#CONTROLLABLE AttackGroup Target CONTROLLABLE.
 -- @param #number WeaponType Bitmask of weapon types those allowed to use. If parameter is not defined that means no limits on weapon usage. 
--- @param Dcs.DCSTypes#AI.Task.Designation Designation (optional) Designation type.
+-- @param DCS#AI.Task.Designation Designation (optional) Designation type.
 -- @param #boolean Datalink (optional) Allows to use datalink to send the target information to attack aircraft. Enabled by default. 
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskFAC_AttackGroup( AttackGroup, WeaponType, Designation, Datalink )
   self:F2( { self.ControllableName, AttackGroup, WeaponType, Designation, Datalink } )
 
@@ -1154,10 +1152,10 @@ end
 
 --- (AIR) Engaging targets of defined types.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Distance Distance Maximal distance from the target to a route leg. If the target is on a greater distance it will be ignored. 
--- @param Dcs.DCSTypes#AttributeNameArray TargetTypes Array of target categories allowed to engage. 
+-- @param DCS#Distance Distance Maximal distance from the target to a route leg. If the target is on a greater distance it will be ignored. 
+-- @param DCS#AttributeNameArray TargetTypes Array of target categories allowed to engage. 
 -- @param #number Priority All enroute tasks have the priority parameter. This is a number (less value - higher priority) that determines actions related to what task will be performed first. 
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskEngageTargets( Distance, TargetTypes, Priority )
   self:F2( { self.ControllableName, Distance, TargetTypes, Priority } )
 
@@ -1187,11 +1185,11 @@ end
 
 --- (AIR) Engaging a targets of defined types at circle-shaped zone.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Vec2 Vec2 2D-coordinates of the zone. 
--- @param Dcs.DCSTypes#Distance Radius Radius of the zone. 
--- @param Dcs.DCSTypes#AttributeNameArray TargetTypes Array of target categories allowed to engage. 
+-- @param DCS#Vec2 Vec2 2D-coordinates of the zone. 
+-- @param DCS#Distance Radius Radius of the zone. 
+-- @param DCS#AttributeNameArray TargetTypes Array of target categories allowed to engage. 
 -- @param #number Priority All en-route tasks have the priority parameter. This is a number (less value - higher priority) that determines actions related to what task will be performed first. 
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskEngageTargetsInZone( Vec2, Radius, TargetTypes, Priority )
   self:F2( { self.ControllableName, Vec2, Radius, TargetTypes, Priority } )
 
@@ -1225,12 +1223,12 @@ end
 -- @param Wrapper.Controllable#CONTROLLABLE AttackGroup The Controllable to be attacked.
 -- @param #number Priority All en-route tasks have the priority parameter. This is a number (less value - higher priority) that determines actions related to what task will be performed first. 
 -- @param #number WeaponType (optional) Bitmask of weapon types those allowed to use. If parameter is not defined that means no limits on weapon usage.
--- @param Dcs.DCSTypes#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
+-- @param DCS#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
 -- @param #number AttackQty (optional) This parameter limits maximal quantity of attack. The aicraft/controllable will not make more attack than allowed even if the target controllable not destroyed and the aicraft/controllable still have ammo. If not defined the aircraft/controllable will attack target until it will be destroyed or until the aircraft/controllable will run out of ammo.
--- @param Dcs.DCSTypes#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
--- @param Dcs.DCSTypes#Distance Altitude (optional) Desired attack start altitude. Controllable/aircraft will make its attacks from the altitude. If the altitude is too low or too high to use weapon aircraft/controllable will choose closest altitude to the desired attack start altitude. If the desired altitude is defined controllable/aircraft will not attack from safe altitude.
+-- @param DCS#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
+-- @param DCS#Distance Altitude (optional) Desired attack start altitude. Controllable/aircraft will make its attacks from the altitude. If the altitude is too low or too high to use weapon aircraft/controllable will choose closest altitude to the desired attack start altitude. If the desired altitude is defined controllable/aircraft will not attack from safe altitude.
 -- @param #boolean AttackQtyLimit (optional) The flag determines how to interpret attackQty parameter. If the flag is true then attackQty is a limit on maximal attack quantity for "AttackGroup" and "AttackUnit" tasks. If the flag is false then attackQty is a desired attack quantity for "Bombing" and "BombingRunway" tasks.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskEngageGroup( AttackGroup, Priority, WeaponType, WeaponExpend, AttackQty, Direction, Altitude, AttackQtyLimit )
   self:F2( { self.ControllableName, AttackGroup, Priority, WeaponType, WeaponExpend, AttackQty, Direction, Altitude, AttackQtyLimit } )
 
@@ -1286,13 +1284,13 @@ end
 -- @param Wrapper.Unit#UNIT EngageUnit The UNIT.
 -- @param #number Priority (optional) All en-route tasks have the priority parameter. This is a number (less value - higher priority) that determines actions related to what task will be performed first. 
 -- @param #boolean GroupAttack (optional) If true, all units in the group will attack the Unit when found.
--- @param Dcs.DCSTypes#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
+-- @param DCS#AI.Task.WeaponExpend WeaponExpend (optional) Determines how much weapon will be released at each attack. If parameter is not defined the unit / controllable will choose expend on its own discretion.
 -- @param #number AttackQty (optional) This parameter limits maximal quantity of attack. The aicraft/controllable will not make more attack than allowed even if the target controllable not destroyed and the aicraft/controllable still have ammo. If not defined the aircraft/controllable will attack target until it will be destroyed or until the aircraft/controllable will run out of ammo.
--- @param Dcs.DCSTypes#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
--- @param Dcs.DCSTypes#Distance Altitude (optional) Desired altitude to perform the unit engagement.
+-- @param DCS#Azimuth Direction (optional) Desired ingress direction from the target to the attacking aircraft. Controllable/aircraft will make its attacks from the direction. Of course if there is no way to attack from the direction due the terrain controllable/aircraft will choose another direction.
+-- @param DCS#Distance Altitude (optional) Desired altitude to perform the unit engagement.
 -- @param #boolean Visible (optional) Unit must be visible.
 -- @param #boolean ControllableAttack (optional) Flag indicates that the target must be engaged by all aircrafts of the controllable. Has effect only if the task is assigned to a controllable, not to a single aircraft.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskEngageUnit( EngageUnit, Priority, GroupAttack, WeaponExpend, AttackQty, Direction, Altitude, Visible, ControllableAttack )
   self:F2( { self.ControllableName,          EngageUnit, Priority, GroupAttack, WeaponExpend, AttackQty, Direction, Altitude, Visible, ControllableAttack } )
 
@@ -1336,7 +1334,7 @@ end
 
 --- (AIR) Aircraft will act as an AWACS for friendly units (will provide them with information about contacts). No parameters.
 -- @param #CONTROLLABLE self
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskAWACS( )
   self:F2( { self.ControllableName } )
 
@@ -1359,7 +1357,7 @@ end
 
 --- (AIR) Aircraft will act as a tanker for friendly units. No parameters.
 -- @param #CONTROLLABLE self
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskTanker( )
   self:F2( { self.ControllableName } )
 
@@ -1384,7 +1382,7 @@ end
 
 --- (GROUND) Ground unit (EW-radar) will act as an EWR for friendly units (will provide them with information about contacts). No parameters.
 -- @param #CONTROLLABLE self
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskEWR( )
   self:F2( { self.ControllableName } )
 
@@ -1414,9 +1412,9 @@ end
 -- @param Wrapper.Controllable#CONTROLLABLE AttackGroup Target CONTROLLABLE.
 -- @param #number Priority All en-route tasks have the priority parameter. This is a number (less value - higher priority) that determines actions related to what task will be performed first. 
 -- @param #number WeaponType Bitmask of weapon types those allowed to use. If parameter is not defined that means no limits on weapon usage. 
--- @param Dcs.DCSTypes#AI.Task.Designation Designation (optional) Designation type.
+-- @param DCS#AI.Task.Designation Designation (optional) Designation type.
 -- @param #boolean Datalink (optional) Allows to use datalink to send the target information to attack aircraft. Enabled by default. 
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskFAC_EngageGroup( AttackGroup, Priority, WeaponType, Designation, Datalink )
   self:F2( { self.ControllableName, AttackGroup, WeaponType, Priority, Designation, Datalink } )
 
@@ -1451,9 +1449,9 @@ end
 -- The killer is player-controlled allied CAS-aircraft that is in contact with the FAC.
 -- If the task is assigned to the controllable lead unit will be a FAC. 
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Distance Radius  The maximal distance from the FAC to a target.
+-- @param DCS#Distance Radius  The maximal distance from the FAC to a target.
 -- @param #number Priority All en-route tasks have the priority parameter. This is a number (less value - higher priority) that determines actions related to what task will be performed first. 
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:EnRouteTaskFAC( Radius, Priority )
   self:F2( { self.ControllableName, Radius, Priority } )
 
@@ -1482,10 +1480,10 @@ end
 
 --- (AIR) Move the controllable to a Vec2 Point, wait for a defined duration and embark a controllable.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Vec2 Point The point where to wait.
+-- @param DCS#Vec2 Point The point where to wait.
 -- @param #number Duration The duration in seconds to wait.
 -- @param #CONTROLLABLE EmbarkingControllable The controllable to be embarked.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure
+-- @return DCS#Task The DCS task structure
 function CONTROLLABLE:TaskEmbarking( Point, Duration, EmbarkingControllable )
   self:F2( { self.ControllableName, Point, Duration, EmbarkingControllable.DCSControllable } )
 
@@ -1509,13 +1507,13 @@ end
 
 --- Move to a defined Vec2 Point, and embark to a controllable when arrived within a defined Radius.
 -- @param #CONTROLLABLE self
--- @param Dcs.DCSTypes#Vec2 Point The point where to wait.
+-- @param DCS#Vec2 Point The point where to wait.
 -- @param #number Radius The radius of the embarking zone around the Point.
--- @return Dcs.DCSTasking.Task#Task The DCS task structure.
+-- @return DCS#Task The DCS task structure.
 function CONTROLLABLE:TaskEmbarkToTransport( Point, Radius )
   self:F2( { self.ControllableName, Point, Radius } )
 
-  local DCSTask --Dcs.DCSTasking.Task#Task
+  local DCSTask --DCS#Task
   DCSTask = { id = 'EmbarkToTransport',
     params = { x = Point.x,
       y = Point.y,
@@ -1610,7 +1608,7 @@ end
 --- (AIR + GROUND) Return a mission task from a mission template.
 -- @param #CONTROLLABLE self
 -- @param #table TaskMission A table containing the mission task.
--- @return Dcs.DCSTasking.Task#Task
+-- @return DCS#Task
 function CONTROLLABLE:TaskMission( TaskMission )
   self:F2( Points )
 
@@ -1660,6 +1658,9 @@ do -- Patrol methods
   --- (GROUND) Patrol randomly to the waypoints the for the (parent) group.
   -- A random waypoint will be picked and the group will move towards that point.
   -- @param #CONTROLLABLE self
+  -- @param #number Speed Speed in km/h.
+  -- @param #string Formation The formation the group uses.
+  -- @param Core.Point#COORDINATE ToWaypoint The waypoint where the group should move to.
   -- @return #CONTROLLABLE
   function CONTROLLABLE:PatrolRouteRandom( Speed, Formation, ToWaypoint )
   
@@ -1711,6 +1712,9 @@ do -- Patrol methods
   --- (GROUND) Patrol randomly to the waypoints the for the (parent) group.
   -- A random waypoint will be picked and the group will move towards that point.
   -- @param #CONTROLLABLE self
+  -- @param #table ZoneList Table of zones.
+  -- @param #number Speed Speed in km/h the group moves at.
+  -- @param #string Formation (Optional) Formation the group should use.
   -- @return #CONTROLLABLE
   function CONTROLLABLE:PatrolZones( ZoneList, Speed, Formation )
   
@@ -1740,7 +1744,7 @@ do -- Patrol methods
       
       -- Create a "ground route point", which is a "point" structure that can be given as a parameter to a Task
       local Route = {}
-      Route[#Route+1] = FromCoord:WaypointGround( 120 )
+      Route[#Route+1] = FromCoord:WaypointGround( 20 )
       Route[#Route+1] = ToCoord:WaypointGround( Speed, Formation )
       
       
@@ -1758,7 +1762,7 @@ end
 --- Return a Misson task to follow a given route defined by Points.
 -- @param #CONTROLLABLE self
 -- @param #table Points A table of route points.
--- @return Dcs.DCSTasking.Task#Task
+-- @return DCS#Task
 function CONTROLLABLE:TaskRoute( Points )
   self:F2( Points )
 
@@ -1773,8 +1777,8 @@ do -- Route methods
 
   --- (AIR + GROUND) Make the Controllable move to fly to a given point.
   -- @param #CONTROLLABLE self
-  -- @param Dcs.DCSTypes#Vec3 Point The destination point in Vec3 format.
-  -- @param #number Speed The speed to travel.
+  -- @param DCS#Vec3 Point The destination point in Vec3 format.
+  -- @param #number Speed The speed [m/s] to travel.
   -- @return #CONTROLLABLE self
   function CONTROLLABLE:RouteToVec2( Point, Speed )
     self:F2( { Point, Speed } )
@@ -1824,8 +1828,8 @@ do -- Route methods
   
   --- (AIR + GROUND) Make the Controllable move to a given point.
   -- @param #CONTROLLABLE self
-  -- @param Dcs.DCSTypes#Vec3 Point The destination point in Vec3 format.
-  -- @param #number Speed The speed to travel.
+  -- @param DCS#Vec3 Point The destination point in Vec3 format.
+  -- @param #number Speed The speed [m/s] to travel.
   -- @return #CONTROLLABLE self
   function CONTROLLABLE:RouteToVec3( Point, Speed )
     self:F2( { Point, Speed } )
@@ -1882,7 +1886,7 @@ do -- Route methods
   --- Make the controllable to follow a given route.
   -- @param #CONTROLLABLE self
   -- @param #table Route A table of Route Points.
-  -- @param #number DelaySeconds Wait for the specified seconds before executing the Route.
+  -- @param #number DelaySeconds (Optional) Wait for the specified seconds before executing the Route. Default is one second.
   -- @return #CONTROLLABLE The CONTROLLABLE.
   function CONTROLLABLE:Route( Route, DelaySeconds )
     self:F2( Route )
@@ -1923,7 +1927,7 @@ do -- Route methods
   --- Make the GROUND Controllable to drive towards a specific point.
   -- @param #CONTROLLABLE self
   -- @param Core.Point#COORDINATE ToCoordinate A Coordinate to drive to.
-  -- @param #number Speed (optional) Speed in km/h. The default speed is 999 km/h.
+  -- @param #number Speed (optional) Speed in km/h. The default speed is 20 km/h.
   -- @param #string Formation (optional) The route point Formation, which is a text string that specifies exactly the Text in the Type of the route point, like "Vee", "Echelon Right".
   -- @param #number DelaySeconds Wait for the specified seconds before executing the Route.
   -- @return #CONTROLLABLE The CONTROLLABLE.
@@ -1939,37 +1943,22 @@ do -- Route methods
     return self
   end
   
-  --- Make the GROUND Controllable to drive towards a specific point using (only) roads.
+  --- Make the GROUND Controllable to drive towards a specific point using (mostly) roads.
   -- @param #CONTROLLABLE self
   -- @param Core.Point#COORDINATE ToCoordinate A Coordinate to drive to.
-  -- @param #number Speed (optional) Speed in km/h. The default speed is 999 km/h.
-  -- @param #number DelaySeconds Wait for the specified seconds before executing the Route.
+  -- @param #number Speed (Optional) Speed in km/h. The default speed is 20 km/h.
+  -- @param #number DelaySeconds (Optional) Wait for the specified seconds before executing the Route. Default is one second.
+  -- @param #string OffRoadFormation (Optional) The formation at initial and final waypoint. Default is "Off Road".
   -- @return #CONTROLLABLE The CONTROLLABLE.
-  function CONTROLLABLE:RouteGroundOnRoad( ToCoordinate, Speed, DelaySeconds )
+  function CONTROLLABLE:RouteGroundOnRoad( ToCoordinate, Speed, DelaySeconds, OffRoadFormation )
   
-    -- Current coordinate.
-    local FromCoordinate = self:GetCoordinate()
-    
-    -- Formation is set to on road.
-    local Formation="On Road"
-   
-    -- Path on road from current position to destination coordinate.
-    local path=FromCoordinate:GetPathOnRoad(ToCoordinate)
-    
-    -- Route, ground waypoints along roads.
-    local route={}
-    table.insert(route, FromCoordinate:WaypointGround(Speed, Formation))
-    
-    -- Convert coordinates to ground waypoints and insert into table.
-    for _, coord in ipairs(path) do
-      table.insert(route, coord:WaypointGround(Speed, Formation))
-    end
-    
-    -- Add the final coordinate because the final coordinate in path is last point on road.
-    local dist=ToCoordinate:Get2DDistance(path[#path])
-    if dist>10 then
-      table.insert(route, ToCoordinate:WaypointGround(Speed, "Vee"))
-    end
+    -- Defaults.
+    Speed=Speed or 20
+    DelaySeconds=DelaySeconds or 1
+    OffRoadFormation=OffRoadFormation or "Off Road"
+  
+    -- Get the route task.
+    local route=self:TaskGroundOnRoad(ToCoordinate, Speed, OffRoadFormation)
     
     -- Route controllable to destination.
     self:Route( route, DelaySeconds )
@@ -1978,39 +1967,43 @@ do -- Route methods
   end
 
   
-  --- Make a task for a GROUND Controllable to drive towards a specific point using (only) roads.
+  --- Make a task for a GROUND Controllable to drive towards a specific point using (mostly) roads.
   -- @param #CONTROLLABLE self
   -- @param Core.Point#COORDINATE ToCoordinate A Coordinate to drive to.
-  -- @param #number Speed (optional) Speed in km/h. The default speed is 999 km/h.
-  -- @param #string EndPointFormation The formation to achieve at the end point.
+  -- @param #number Speed (Optional) Speed in km/h. The default speed is 20 km/h.
+  -- @param #string OffRoadFormation (Optional) The formation at initial and final waypoint. Default is "Off Road".
   -- @return Task
-  function CONTROLLABLE:TaskGroundOnRoad( ToCoordinate, Speed, EndPointFormation )
+  function CONTROLLABLE:TaskGroundOnRoad( ToCoordinate, Speed, OffRoadFormation )
+    self:F2({ToCoordinate=ToCoordinate, Speed=Speed, OffRoadFormation=OffRoadFormation})
+    
+    -- Defaults.
+    Speed=Speed or 20
+    OffRoadFormation=OffRoadFormation or "Off Road"
   
     -- Current coordinate.
     local FromCoordinate = self:GetCoordinate()
     
-    -- Formation is set to on road.
-    local Formation="On Road"
-   
-    -- Path on road from current position to destination coordinate.
-    local path=FromCoordinate:GetPathOnRoad( ToCoordinate )
+    -- First point on road.
+    local FromOnRoad = FromCoordinate:GetClosestPointToRoad()
     
-    -- Route, ground waypoints along roads.
-    local Route = {}
-    table.insert( Route, FromCoordinate:WaypointGround( Speed, Formation ) )
+    -- Last Point on road.
+    local ToOnRoad = ToCoordinate:GetClosestPointToRoad()
+           
+    -- Route, ground waypoints along road.
+    local route={}
     
-    -- Convert coordinates to ground waypoints and insert into table.
-    for _, coord in ipairs(path) do
-      table.insert( Route, coord:WaypointGround( Speed, Formation ) )
-    end
-    
-    -- Add the final coordinate because the final coordinate in path is last point on road.
-    local dist=ToCoordinate:Get2DDistance(path[#path])
+    -- Create waypoints.
+    table.insert(route, FromCoordinate:WaypointGround(Speed, OffRoadFormation))
+    table.insert(route, FromOnRoad:WaypointGround(Speed, "On Road"))
+    table.insert(route, ToOnRoad:WaypointGround(Speed, "On Road"))
+        
+    -- Add the final coordinate because the final might not be on the road.
+    local dist=ToCoordinate:Get2DDistance(ToOnRoad)
     if dist>10 then
-      table.insert( Route, ToCoordinate:WaypointGround( Speed, EndPointFormation ) )
-    end
+      table.insert(route, ToCoordinate:WaypointGround(Speed, OffRoadFormation))
+    end  
     
-    return Route 
+    return route 
   end
 
   
@@ -2020,7 +2013,7 @@ do -- Route methods
   -- @param Core.Point#COORDINATE.RoutePointAltType AltType The altitude type.
   -- @param Core.Point#COORDINATE.RoutePointType Type The route point type.
   -- @param Core.Point#COORDINATE.RoutePointAction Action The route point action.
-  -- @param #number Speed (optional) Speed in km/h. The default speed is 999 km/h.
+  -- @param #number Speed (optional) Speed in km/h. The default speed is 500 km/h.
   -- @param #number DelaySeconds Wait for the specified seconds before executing the Route.
   -- @return #CONTROLLABLE The CONTROLLABLE.
   function CONTROLLABLE:RouteAirTo( ToCoordinate, AltType, Type, Action, Speed, DelaySeconds )
@@ -2043,7 +2036,7 @@ do -- Route methods
   -- @param #CONTROLLABLE self
   -- @param Core.Zone#ZONE Zone The zone where to route to.
   -- @param #boolean Randomize Defines whether to target point gets randomized within the Zone.
-  -- @param #number Speed The speed.
+  -- @param #number Speed The speed in m/s. Default is 5.555 m/s = 20 km/h.
   -- @param Base#FORMATION Formation The formation string.
   function CONTROLLABLE:TaskRouteToZone( Zone, Randomize, Speed, Formation )
     self:F2( Zone )
@@ -2059,7 +2052,7 @@ do -- Route methods
       PointFrom.y = ControllablePoint.y
       PointFrom.type = "Turning Point"
       PointFrom.action = Formation or "Cone"
-      PointFrom.speed = 20 / 1.6
+      PointFrom.speed = 20 / 3.6
   
   
       local PointTo = {}
@@ -2084,7 +2077,7 @@ do -- Route methods
       if Speed then
         PointTo.speed = Speed
       else
-        PointTo.speed = 20 / 1.6
+        PointTo.speed = 20 / 3.6
       end
   
       local Points = { PointFrom, PointTo }
@@ -2103,8 +2096,8 @@ do -- Route methods
   -- A speed can be given in km/h.
   -- A given formation can be given.
   -- @param #CONTROLLABLE self
-  -- @param #Vec2 Vec2 The Vec2 where to route to.
-  -- @param #number Speed The speed.
+  -- @param DCS#Vec2 Vec2 The Vec2 where to route to.
+  -- @param #number Speed The speed in m/s. Default is 5.555 m/s = 20 km/h.
   -- @param Base#FORMATION Formation The formation string.
   function CONTROLLABLE:TaskRouteToVec2( Vec2, Speed, Formation )
   
@@ -2119,7 +2112,7 @@ do -- Route methods
       PointFrom.y = ControllablePoint.y
       PointFrom.type = "Turning Point"
       PointFrom.action = Formation or "Cone"
-      PointFrom.speed = 20 / 1.6
+      PointFrom.speed = 20 / 3.6
   
   
       local PointTo = {}
@@ -2137,7 +2130,7 @@ do -- Route methods
       if Speed then
         PointTo.speed = Speed
       else
-        PointTo.speed = 60 / 3.6
+        PointTo.speed = 20 / 3.6
       end
   
       local Points = { PointFrom, PointTo }
@@ -2159,7 +2152,7 @@ end -- Route methods
 --- Do Script command
 -- @param #CONTROLLABLE self
 -- @param #string DoScript
--- @return #DCSCommand
+-- @return DCS#DCSCommand
 function CONTROLLABLE:CommandDoScript( DoScript )
 
   local DCSDoScript = {
@@ -2195,7 +2188,7 @@ end
 
 
 
---- Return the route of a controllable by using the @{Database#DATABASE} class.
+--- Return the route of a controllable by using the @{Core.Database#DATABASE} class.
 -- @param #CONTROLLABLE self
 -- @param #number Begin The route point from where the copy will start. The base route point is 0.
 -- @param #number End The route point where the copy will end. The End point is the last point - the End point. The last point has base 0.
@@ -2742,7 +2735,7 @@ end
 
 
 --- Retrieve the controllable mission and allow to place function hooks within the mission waypoint plan.
--- Use the method @{Controllable#CONTROLLABLE:WayPointFunction} to define the hook functions for specific waypoints.
+-- Use the method @{Wrapper.Controllable#CONTROLLABLE:WayPointFunction} to define the hook functions for specific waypoints.
 -- Use the method @{Controllable@CONTROLLABLE:WayPointExecute) to start the execution of the new mission plan.
 -- Note that when WayPointInitialize is called, the Mission of the controllable is RESTARTED!
 -- @param #CONTROLLABLE self

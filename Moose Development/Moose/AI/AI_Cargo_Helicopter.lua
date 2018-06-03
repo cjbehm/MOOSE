@@ -6,13 +6,14 @@
 -- 
 -- ===       
 --
--- @module AI_Cargo_Helicopter
+-- @module AI.AI_Cargo_Helicopter
+-- @image AI_Cargo_Dispatching_For_Helicopters.JPG
 
 --- @type AI_CARGO_HELICOPTER
 -- @extends Core.Fsm#FSM_CONTROLLABLE
 
 
---- # AI\_CARGO\_TROOPS class, extends @{Core.Base@BASE}
+--- # AI\_CARGO\_TROOPS class, extends @{Core.Fsm#FSM_CONTROLLABLE}
 -- 
 -- ===
 -- 
@@ -218,7 +219,7 @@ function AI_CARGO_HELICOPTER:onafterLanded( Helicopter, From, Event, To )
     self:F( { Helicopter:GetName(), Height = Helicopter:GetHeight( true ), Velocity = Helicopter:GetVelocityKMH() } )
 
     if self.RoutePickup == true then
-      if Helicopter:GetHeight( true ) <= 2 and Helicopter:GetVelocityKMH() < 5 then
+      if Helicopter:GetHeight( true ) <= 5 and Helicopter:GetVelocityKMH() < 10 then
         self:Load( Helicopter:GetPointVec2() )
         self.RoutePickup = false
         self.Relocating = true
@@ -226,7 +227,7 @@ function AI_CARGO_HELICOPTER:onafterLanded( Helicopter, From, Event, To )
     end
     
     if self.RouteDeploy == true then
-      if Helicopter:GetHeight( true ) <= 2 and Helicopter:GetVelocityKMH() < 5 then
+      if Helicopter:GetHeight( true ) <= 5 and Helicopter:GetVelocityKMH() < 10 then
         self:Unload( true )
         self.RouteDeploy = false
         self.Transporting = false

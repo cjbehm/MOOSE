@@ -8,24 +8,23 @@
 -- 
 -- ===
 --   
--- @module Task_A2G
+-- @module Tasking.Task_A2G
+-- @image MOOSE.JPG
 
 do -- TASK_A2G
 
   --- The TASK_A2G class
   -- @type TASK_A2G
-  -- @field Set#SET_UNIT TargetSetUnit
+  -- @field Core.Set#SET_UNIT TargetSetUnit
   -- @extends Tasking.Task#TASK
 
-  --- # TASK_A2G class, extends @{Task#TASK}
-  -- 
-  -- The TASK_A2G class defines Air To Ground tasks for a @{Set} of Target Units, 
-  -- based on the tasking capabilities defined in @{Task#TASK}.
-  -- The TASK_A2G is implemented using a @{Fsm#FSM_TASK}, and has the following statuses:
+  --- The TASK_A2G class defines Air To Ground tasks for a @{Set} of Target Units, 
+  -- based on the tasking capabilities defined in @{Tasking.Task#TASK}.
+  -- The TASK_A2G is implemented using a @{Core.Fsm#FSM_TASK}, and has the following statuses:
   -- 
   --   * **None**: Start of the process
   --   * **Planned**: The A2G task is planned.
-  --   * **Assigned**: The A2G task is assigned to a @{Group#GROUP}.
+  --   * **Assigned**: The A2G task is assigned to a @{Wrapper.Group#GROUP}.
   --   * **Success**: The A2G task is successfully completed.
   --   * **Failed**: The A2G task has failed. This will happen if the player exists the task early, without communicating a possible cancellation to HQ.
   -- 
@@ -45,9 +44,9 @@ do -- TASK_A2G
   --- Instantiates a new TASK_A2G.
   -- @param #TASK_A2G self
   -- @param Tasking.Mission#MISSION Mission
-  -- @param Set#SET_GROUP SetGroup The set of groups for which the Task can be assigned.
+  -- @param Core.Set#SET_GROUP SetGroup The set of groups for which the Task can be assigned.
   -- @param #string TaskName The name of the Task.
-  -- @param Set#SET_UNIT UnitSetTargets
+  -- @param Core.Set#SET_UNIT UnitSetTargets
   -- @param #number TargetDistance The distance to Target when the Player is considered to have "arrived" at the engagement range.
   -- @param Core.Zone#ZONE_BASE TargetZone The target zone, if known.
   -- If the TargetZone parameter is specified, the player will be routed to the center of the zone where all the targets are assumed to be.
@@ -364,15 +363,13 @@ do -- TASK_A2G_SEAD
 
   --- The TASK_A2G_SEAD class
   -- @type TASK_A2G_SEAD
-  -- @field Set#SET_UNIT TargetSetUnit
+  -- @field Core.Set#SET_UNIT TargetSetUnit
   -- @extends Tasking.Task#TASK
 
-  --- # TASK_A2G_SEAD class, extends @{Task_A2G#TASK_A2G}
-  -- 
-  -- The TASK_A2G_SEAD class defines an Suppression or Extermination of Air Defenses task for a human player to be executed.
+  --- Defines an Suppression or Extermination of Air Defenses task for a human player to be executed.
   -- These tasks are important to be executed as they will help to achieve air superiority at the vicinity.
   -- 
-  -- The TASK_A2G_SEAD is used by the @{Task_A2G_Dispatcher#TASK_A2G_DISPATCHER} to automatically create SEAD tasks 
+  -- The TASK_A2G_SEAD is used by the @{Tasking.Task_A2G_Dispatcher#TASK_A2G_DISPATCHER} to automatically create SEAD tasks 
   -- based on detected enemy ground targets.
   -- 
   -- @field #TASK_A2G_SEAD
@@ -457,16 +454,14 @@ do -- TASK_A2G_BAI
 
   --- The TASK_A2G_BAI class
   -- @type TASK_A2G_BAI
-  -- @field Set#SET_UNIT TargetSetUnit
+  -- @field Core.Set#SET_UNIT TargetSetUnit
   -- @extends Tasking.Task#TASK
 
-  --- # TASK_A2G_BAI class, extends @{Task_A2G#TASK_A2G}
-  -- 
-  -- The TASK_A2G_BAI class defines an Battlefield Air Interdiction task for a human player to be executed.
+  -- Defines an Battlefield Air Interdiction task for a human player to be executed.
   -- These tasks are more strategic in nature and are most of the time further away from friendly forces.
   -- BAI tasks can also be used to express the abscence of friendly forces near the vicinity.
   -- 
-  -- The TASK_A2G_BAI is used by the @{Task_A2G_Dispatcher#TASK_A2G_DISPATCHER} to automatically create BAI tasks 
+  -- The TASK_A2G_BAI is used by the @{Tasking.Task_A2G_Dispatcher#TASK_A2G_DISPATCHER} to automatically create BAI tasks 
   -- based on detected enemy ground targets.
   -- 
   -- @field #TASK_A2G_BAI
@@ -553,15 +548,13 @@ do -- TASK_A2G_CAS
 
   --- The TASK_A2G_CAS class
   -- @type TASK_A2G_CAS
-  -- @field Set#SET_UNIT TargetSetUnit
+  -- @field Core.Set#SET_UNIT TargetSetUnit
   -- @extends Tasking.Task#TASK
 
-  --- # TASK_A2G_CAS class, extends @{Task_A2G#TASK_A2G}
-  -- 
-  -- The TASK_A2G_CAS class defines an Close Air Support task for a human player to be executed.
+  -- Defines an Close Air Support task for a human player to be executed.
   -- Friendly forces will be in the vicinity within 6km from the enemy.
   -- 
-  -- The TASK_A2G_CAS is used by the @{Task_A2G_Dispatcher#TASK_A2G_DISPATCHER} to automatically create CAS tasks 
+  -- The TASK_A2G_CAS is used by the @{Tasking.Task_A2G_Dispatcher#TASK_A2G_DISPATCHER} to automatically create CAS tasks 
   -- based on detected enemy ground targets.
   -- 
   -- @field #TASK_A2G_CAS

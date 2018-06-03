@@ -8,19 +8,14 @@
 -- 
 -- ===       
 --
--- @module AI_Cargo_Dispatcher_Helicopter
+-- @module AI.AI_Cargo_Dispatcher_Helicopter
+-- @image AI_Cargo_Dispatching_For_Helicopters.JPG
 
 --- @type AI_CARGO_DISPATCHER_HELICOPTER
 -- @extends AI.AI_Cargo_Dispatcher#AI_CARGO_DISPATCHER
 
 
---- # AI\_CARGO\_DISPATCHER\_HELICOPTER class, extends @{AI.AI_Cargo_Dispatcher#AI_CARGO_DISPATCHER}
--- 
--- ![Banner Image](..\Presentations\AI_CARGO_DISPATCHER_HELICOPTER\Dia1.JPG)
--- 
--- ===
--- 
--- AI\_CARGO\_DISPATCHER\_HELICOPTER brings a dynamic cargo handling capability for AI helicopter groups.
+--- A dynamic cargo handling capability for AI helicopter groups.
 -- 
 -- Helicopters can be mobilized to intelligently transport infantry and other cargo within the simulation.
 -- The AI\_CARGO\_DISPATCHER\_HELICOPTER module uses the @{Cargo} capabilities within the MOOSE framework.
@@ -93,7 +88,7 @@ AI_CARGO_DISPATCHER_HELICOPTER = {
 
 --- Creates a new AI_CARGO_DISPATCHER_HELICOPTER object.
 -- @param #AI_CARGO_DISPATCHER_HELICOPTER self
--- @param Core.Set#SET_GROUP SetHelicopter The collection of Helicopter @{Group}s.
+-- @param Core.Set#SET_GROUP SetHelicopter The collection of Helicopter @{Wrapper.Group}s.
 -- @param Core.Set#SET_CARGO SetCargo The collection of @{Cargo} derived objects.
 -- @param Core.Set#SET_ZONE SetDeployZone The collection of deploy @{Zone}s, which are used to where the cargo will be deployed by the Helicopters. 
 -- @return #AI_CARGO_DISPATCHER_HELICOPTER

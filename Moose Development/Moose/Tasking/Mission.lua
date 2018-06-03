@@ -8,7 +8,8 @@
 -- 
 -- ===
 -- 
--- @module Mission
+-- @module Tasking.Mission
+-- @image Task_Mission.JPG
 
 --- The MISSION class
 -- @type MISSION
@@ -458,7 +459,7 @@ do -- Group Assignment
   end
   
   
-  --- Set @{Group} assigned to the @{Mission}.
+  --- Set @{Wrapper.Group} assigned to the @{Mission}.
   -- @param #MISSION self
   -- @param Wrapper.Group#GROUP MissionGroup
   -- @return #MISSION
@@ -473,7 +474,7 @@ do -- Group Assignment
     return self
   end
   
-  --- Clear the @{Group} assignment from the @{Mission}.
+  --- Clear the @{Wrapper.Group} assignment from the @{Mission}.
   -- @param #MISSION self
   -- @param Wrapper.Group#GROUP MissionGroup
   -- @return #MISSION

@@ -9,23 +9,19 @@
 -- 
 -- ===
 -- 
--- @module CommandCenter
-
-
-
+-- @module Tasking.CommandCenter
+-- @image Task_Command_Center.JPG
 
 
 --- The COMMANDCENTER class
 -- @type COMMANDCENTER
 -- @field Wrapper.Group#GROUP HQ
--- @field Dcs.DCSCoalitionWrapper.Object#coalition CommandCenterCoalition
+-- @field DCS#coalition CommandCenterCoalition
 -- @list<Tasking.Mission#MISSION> Missions
 -- @extends Core.Base#BASE
 
 
---- # COMMANDCENTER class, extends @{Base#BASE}
--- 
---  The COMMANDCENTER class governs multiple missions, the tasking and the reporting.
+--- Governs multiple missions, the tasking and the reporting.
 --  
 --  The commandcenter communicates important messages between the various groups of human players executing tasks in missions.
 --  

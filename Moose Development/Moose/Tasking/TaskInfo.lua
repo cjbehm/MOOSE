@@ -8,13 +8,14 @@
 -- 
 -- ===
 -- 
--- @module TaskInfo
+-- @module Tasking.TaskInfo
+-- @image MOOSE.JPG
 
 --- @type TASKINFO
 -- @extends Core.Base#BASE
 
 --- 
--- # TASKINFO class, extends @{Base#BASE}
+-- # TASKINFO class, extends @{Core.Base#BASE}
 -- 
 -- ## The TASKINFO class implements the methods to contain information and display information of a task. 
 -- 

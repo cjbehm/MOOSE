@@ -1,7 +1,5 @@
 --- **Core** -- Spawn dynamically new STATICs in your missions.
 --  
--- ![Banner Image](..\Presentations\SPAWNSTATIC\Dia1.JPG)
--- 
 -- ===
 -- 
 -- SPAWNSTATIC spawns static structures in your missions dynamically. See below the SPAWNSTATIC class documentation.
@@ -29,7 +27,8 @@
 -- 
 -- ===
 -- 
--- @module SpawnStatic
+-- @module Core.SpawnStatic
+-- @image Core_Spawnstatic.JPG
 
 
 
@@ -37,9 +36,7 @@
 -- @extends Core.Base#BASE
 
 
---- # SPAWNSTATIC class, extends @{Base#BASE}
--- 
--- The SPAWNSTATIC class allows to spawn dynamically new @{Static}s.
+--- Allows to spawn dynamically new @{Static}s.
 -- Through creating a copy of an existing static object template as defined in the Mission Editor (ME),
 -- SPAWNSTATIC can retireve the properties of the defined static object template (like type, category etc), and "copy"
 -- these properties to create a new static object and place it at the desired coordinate.

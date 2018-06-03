@@ -6,15 +6,14 @@
 -- 
 -- ===       
 --
--- @module AI_Cargo_Airplane
+-- @module AI.AI_Cargo_Airplane
+-- @image AI_Cargo_Dispatching_For_Airplanes.JPG
 
 --- @type AI_CARGO_AIRPLANE
 -- @extends Core.Fsm#FSM_CONTROLLABLE
 
 
---- # AI\_CARGO\_AIRPLANE class, extends @{Core.Base@BASE}
--- 
--- ===
+--- Implements the transportation of cargo by airplanes.
 -- 
 -- @field #AI_CARGO_AIRPLANE
 AI_CARGO_AIRPLANE = {

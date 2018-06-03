@@ -1,6 +1,6 @@
 --- **Tasking** - The TASK_A2A_DISPATCHER creates and manages player TASK_A2A tasks based on detected targets.
 -- 
--- The @{#TASK_A2A_DISPATCHER} classes implement the dynamic dispatching of tasks upon groups of detected units determined a @{Set} of EWR installation groups.
+-- Implement the dynamic dispatching of tasks upon groups of detected units determined a @{Set} of EWR installation groups.
 -- 
 -- ===
 -- 
@@ -10,7 +10,8 @@
 -- 
 -- ===
 -- 
--- @module Task_A2A_Dispatcher
+-- @module Tasking.Task_A2A_Dispatcher
+-- @image Task_A2A_Dispatcher.JPG
 
 do -- TASK_A2A_DISPATCHER
 
@@ -18,11 +19,7 @@ do -- TASK_A2A_DISPATCHER
   -- @type TASK_A2A_DISPATCHER
   -- @extends Tasking.DetectionManager#DETECTION_MANAGER
 
-  --- # TASK_A2A_DISPATCHER class, extends @{Tasking#DETECTION_MANAGER}
-  -- 
-  -- ![Banner Image](..\Presentations\TASK_A2A_DISPATCHER\Dia1.JPG)
-  -- 
-  -- The @{#TASK_A2A_DISPATCHER} class implements the dynamic dispatching of tasks upon groups of detected units determined a @{Set} of EWR installation groups.
+  --- Orchestrates the dynamic dispatching of tasks upon groups of detected units determined a @{Set} of EWR installation groups.
   -- 
   -- ![Banner Image](..\Presentations\TASK_A2A_DISPATCHER\Dia3.JPG)
   -- 
@@ -83,7 +80,7 @@ do -- TASK_A2A_DISPATCHER
   -- therefore less CAP and GCI flights will spawn and this will tend to make just the border area active rather than a melee over the whole map. 
   -- It all depends on what the desired effect is. 
   -- 
-  -- EWR networks are **dynamically constructed**, that is, they form part of the @{Functional#DETECTION_BASE} object that is given as the input parameter of the TASK\_A2A\_DISPATCHER class.
+  -- EWR networks are **dynamically constructed**, that is, they form part of the @{Functional.Detection#DETECTION_BASE} object that is given as the input parameter of the TASK\_A2A\_DISPATCHER class.
   -- By defining in a **smart way the names or name prefixes of the groups** with EWR capable units, these groups will be **automatically added or deleted** from the EWR network, 
   -- increasing or decreasing the radar coverage of the Early Warning System.
   -- 
@@ -182,7 +179,7 @@ do -- TASK_A2A_DISPATCHER
   --- TASK_A2A_DISPATCHER constructor.
   -- @param #TASK_A2A_DISPATCHER self
   -- @param Tasking.Mission#MISSION Mission The mission for which the task dispatching is done.
-  -- @param Set#SET_GROUP SetGroup The set of groups that can join the tasks within the mission.
+  -- @param Core.Set#SET_GROUP SetGroup The set of groups that can join the tasks within the mission.
   -- @param Functional.Detection#DETECTION_BASE Detection The detection results that are used to dynamically assign new tasks to human players.
   -- @return #TASK_A2A_DISPATCHER self
   function TASK_A2A_DISPATCHER:New( Mission, SetGroup, Detection )
@@ -251,7 +248,7 @@ do -- TASK_A2A_DISPATCHER
   --- Creates an INTERCEPT task when there are targets for it.
   -- @param #TASK_A2A_DISPATCHER self
   -- @param Functional.Detection#DETECTION_BASE.DetectedItem DetectedItem
-  -- @return Set#SET_UNIT TargetSetUnit: The target set of units.
+  -- @return Core.Set#SET_UNIT TargetSetUnit: The target set of units.
   -- @return #nil If there are no targets to be set.
   function TASK_A2A_DISPATCHER:EvaluateINTERCEPT( DetectedItem )
     self:F( { DetectedItem.ItemID } )
@@ -278,7 +275,7 @@ do -- TASK_A2A_DISPATCHER
   --- Creates an SWEEP task when there are targets for it.
   -- @param #TASK_A2A_DISPATCHER self
   -- @param Functional.Detection#DETECTION_BASE.DetectedItem DetectedItem
-  -- @return Set#SET_UNIT TargetSetUnit: The target set of units.
+  -- @return Core.Set#SET_UNIT TargetSetUnit: The target set of units.
   -- @return #nil If there are no targets to be set.
   function TASK_A2A_DISPATCHER:EvaluateSWEEP( DetectedItem )
     self:F( { DetectedItem.ItemID } )
@@ -304,7 +301,7 @@ do -- TASK_A2A_DISPATCHER
   --- Creates an ENGAGE task when there are human friendlies airborne near the targets.
   -- @param #TASK_A2A_DISPATCHER self
   -- @param Functional.Detection#DETECTION_BASE.DetectedItem DetectedItem
-  -- @return Set#SET_UNIT TargetSetUnit: The target set of units.
+  -- @return Core.Set#SET_UNIT TargetSetUnit: The target set of units.
   -- @return #nil If there are no targets to be set.
   function TASK_A2A_DISPATCHER:EvaluateENGAGE( DetectedItem )
     self:F( { DetectedItem.ItemID } )
@@ -337,7 +334,7 @@ do -- TASK_A2A_DISPATCHER
   -- @param #TASK_A2A_DISPATCHER self
   -- @param Tasking.Mission#MISSION Mission
   -- @param Tasking.Task#TASK Task
-  -- @param Functional.Detection#DETECTION_BASE Detection The detection created by the @{Detection#DETECTION_BASE} derived object.
+  -- @param Functional.Detection#DETECTION_BASE Detection The detection created by the @{Functional.Detection#DETECTION_BASE} derived object.
   -- @param #boolean DetectedItemID
   -- @param #boolean DetectedItemChange
   -- @return Tasking.Task#TASK
@@ -485,9 +482,9 @@ do -- TASK_A2A_DISPATCHER
   end
 
 
-  --- Assigns tasks in relation to the detected items to the @{Set#SET_GROUP}.
+  --- Assigns tasks in relation to the detected items to the @{Core.Set#SET_GROUP}.
   -- @param #TASK_A2A_DISPATCHER self
-  -- @param Functional.Detection#DETECTION_BASE Detection The detection created by the @{Detection#DETECTION_BASE} derived object.
+  -- @param Functional.Detection#DETECTION_BASE Detection The detection created by the @{Functional.Detection#DETECTION_BASE} derived object.
   -- @return #boolean Return true if you want the task assigning to continue... false will cancel the loop.
   function TASK_A2A_DISPATCHER:ProcessDetected( Detection )
     self:F()

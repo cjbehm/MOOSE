@@ -1,43 +1,40 @@
 --- **Core** -- MESSAGE class takes are of the **real-time notifications** and **messages to players** during a simulation.
 -- 
--- ![Banner Image](..\Presentations\MESSAGE\Dia1.JPG)
--- 
 -- ===
 -- 
--- @module Message
+-- @module Core.Message
+-- @image Core_Message.JPG
 
 --- The MESSAGE class
 -- @type MESSAGE
 -- @extends Core.Base#BASE
 
---- # MESSAGE class, extends @{Base#BASE}
--- 
--- Message System to display Messages to Clients, Coalitions or All.
+--- Message System to display Messages to Clients, Coalitions or All.
 -- Messages are shown on the display panel for an amount of seconds, and will then disappear.
 -- Messages can contain a category which is indicating the category of the message.
 -- 
 -- ## MESSAGE construction
 -- 
--- Messages are created with @{Message#MESSAGE.New}. Note that when the MESSAGE object is created, no message is sent yet.
+-- Messages are created with @{#MESSAGE.New}. Note that when the MESSAGE object is created, no message is sent yet.
 -- To send messages, you need to use the To functions.
 -- 
 -- ## Send messages to an audience
 -- 
 -- Messages are sent:
 --
---   * To a @{Client} using @{Message#MESSAGE.ToClient}().
---   * To a @{Group} using @{Message#MESSAGE.ToGroup}()
---   * To a coalition using @{Message#MESSAGE.ToCoalition}().
---   * To the red coalition using @{Message#MESSAGE.ToRed}().
---   * To the blue coalition using @{Message#MESSAGE.ToBlue}().
---   * To all Players using @{Message#MESSAGE.ToAll}().
+--   * To a @{Client} using @{#MESSAGE.ToClient}().
+--   * To a @{Wrapper.Group} using @{#MESSAGE.ToGroup}()
+--   * To a coalition using @{#MESSAGE.ToCoalition}().
+--   * To the red coalition using @{#MESSAGE.ToRed}().
+--   * To the blue coalition using @{#MESSAGE.ToBlue}().
+--   * To all Players using @{#MESSAGE.ToAll}().
 -- 
 -- ## Send conditionally to an audience
 -- 
 -- Messages can be sent conditionally to an audience (when a condition is true):
 --   
---   * To all players using @{Message#MESSAGE.ToAllIf}().
---   * To a coalition using @{Message#MESSAGE.ToCoalitionIf}().
+--   * To all players using @{#MESSAGE.ToAllIf}().
+--   * To a coalition using @{#MESSAGE.ToCoalitionIf}().
 -- 
 -- ===
 --  
