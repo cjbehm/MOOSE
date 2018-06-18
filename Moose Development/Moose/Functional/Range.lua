@@ -965,7 +965,7 @@ function RANGE:OnEventBirth(EventData)
     
     -- By default, some bomb impact points and do not flare each hit on target.
     self.PlayerSettings[_playername]={}
-    self.PlayerSettings[_playername].smokebombimpact=true
+    self.PlayerSettings[_playername].smokebombimpact=false
     self.PlayerSettings[_playername].flaredirecthits=false
     self.PlayerSettings[_playername].smokecolor=SMOKECOLOR.Blue
     self.PlayerSettings[_playername].flarecolor=FLARECOLOR.Red
