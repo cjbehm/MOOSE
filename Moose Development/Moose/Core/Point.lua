@@ -1,5 +1,11 @@
---- **Core** -- **POINT\_VEC** classes define an **extensive API** to **manage 3D points** in the simulation space.
+--- **Core** -- Defines an **extensive API** to **manage 3D points** in the DCS World 3D simulation space.
 --
+-- **Features:**
+-- 
+--   * Provides a COORDINATE class, which allows to manage points in 3D space and perform various operations on it.
+--   * Provides a POINT\_VEC2 class, which is derived from COORDINATE, and allows to manage points in 3D space, but from a Lat/Lon and Altitude perspective.
+--   * Provides a POINT\_VEC3 class, which is derived from COORDINATE, and allows to manage points in 3D space, but from a X, Z and Y vector perspective.
+-- 
 -- ===
 --
 -- # Demo Missions
@@ -38,29 +44,20 @@ do -- COORDINATE
   
   --- Defines a 3D point in the simulator and with its methods, you can use or manipulate the point in 3D space.
   --
-  -- ## COORDINATE constructor
+  -- # 1) Create a COORDINATE object.
   --
-  -- A new COORDINATE object can be created with:
+  -- A new COORDINATE object can be created with 3 various methods:
   --
-  --  * @{#COORDINATE.New}(): a 3D point.
-  --  * @{#COORDINATE.NewFromVec2}(): a 2D point created from a @{DCS#Vec2}.
-  --  * @{#COORDINATE.NewFromVec3}(): a 3D point created from a @{DCS#Vec3}.
-  --
-  -- ## Create waypoints for routes
-  --
-  -- A COORDINATE can prepare waypoints for Ground and Air groups to be embedded into a Route.
-  --
-  --   * @{#COORDINATE.WaypointAir}(): Build an air route point.
-  --   * @{#COORDINATE.WaypointGround}(): Build a ground route point.
-  --
-  -- Route points can be used in the Route methods of the @{Wrapper.Group#GROUP} class.
+  --  * @{#COORDINATE.New}(): from a 3D point.
+  --  * @{#COORDINATE.NewFromVec2}(): from a @{DCS#Vec2} and possible altitude.
+  --  * @{#COORDINATE.NewFromVec3}(): from a @{DCS#Vec3}.
   --
   --
-  -- ## Smoke, flare, explode, illuminate
+  -- # 2) Smoke, flare, explode, illuminate at the coordinate.
   --
   -- At the point a smoke, flare, explosion and illumination bomb can be triggered. Use the following methods:
   --
-  -- ### Smoke
+  -- ## 2.1) Smoke
   --
   --   * @{#COORDINATE.Smoke}(): To smoke the point in a certain color.
   --   * @{#COORDINATE.SmokeBlue}(): To smoke the point in blue.
@@ -69,7 +66,7 @@ do -- COORDINATE
   --   * @{#COORDINATE.SmokeWhite}(): To smoke the point in white.
   --   * @{#COORDINATE.SmokeGreen}(): To smoke the point in green.
   --
-  -- ### Flare
+  -- ## 2.2) Flare
   --
   --   * @{#COORDINATE.Flare}(): To flare the point in a certain color.
   --   * @{#COORDINATE.FlareRed}(): To flare the point in red.
@@ -77,18 +74,19 @@ do -- COORDINATE
   --   * @{#COORDINATE.FlareWhite}(): To flare the point in white.
   --   * @{#COORDINATE.FlareGreen}(): To flare the point in green.
   --
-  -- ### Explode
+  -- ## 2.3) Explode
   --
   --   * @{#COORDINATE.Explosion}(): To explode the point with a certain intensity.
   --
-  -- ### Illuminate
+  -- ## 2.4) Illuminate
   --
   --   * @{#COORDINATE.IlluminationBomb}(): To illuminate the point.
   --
   --
-  -- ## Markings
+  -- # 3) Create markings on the map.
   -- 
-  -- Place markers (text boxes with clarifications for briefings, target locations or any other reference point) on the map for all players, coalitions or specific groups:
+  -- Place markers (text boxes with clarifications for briefings, target locations or any other reference point) 
+  -- on the map for all players, coalitions or specific groups:
   -- 
   --   * @{#COORDINATE.MarkToAll}(): Place a mark to all players.
   --   * @{#COORDINATE.MarkToCoalition}(): Place a mark to a coalition.
@@ -96,47 +94,99 @@ do -- COORDINATE
   --   * @{#COORDINATE.MarkToCoalitionBlue}(): Place a mark to the blue coalition.
   --   * @{#COORDINATE.MarkToGroup}(): Place a mark to a group (needs to have a client in it or a CA group (CA group is bugged)).
   --   * @{#COORDINATE.RemoveMark}(): Removes a mark from the map.
-  --   
-  --
-  -- ## 3D calculation methods
+  -- 
+  -- # 4) Coordinate calculation methods.
   --
   -- Various calculation methods exist to use or manipulate 3D space. Find below a short description of each method:
   --
-  -- ### Distance
+  -- ## 4.1) Get the distance between 2 points.
   --
   --   * @{#COORDINATE.Get3DDistance}(): Obtain the distance from the current 3D point to the provided 3D point in 3D space.
   --   * @{#COORDINATE.Get2DDistance}(): Obtain the distance from the current 3D point to the provided 3D point in 2D space.
   --
-  -- ### Angle
+  -- ## 4.2) Get the angle.
   --
   --   * @{#COORDINATE.GetAngleDegrees}(): Obtain the angle in degrees from the current 3D point with the provided 3D direction vector.
   --   * @{#COORDINATE.GetAngleRadians}(): Obtain the angle in radians from the current 3D point with the provided 3D direction vector.
   --   * @{#COORDINATE.GetDirectionVec3}(): Obtain the 3D direction vector from the current 3D point to the provided 3D point.
   --
-  -- ### Translation
+  -- ## 4.3) Coordinate translation.
   --
   --   * @{#COORDINATE.Translate}(): Translate the current 3D point towards an other 3D point using the given Distance and Angle.
   --
-  -- ### Get the North correction of the current location
+  -- ## 4.4) Get the North correction of the current location.
   --
   --   * @{#COORDINATE.GetNorthCorrection}(): Obtains the north correction at the current 3D point.
   --
-  --
-  -- ## Point Randomization
+  -- ## 4.5) Point Randomization
   --
   -- Various methods exist to calculate random locations around a given 3D point.
   --
   --   * @{#COORDINATE.GetRandomVec2InRadius}(): Provides a random 2D vector around the current 3D point, in the given inner to outer band.
   --   * @{#COORDINATE.GetRandomVec3InRadius}(): Provides a random 3D vector around the current 3D point, in the given inner to outer band.
+  -- 
+  -- ## 4.6) LOS between coordinates.
+  -- 
+  -- Calculate if the coordinate has Line of Sight (LOS) with the other given coordinate.
+  -- Mountains, trees and other objects can be positioned between the two 3D points, preventing visibilty in a straight continuous line.
+  -- The method @{#COORDINATE.IsLOS}() returns if the two coodinates have LOS.
+  -- 
+  -- ## 4.7) Check the coordinate position.
+  -- 
+  -- Various methods are available that allow to check if a coordinate is:
+  -- 
+  --   * @{#COORDINATE.IsInRadius}(): in a give radius.
+  --   * @{#COORDINATE.IsInSphere}(): is in a given sphere.
+  --   * @{#COORDINATE.IsAtCoordinate2D}(): is in a given coordinate within a specific precision.
+  -- 
+  --   
+  --
+  -- # 5) Measure the simulation environment at the coordinate.
+  -- 
+  -- ## 5.1) Weather specific.
+  -- 
+  -- Within the DCS simulator, a coordinate has specific environmental properties, like wind, temperature, humidity etc.
+  -- 
+  --   * @{#COORDINATE.GetWind}(): Retrieve the wind at the specific coordinate within the DCS simulator.
+  --   * @{#COORDINATE.GetTemperature}(): Retrieve the temperature at the specific height within the DCS simulator.
+  --   * @{#COORDINATE.GetPressure}(): Retrieve the pressure at the specific height within the DCS simulator.
+  -- 
+  -- ## 5.2) Surface specific.
+  -- 
+  -- Within the DCS simulator, the surface can have various objects placed at the coordinate, and the surface height will vary.
+  -- 
+  --   * @{#COORDINATE.GetLandHeight}(): Retrieve the height of the surface (on the ground) within the DCS simulator.
+  --   * @{#COORDINATE.GetSurfaceType}(): Retrieve the surface type (on the ground) within the DCS simulator.
+  --
+  -- # 6) Create waypoints for routes.
+  --
+  -- A COORDINATE can prepare waypoints for Ground and Air groups to be embedded into a Route.
+  --
+  --   * @{#COORDINATE.WaypointAir}(): Build an air route point.
+  --   * @{#COORDINATE.WaypointGround}(): Build a ground route point.
+  --
+  -- Route points can be used in the Route methods of the @{Wrapper.Group#GROUP} class.
+  --
+  -- ## 7) Manage the roads.
+  -- 
+  -- Important for ground vehicle transportation and movement, the method @{#COORDINATE.GetClosestPointToRoad}() will calculate
+  -- the closest point on the nearest road.
+  -- 
+  -- In order to use the most optimal road system to transport vehicles, the method @{#COORDINATE.GetPathOnRoad}() will calculate
+  -- the most optimal path following the road between two coordinates.
+  --   
   --
   --
-  -- ## Metric system
+  --
+  --
+  -- ## 8) Metric or imperial system
   --
   --   * @{#COORDINATE.IsMetric}(): Returns if the 3D point is Metric or Nautical Miles.
   --   * @{#COORDINATE.SetMetric}(): Sets the 3D point to Metric or Nautical Miles.
   --
   --
-  -- ## Coorinate text generation
+  -- ## 9) Coordinate text generation
+  -- 
   --
   --   * @{#COORDINATE.ToStringBR}(): Generates a Bearing & Range text in the format of DDD for DI where DDD is degrees and DI is distance.
   --   * @{#COORDINATE.ToStringLL}(): Generates a Latutude & Longutude text.
@@ -292,8 +342,108 @@ do -- COORDINATE
     return x - Precision <= self.x and x + Precision >= self.x and z - Precision <= self.z and z + Precision >= self.z   
   end
   
-  
+  --- Returns if the 2 coordinates are at the same 2D position.
+  -- @param #COORDINATE self
+  -- @param #number radius (Optional) Scan radius in meters. Default 100 m.
+  -- @param #boolean scanunits (Optional) If true scan for units. Default true.
+  -- @param #boolean scanstatics (Optional) If true scan for static objects. Default true.
+  -- @param #boolean scanscenery (Optional) If true scan for scenery objects. Default false.
+  -- @return True if units were found.
+  -- @return True if statics were found.
+  -- @return True if scenery objects were found.
+  -- @return Unit objects found.
+  -- @return Static objects found.
+  -- @return Scenery objects found.
+  function COORDINATE:ScanObjects(radius, scanunits, scanstatics, scanscenery)
+    self:F(string.format("Scanning in radius %.1f m.", radius))
 
+    local SphereSearch = {
+      id = world.VolumeType.SPHERE,
+        params = {
+        point = self:GetVec3(),
+        radius = radius,
+        }
+      }
+
+    -- Defaults
+    radius=radius or 100
+    if scanunits==nil then
+      scanunits=true
+    end
+    if scanstatics==nil then
+      scanstatics=true
+    end
+    if scanscenery==nil then
+      scanscenery=false
+    end
+    
+    --{Object.Category.UNIT, Object.Category.STATIC, Object.Category.SCENERY}
+    local scanobjects={}
+    if scanunits then
+      table.insert(scanobjects, Object.Category.UNIT)
+    end
+    if scanstatics then
+      table.insert(scanobjects, Object.Category.STATIC)
+    end
+    if scanscenery then
+      table.insert(scanobjects, Object.Category.SCENERY)
+    end
+    
+    -- Found stuff.
+    local Units = {}
+    local Statics = {}
+    local Scenery = {}
+    local gotstatics=false
+    local gotunits=false
+    local gotscenery=false
+    
+    local function EvaluateZone( ZoneObject )
+    
+      if ZoneObject then
+      
+        -- Get category of scanned object.
+        local ObjectCategory = ZoneObject:getCategory()
+        
+        -- Check for unit or static objects
+        --if (ObjectCategory == Object.Category.UNIT and ZoneObject:isExist() and ZoneObject:isActive()) then
+        if (ObjectCategory == Object.Category.UNIT and ZoneObject:isExist()) then
+        
+          table.insert(Units, ZoneObject)
+          gotunits=true
+          
+        elseif (ObjectCategory == Object.Category.STATIC and ZoneObject:isExist()) then
+        
+          table.insert(Statics, ZoneObject)
+          gotstatics=true
+          
+        elseif ObjectCategory == Object.Category.SCENERY then
+        
+          table.insert(Scenery, ZoneObject)
+          gotscenery=true
+          
+        end
+        
+      end
+      
+      return true
+    end
+  
+    -- Search the world.
+    world.searchObjects(scanobjects, SphereSearch, EvaluateZone)
+    
+    for _,unit in pairs(Units) do
+      self:T(string.format("Scan found unit %s", unit:getName()))
+    end
+    for _,static in pairs(Statics) do
+      self:T(string.format("Scan found static %s", static:getName()))
+    end
+    for _,scenery in pairs(Scenery) do
+      self:T(string.format("Scan found scenery %s", scenery:getTypeName()))
+    end
+    
+    return gotunits, gotstatics, gotscenery, Units, Statics, Scenery
+  end
+ 
   --- Calculate the distance from a reference @{#COORDINATE}.
   -- @param #COORDINATE self
   -- @param #COORDINATE PointVec2Reference The reference @{#COORDINATE}.
@@ -946,6 +1096,84 @@ do -- COORDINATE
     return RoutePoint
   end
   
+  --- Gets the nearest parking spot.
+  -- @param #COORDINATE self
+  -- @param Wrapper.Airbase#AIRBASE airbase (Optional) Search only parking spots at this airbase.
+  -- @param Wrapper.Airbase#Terminaltype terminaltype (Optional) Type of the terminal. Default any execpt valid spawn points on runway.
+  -- @param #boolean free (Optional) If true, returns the closest free spot. If false, returns the closest occupied spot. If nil, returns the closest spot regardless of free or occupied.
+  -- @return Core.Point#COORDINATE Coordinate of the nearest parking spot.
+  -- @return #number Terminal ID.
+  -- @return #number Distance to closest parking spot in meters.
+  function COORDINATE:GetClosestParkingSpot(airbase, terminaltype, free)
+    
+    -- Get airbase table.
+    local airbases={}
+    if airbase then
+      table.insert(airbases,airbase)
+    else
+      airbases=AIRBASE.GetAllAirbases()
+    end
+    
+    -- Init.
+    local _closest=nil --Core.Point#COORDINATE
+    local _termID=nil
+    local _distmin=nil
+
+    -- Loop over all airbases.
+    for _,_airbase in pairs(airbases) do
+    
+      local mybase=_airbase --Wrapper.Airbase#AIRBASE
+      local parkingdata=mybase:GetParkingSpotsTable(terminaltype)
+      
+      for _,_spot in pairs(parkingdata) do
+        
+        -- Check for parameters.        
+        if (free==true and _spot.Free==true) or (free==false and _spot.Free==false) or free==nil then
+          
+          local _coord=_spot.Coordinate --Core.Point#COORDINATE
+            
+          local _dist=self:Get2DDistance(_coord)
+          if _distmin==nil then
+            _closest=_coord
+            _distmin=_dist
+            _termID=_spot.TerminalID
+          else    
+            if _dist<_distmin then
+              _distmin=_dist
+              _closest=_coord
+              _termID=_spot.TerminalID
+            end
+          end
+                          
+        end         
+      end
+    end
+   
+    return _closest, _termID, _distmin
+  end
+
+  --- Gets the nearest free parking spot.
+  -- @param #COORDINATE self
+  -- @param Wrapper.Airbase#AIRBASE airbase (Optional) Search only parking spots at that airbase.
+  -- @param Wrapper.Airbase#Terminaltype terminaltype (Optional) Type of the terminal.
+  -- @return #COORDINATE Coordinate of the nearest free parking spot.
+  -- @return #number Terminal ID.
+  -- @return #number Distance to closest free parking spot in meters.
+  function COORDINATE:GetClosestFreeParkingSpot(airbase, terminaltype)
+    return self:GetClosestParkingSpot(airbase, terminaltype, true)
+  end
+
+  --- Gets the nearest occupied parking spot.
+  -- @param #COORDINATE self
+  -- @param Wrapper.Airbase#AIRBASE airbase (Optional) Search only parking spots at that airbase.
+  -- @param Wrapper.Airbase#Terminaltype terminaltype (Optional) Type of the terminal.
+  -- @return #COORDINATE Coordinate of the nearest occupied parking spot.
+  -- @return #number Terminal ID.
+  -- @return #number Distance to closest occupied parking spot in meters.
+  function COORDINATE:GetClosestOccupiedParkingSpot(airbase, terminaltype)
+    return self:GetClosestParkingSpot(airbase, terminaltype, false)
+  end
+    
   --- Gets the nearest coordinate to a road.
   -- @param #COORDINATE self
   -- @return #COORDINATE Coordinate of the nearest road.
