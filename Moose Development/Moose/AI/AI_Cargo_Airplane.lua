@@ -375,14 +375,26 @@ function AI_CARGO_AIRPLANE:Route( Airplane, Airbase, Speed )
       
       if self.Airbase then
   
-        local FromWaypoint = Template.route.points[1] 
+        --local FromWaypoint = Template.route.points[1] 
+        local FromWaypoint = Airplane:GetCoordinate()
     
         -- These are only for ships.
         FromWaypoint.linkUnit = nil
         FromWaypoint.helipadId = nil
         FromWaypoint.airdromeId = nil
+        
+        local termtype = nil
     
-        local ParkingSpots = self.Airbase:FindFreeParkingSpotForAircraft( Airplane, AIRBASE.TerminalType.OpenBig )
+        -- Get parking data.
+        local parkingdata=self.Airbase:GetParkingSpotsTable(termtype)
+        self:T(string.format("Parking at %s, terminal type %s:", self.Airbase:GetName(), tostring(termtype)))
+        for _,_spot in pairs(parkingdata) do        
+          self:T(string.format("%s, Termin Index = %3d, Term Type = %03d, Free = %5s, TOAC = %5s, Term ID0 = %3d, Dist2Rwy = %4d, x = %f, y = %f, z = %f", 
+          self.Airbase:GetName(), _spot.TerminalID, _spot.TerminalType,tostring(_spot.Free),tostring(_spot.TOAC),_spot.TerminalID0,_spot.DistToRwy, _spot.Coordinate.x, _spot.Coordinate.y, _spot.Coordinate.z))
+        end
+        
+        self.Airbase:MarkParkingSpots(termtype)
+
         local AirbaseID = self.Airbase:GetID()
         local AirbaseCategory = self.Airbase:GetDesc().category
         
@@ -393,10 +405,12 @@ function AI_CARGO_AIRPLANE:Route( Airplane, Airbase, Speed )
         FromWaypoint.type = GROUPTEMPLATE.Takeoff[Takeoff][1] -- type
         FromWaypoint.action = GROUPTEMPLATE.Takeoff[Takeoff][2] -- action
         
-    
         -- Translate the position of the Group Template to the Vec3.
-        for UnitID = 1, #Template.units do
-          self:T( 'Before Translation SpawnTemplate.units['..UnitID..'].x = ' .. Template.units[UnitID].x .. ', SpawnTemplate.units['..UnitID..'].y = ' .. Template.units[UnitID].y )
+        for UnitID = 1, #Airplane:GetUnits() do
+          local AirplaneUnit = Airplane:GetUnit(UnitID)
+          self:T({AirplaneUnit = AirplaneUnit:GetName()})
+
+          local AirplaneCoordinate = Airplane:GetCoordinate()
     
           -- These cause a lot of confusion.
           local UnitTemplate = Template.units[UnitID]
@@ -405,17 +419,11 @@ function AI_CARGO_AIRPLANE:Route( Airplane, Airbase, Speed )
           UnitTemplate.parking_id = nil
           UnitTemplate.alt = 0
     
-          local SX = UnitTemplate.x
-          local SY = UnitTemplate.y 
-          local BX = FromWaypoint.x
-          local BY = FromWaypoint.y
-          local TX = PointVec3.x + ( SX - BX )
-          local TY = PointVec3.z + ( SY - BY )
+          UnitTemplate.x = AirplaneCoordinate.x
+          UnitTemplate.y = AirplaneCoordinate.z
+
+          self:T( 'Coordinate UnitTemplate.x = ' .. UnitTemplate.x .. ', UnitTemplate.y = ' .. UnitTemplate.y )
           
-          UnitTemplate.x = TX
-          UnitTemplate.y = TY
-          
-          self:T( 'After Translation SpawnTemplate.units['..UnitID..'].x = ' .. UnitTemplate.x .. ', SpawnTemplate.units['..UnitID..'].y = ' .. UnitTemplate.y )
         end
         
         FromWaypoint.x = PointVec3.x
