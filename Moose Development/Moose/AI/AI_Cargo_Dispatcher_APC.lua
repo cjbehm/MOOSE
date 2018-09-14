@@ -1,4 +1,4 @@
---- **AI** -- Models the intelligent transportation of infantry and other cargo using APCs.
+--- **AI** -- (2.4) - Models the intelligent transportation of infantry and other cargo using APCs.
 --
 -- **Features:**
 -- 
@@ -28,9 +28,18 @@
 --- A dynamic cargo transportation capability for AI groups.
 -- 
 -- Armoured Personnel APCs (APC), Trucks, Jeeps and other carrier equipment can be mobilized to intelligently transport infantry and other cargo within the simulation.
--- The AI\_CARGO\_DISPATCHER\_APC module uses the @{Cargo} capabilities within the MOOSE framework.
--- CARGO derived objects must be declared within the mission to make the AI\_CARGO\_DISPATCHER\_APC object recognize the cargo.
--- Please consult the @{Cargo} module for more information. 
+-- 
+-- The AI_CARGO_DISPATCHER_APC module is derived from the AI_CARGO_DISPATCHER module.
+-- 
+-- ## Note! In order to fully understand the mechanisms of the AI_CARGO_DISPATCHER_APC class, it is recommended that you
+-- **first consult and READ the documentation of the @{AI.AI_Cargo_Dispatcher} module!!!**
+-- 
+-- Especially to learn how to **Tailor the different cargo handling events**, this will be very useful!
+-- 
+-- On top, the AI_CARGO_DISPATCHER_APC class uses the @{Cargo.Cargo} capabilities within the MOOSE framework.
+-- Also ensure that you fully understand how to declare and setup Cargo objects within the MOOSE framework before using this class.
+-- CARGO derived objects must be declared within the mission to make the AI_CARGO_DISPATCHER_HELICOPTER object recognize the cargo.
+-- 
 -- 
 -- ## 1. AI\_CARGO\_DISPATCHER\_APC constructor
 --   
@@ -88,35 +97,57 @@ AI_CARGO_DISPATCHER_APC = {
 
 --- Creates a new AI_CARGO_DISPATCHER_APC object.
 -- @param #AI_CARGO_DISPATCHER_APC self
--- @param Core.Set#SET_GROUP SetAPC The collection of APC @{Wrapper.Group}s.
--- @param Core.Set#SET_CARGO SetCargo The collection of @{Cargo} derived objects.
--- @param Core.Set#SET_ZONE SetDeployZone The collection of deploy @{Zone}s, which are used to where the cargo will be deployed by the APCs. 
+-- @param Core.Set#SET_GROUP APCSet The collection of APC @{Wrapper.Group}s.
+-- @param Core.Set#SET_CARGO CargoSet The collection of @{Cargo.Cargo} derived objects.
+-- @param Core.Set#SET_ZONE PickupZoneSet (optional) The collection of pickup @{Zone}s, which are used to where the cargo can be picked up by the APCs. If nil, then cargo can be picked up everywhere. 
+-- @param Core.Set#SET_ZONE DeployZoneSet The collection of deploy @{Zone}s, which are used to where the cargo will be deployed by the APCs. 
 -- @param DCS#Distance CombatRadius The cargo will be unloaded from the APC and engage the enemy if the enemy is within CombatRadius range. The radius is in meters, the default value is 500 meters.
 -- @return #AI_CARGO_DISPATCHER_APC
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher for the set of APCs, with a combatradius of 500.
--- SetAPC = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
--- SetCargo = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
--- SetDeployZone = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
--- AICargoDispatcher = AI_CARGO_DISPATCHER_APC:New( SetAPC, SetCargo, SetDeployZone, 500 )
+-- APCSet = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
+-- CargoSet = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
+-- DeployZoneSet = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
+-- AICargoDispatcher = AI_CARGO_DISPATCHER_APC:New( APCSet, SCargoSet, nil, DeployZoneSet, 500 )
 -- 
-function AI_CARGO_DISPATCHER_APC:New( SetAPC, SetCargo, SetDeployZone, CombatRadius )
+function AI_CARGO_DISPATCHER_APC:New( APCSet, CargoSet, PickupZoneSet, DeployZoneSet, CombatRadius )
 
-  local self = BASE:Inherit( self, AI_CARGO_DISPATCHER:New( SetAPC, SetCargo, SetDeployZone ) ) -- #AI_CARGO_DISPATCHER_APC
-
-  self.CombatRadius = CombatRadius or 500
+  local self = BASE:Inherit( self, AI_CARGO_DISPATCHER:NewWithZones( APCSet, CargoSet, PickupZoneSet, DeployZoneSet ) ) -- #AI_CARGO_DISPATCHER_APC
 
   self:SetDeploySpeed( 70, 120 )
   self:SetPickupSpeed( 70, 120 )
   self:SetPickupRadius( 0, 0 )
   self:SetDeployRadius( 0, 0 )
+  
+  self:SetCombatRadius( CombatRadius )
 
   return self
 end
 
+function AI_CARGO_DISPATCHER_APC:AICargo( APC, CargoSet )
 
-function AI_CARGO_DISPATCHER_APC:AICargo( APC, SetCargo )
-
-  return AI_CARGO_APC:New( APC, SetCargo, self.CombatRadius )
+  return AI_CARGO_APC:New( APC, CargoSet, self.CombatRadius )
 end
+
+--- Enable/Disable unboarding of cargo (infantry) when enemies are nearby (to help defend the carrier).
+-- This is only valid for APCs and trucks etc, thus ground vehicles.
+-- @param #AI_CARGO_DISPATCHER_APC self
+-- @param #number CombatRadius Provide the combat radius to defend the carrier by unboarding the cargo when enemies are nearby. 
+-- When the combat radius is 0, no defense will happen of the carrier. 
+-- When the combat radius is not provided, no defense will happen!
+-- @return #AI_CARGO_DISPATCHER_APC
+-- @usage
+-- 
+-- -- Disembark the infantry when the carrier is under attack.
+-- AICargoDispatcher:SetCombatRadius( true )
+-- 
+-- -- Keep the cargo in the carrier when the carrier is under attack.
+-- AICargoDispatcher:SetCombatRadius( false )
+function AI_CARGO_DISPATCHER_APC:SetCombatRadius( CombatRadius )
+
+  self.CombatRadius = CombatRadius or 0
+
+  return self
+end
+

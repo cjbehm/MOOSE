@@ -1,4 +1,4 @@
---- **AI** -- (R2.3) - Models the intelligent transportation of infantry (cargo).
+--- **AI** -- (R2.4) - Models the intelligent transportation of infantry (cargo).
 --
 -- ===
 -- 
@@ -13,108 +13,154 @@
 -- @extends Core.Fsm#FSM_CONTROLLABLE
 
 
---- Implements the transportation of cargo by airplanes.
+--- Brings a dynamic cargo handling capability for an AI airplane group.
+--  
+-- Airplane carrier equipment can be mobilized to intelligently transport infantry and other cargo within the simulation between airbases.
+-- 
+-- The AI_CARGO_AIRPLANE module uses the @{Cargo.Cargo} capabilities within the MOOSE framework.
+-- @{Cargo.Cargo} must be declared within the mission to make AI_CARGO_AIRPLANE recognize the cargo.
+-- Please consult the @{Cargo.Cargo} module for more information. 
+-- 
+-- ## Cargo pickup.
+--  
+-- Using the @{#AI_CARGO_AIRPLANE.Pickup}() method, you are able to direct the helicopters towards a point on the battlefield to board/load the cargo at the specific coordinate. 
+-- Ensure that the landing zone is horizontally flat, and that trees cannot be found in the landing vicinity, or the helicopters won't land or will even crash!
+-- 
+-- ## Cargo deployment.
+--  
+-- Using the @{#AI_CARGO_AIRPLANE.Deploy}() method, you are able to direct the helicopters towards a point on the battlefield to unboard/unload the cargo at the specific coordinate. 
+-- Ensure that the landing zone is horizontally flat, and that trees cannot be found in the landing vicinity, or the helicopters won't land or will even crash!
+-- 
+-- ## Infantry health.
+-- 
+-- When infantry is unboarded from the APCs, the infantry is actually respawned into the battlefield. 
+-- As a result, the unboarding infantry is very _healthy_ every time it unboards.
+-- This is due to the limitation of the DCS simulator, which is not able to specify the health of new spawned units as a parameter.
+-- However, infantry that was destroyed when unboarded, won't be respawned again. Destroyed is destroyed.
+-- As a result, there is some additional strength that is gained when an unboarding action happens, but in terms of simulation balance this has
+-- marginal impact on the overall battlefield simulation. Fortunately, the firing strength of infantry is limited, and thus, respacing healthy infantry every
+-- time is not so much of an issue ... 
+-- 
 -- 
 -- @field #AI_CARGO_AIRPLANE
 AI_CARGO_AIRPLANE = {
   ClassName = "AI_CARGO_AIRPLANE",
-  Coordinate = nil -- Core.Point#COORDINATE,
+  Coordinate = nil, -- Core.Point#COORDINATE
 }
 
 --- Creates a new AI_CARGO_AIRPLANE object.
 -- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
--- @param Core.Set#SET_CARGO CargoSet
+-- @param Wrapper.Group#GROUP Airplane Plane used for transportation of cargo.
+-- @param Core.Set#SET_CARGO CargoSet Cargo set to be transported.
 -- @return #AI_CARGO_AIRPLANE
 function AI_CARGO_AIRPLANE:New( Airplane, CargoSet )
 
-  local self = BASE:Inherit( self, FSM_CONTROLLABLE:New() ) -- #AI_CARGO_AIRPLANE
-
-  self.CargoSet = CargoSet -- Cargo.CargoGroup#CARGO_GROUP
-
-  self:SetStartState( "Unloaded" ) 
-  
-  self:AddTransition( "Unloaded", "Pickup", "*" )
-  self:AddTransition( "Loaded", "Deploy", "*" )
-  
-  self:AddTransition( "Unloaded", "Load", "Boarding" )
-  self:AddTransition( "Boarding", "Board", "Boarding" )
-  self:AddTransition( "Boarding", "Loaded", "Loaded" )
-  self:AddTransition( "Loaded", "Unload", "Unboarding" )
-  self:AddTransition( "Unboarding", "Unboard", "Unboarding" )
-  self:AddTransition( "Unboarding", "Unloaded", "Unloaded" )
+  local self = BASE:Inherit( self, AI_CARGO:New( Airplane, CargoSet ) ) -- #AI_CARGO_AIRPLANE
 
   self:AddTransition( "*", "Landed", "*" )
+  self:AddTransition( "*", "Home" ,  "*" ) 
   
   self:AddTransition( "*", "Destroyed", "Destroyed" )
 
   --- Pickup Handler OnBefore for AI_CARGO_AIRPLANE
   -- @function [parent=#AI_CARGO_AIRPLANE] OnBeforePickup
   -- @param #AI_CARGO_AIRPLANE self
-  -- @param #string From
-  -- @param #string Event
-  -- @param #string To
-  -- @param Wrapper.Airbase#AIRBASE Airbase
+  -- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
+  -- @param #string From From state.
+  -- @param #string Event Event.
+  -- @param #string To To state.
+  -- @param Wrapper.Airbase#AIRBASE Airbase Airbase where troops are picked up.
+  -- @param #number Speed in km/h for travelling to pickup base.
   -- @return #boolean
   
   --- Pickup Handler OnAfter for AI_CARGO_AIRPLANE
   -- @function [parent=#AI_CARGO_AIRPLANE] OnAfterPickup
   -- @param #AI_CARGO_AIRPLANE self
+  -- @param Wrapper.Group#GROUP Airplane Cargo plane.
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param Wrapper.Airbase#AIRBASE Airbase
+  -- @param Wrapper.Airbase#AIRBASE Airbase Airbase where troops are picked up.
+  -- @param #number Speed in km/h for travelling to pickup base.
   
   --- Pickup Trigger for AI_CARGO_AIRPLANE
   -- @function [parent=#AI_CARGO_AIRPLANE] Pickup
   -- @param #AI_CARGO_AIRPLANE self
-  -- @param Wrapper.Airbase#AIRBASE Airbase
+  -- @param Wrapper.Airbase#AIRBASE Airbase Airbase where troops are picked up.
+  -- @param #number Speed in km/h for travelling to pickup base.
   
   --- Pickup Asynchronous Trigger for AI_CARGO_AIRPLANE
   -- @function [parent=#AI_CARGO_AIRPLANE] __Pickup
   -- @param #AI_CARGO_AIRPLANE self
-  -- @param #number Delay
-  -- @param Wrapper.Airbase#AIRBASE Airbase
+  -- @param #number Delay Delay in seconds.
+  -- @param Wrapper.Airbase#AIRBASE Airbase Airbase where troops are picked up.
+  -- @param #number Speed in km/h for travelling to pickup base.
   
   --- Deploy Handler OnBefore for AI_CARGO_AIRPLANE
   -- @function [parent=#AI_CARGO_AIRPLANE] OnBeforeDeploy
   -- @param #AI_CARGO_AIRPLANE self
+  -- @param Wrapper.Group#GROUP Airplane Cargo plane.
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param Wrapper.Airbase#AIRBASE Airbase
+  -- @param Wrapper.Airbase#AIRBASE Airbase Destination airbase where troops are deployed.
+  -- @param #number Speed Speed in km/h for travelling to deploy base.
   -- @return #boolean
   
   --- Deploy Handler OnAfter for AI_CARGO_AIRPLANE
   -- @function [parent=#AI_CARGO_AIRPLANE] OnAfterDeploy
   -- @param #AI_CARGO_AIRPLANE self
+  -- @param Wrapper.Group#GROUP Airplane Cargo plane.
   -- @param #string From
   -- @param #string Event
   -- @param #string To
-  -- @param Wrapper.Airbase#AIRBASE Airbase
+  -- @param Wrapper.Airbase#AIRBASE Airbase Destination airbase where troops are deployed.
+  -- @param #number Speed Speed in km/h for travelling to deploy base.
   
   --- Deploy Trigger for AI_CARGO_AIRPLANE
   -- @function [parent=#AI_CARGO_AIRPLANE] Deploy
   -- @param #AI_CARGO_AIRPLANE self
-  -- @param Wrapper.Airbase#AIRBASE Airbase
+  -- @param Wrapper.Airbase#AIRBASE Airbase Destination airbase where troops are deployed.
+  -- @param #number Speed Speed in km/h for travelling to deploy base.
   
   --- Deploy Asynchronous Trigger for AI_CARGO_AIRPLANE
   -- @function [parent=#AI_CARGO_AIRPLANE] __Deploy
   -- @param #AI_CARGO_AIRPLANE self
-  -- @param Wrapper.Airbase#AIRBASE Airbase
-  -- @param #number Delay
+  -- @param #number Delay Delay in seconds.
+  -- @param Wrapper.Airbase#AIRBASE Airbase Destination airbase where troops are deployed.
+  -- @param #number Speed Speed in km/h for travelling to deploy base.
 
-
+  --- On after Loaded event, i.e. triggered when the cargo is inside the carrier.
+  -- @function [parent=#AI_CARGO_AIRPLANE] OnAfterLoaded
+  -- @param #AI_CARGO_AIRPLANE self
+  -- @param Wrapper.Group#GROUP Airplane Cargo plane.
+  -- @param From
+  -- @param Event
+  -- @param To
+  
+  -- Set carrier. 
   self:SetCarrier( Airplane )
   
   return self
 end
 
 
---- Set the Carrier.
+function AI_CARGO_AIRPLANE:IsTransporting()
+
+  return self.Transporting == true
+end
+
+function AI_CARGO_AIRPLANE:IsRelocating()
+
+  return self.Relocating == true
+end
+
+
+
+--- Set the Carrier (controllable). Also initializes events for carrier and defines the coalition.
 -- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
--- @return #AI_CARGO_AIRPLANE
+-- @param Wrapper.Group#GROUP Airplane Transport plane.
+-- @return #AI_CARGO_AIRPLANE self
 function AI_CARGO_AIRPLANE:SetCarrier( Airplane )
 
   local AICargo = self
@@ -155,7 +201,8 @@ function AI_CARGO_AIRPLANE:SetCarrier( Airplane )
   
   
   function Airplane:OnEventEngineShutdown( EventData )
-    AICargo:Landed()
+    AICargo.Relocating = false
+    AICargo:Landed( self.Airplane )
   end
   
   self.Coalition = self.Airplane:GetCoalition()
@@ -168,7 +215,7 @@ end
 
 --- Find a free Carrier within a range.
 -- @param #AI_CARGO_AIRPLANE self
-  -- @param Wrapper.Airbase#AIRBASE Airbase
+-- @param Wrapper.Airbase#AIRBASE Airbase
 -- @param #number Radius
 -- @return Wrapper.Group#GROUP NewCarrier
 function AI_CARGO_AIRPLANE:FindCarrier( Coordinate, Radius )
@@ -190,25 +237,32 @@ function AI_CARGO_AIRPLANE:FindCarrier( Coordinate, Radius )
 
 end
 
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
+--- On after "Landed" event. Called on engine shutdown and initiates the pickup mission or unloading event.
+-- @param #AI_CARGO_AIRPLANE self
+-- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
 -- @param From
 -- @param Event
 -- @param To
-  -- @param Wrapper.Airbase#AIRBASE Airbase
--- @param #number Speed
 function AI_CARGO_AIRPLANE:onafterLanded( Airplane, From, Event, To )
 
-  if Airplane and Airplane:IsAlive() then
+  self:F({Airplane, From, Event, To})
 
+  if Airplane and Airplane:IsAlive()~=nil then
+
+    -- Aircraft was sent to this airbase to pickup troops. Initiate loadling.
     if self.RoutePickup == true then
-      self:Load( Airplane:GetPointVec2() )
+      env.info("FF load airplane "..Airplane:GetName())
+      self:Load( self.PickupZone )
       self.RoutePickup = false
+      self.Relocating = true
     end
     
+    -- Aircraft was send to this airbase to deploy troops. Initiate unloading.
     if self.RouteDeploy == true then
       self:Unload()
       self.RouteDeploy = false
+      self.Transporting = false
+      self.Relocating = false
     end
      
   end
@@ -216,231 +270,243 @@ function AI_CARGO_AIRPLANE:onafterLanded( Airplane, From, Event, To )
 end
 
 
+--- On after "Pickup" event. Routes transport to pickup airbase.
+-- @param #AI_CARGO_AIRPLANE self
+-- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
+-- @param #string From From state.
+-- @param #string Event Event.
+-- @param #string To To state.
+-- @param Core.Point#COORDINATE Coordinate
+-- @param #number Speed in km/h for travelling to pickup base.
+-- @param Core.Zone#ZONE_AIRBASE PickupZone
+function AI_CARGO_AIRPLANE:onafterPickup( Airplane, From, Event, To, Coordinate, Speed, PickupZone )
 
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
--- @param From
--- @param Event
--- @param To
--- @param Wrapper.Airbase#AIRBASE Airbase
--- @param #number Speed
-function AI_CARGO_AIRPLANE:onafterPickup( Airplane, From, Event, To, Airbase, Speed )
+  if Airplane and Airplane:IsAlive()~=nil then
+    env.info("FF onafterpick aircraft alive")
+    
+    self.PickupZone = PickupZone
+  
+    -- Get closest airbase of current position.
+    local ClosestAirbase, DistToAirbase=Airplane:GetCoordinate():GetClosestAirbase()
+    
+    env.info("FF onafterpickup closest airbase "..ClosestAirbase:GetName())
+  
+    -- Two cases. Aircraft spawned in air or at an airbase.
+    if Airplane:InAir() then
+      self.Airbase=nil  --> route will start in air
+    else      
+      self.Airbase=ClosestAirbase
+    end
+    
+    local Airbase = PickupZone:GetAirbase()
+    
+    -- Distance from closest to pickup airbase ==> we need to know if we are already at the pickup airbase. 
+    local Dist = Airbase:GetCoordinate():Get2DDistance(ClosestAirbase:GetCoordinate())
+    env.info("Distance closest to pickup airbase = "..Dist)
+    
+    if Airplane:InAir() or Dist>500 then
+    
+      env.info("FF onafterpickup routing to airbase "..ClosestAirbase:GetName())
+    
+      -- Route aircraft to pickup airbase.
+      self:Route( Airplane, Airbase, Speed ) 
+          
+      -- Set airbase as starting point in the next Route() call.
+      self.Airbase = Airbase
+      
+      -- Aircraft is on a pickup mission.
+      self.RoutePickup = true
+      
+    else
+      env.info("FF onafterpick calling landed")
+    
+      -- We are already at the right airbase ==> Landed ==> triggers loading of troops. Is usually called at engine shutdown event.
+      self.RoutePickup=true
+      self:Landed()
+      
+    end
 
-  if Airplane and Airplane:IsAlive() then
-    self:Route( Airplane, Airbase, Speed )
-    self.RoutePickup = true
-    self.Airbase = Airbase
+    self.Transporting = false
+    self.Relocating = true
+  else
+    env.info("FF onafterpick aircraft not alive")
   end
+
   
 end
 
+--- On after Depoly event. Routes plane to the airbase where the troops are deployed.
+-- @param #AI_CARGO_AIRPLANE self
+-- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
+-- @param #string From From state.
+-- @param #string Event Event.
+-- @param #string To To state.
+-- @param Core.Point#COORDINATE Coordinate
+-- @param #number Speed in km/h for travelling to pickup base.
+-- @param Core.Zone#ZONE_AIRBASE DeployZone
+function AI_CARGO_AIRPLANE:onafterDeploy( Airplane, From, Event, To, Coordinate, Speed, DeployZone )
 
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
--- @param From
--- @param Event
--- @param To
--- @param Wrapper.Airbase#AIRBASE Airbase
--- @param #number Speed
-function AI_CARGO_AIRPLANE:onafterDeploy( Airplane, From, Event, To, Airbase, Speed )
-
-  if Airplane and Airplane:IsAlive() then
+  if Airplane and Airplane:IsAlive()~=nil then
+    
+    local Airbase = DeployZone:GetAirbase()
+    
+    -- Activate uncontrolled airplane.
+    if Airplane:IsAlive()==false then
+      Airplane:SetCommand({id = 'Start', params = {}})
+    end
+    
+    -- Route to destination airbase.
     self:Route( Airplane, Airbase, Speed )
+    
+    -- Aircraft is on a depoly mission.
     self.RouteDeploy = true
+    
+    -- Set destination airbase for next :Route() command.
     self.Airbase = Airbase
+    
+    self.Transporting = true
+    self.Relocating = false
   end
   
 end
 
 
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
-function AI_CARGO_AIRPLANE:onafterLoad( Airplane, From, Event, To, Coordinate )
+
+--- On after PickedUp event. All cargo is inside the carrier and ready to be transported.
+-- @param #AI_CARGO_AIRPLANE self
+-- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
+-- @param #string From From state.
+-- @param #string Event Event.
+-- @param #string To To state.
+-- @param Core.Zone#ZONE PickupZone (optional) The zone where the cargo will be picked up. The PickupZone can be nil, if there wasn't any PickupZoneSet provided.
+function AI_CARGO_AIRPLANE:onafterPickedUp( Airplane, From, Event, To, PickupZone )
+  self:F( { AirplaneGroup, From, Event, To } )
 
   if Airplane and Airplane:IsAlive() then
-  
-    for _, Cargo in pairs( self.CargoSet:GetSet() ) do
-      if Cargo:IsInLoadRadius( Coordinate ) then
-        self:__Board( 5 )
-        Cargo:Board( Airplane, 25 )
-        self.Cargo = Cargo
-        break
+    self.Transporting = true -- This will only be executed when there is no cargo boarded anymore. The dispatcher will then kick-off the deploy cycle!
+  end
+end
+
+
+--- On after Unload event. Cargo is beeing unloaded, i.e. the unboarding process is started.
+-- @param #AI_CARGO_AIRPLANE self
+-- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
+-- @param #string From From state.
+-- @param #string Event Event.
+-- @param #string To To state.
+function AI_CARGO_AIRPLANE:onafterUnload( Airplane, From, Event, To, DeployZone )
+
+  local UnboardInterval = 10
+  local UnboardDelay = 10
+
+  if Airplane and Airplane:IsAlive() then
+    for _, AirplaneUnit in pairs( Airplane:GetUnits() ) do
+      local Cargos = AirplaneUnit:GetCargo()
+      for CargoID, Cargo in pairs( Cargos ) do
+      
+        local Angle = 180
+        local CargoCarrierHeading = Airplane:GetHeading() -- Get Heading of object in degrees.
+        local CargoDeployHeading = ( ( CargoCarrierHeading + Angle ) >= 360 ) and ( CargoCarrierHeading + Angle - 360 ) or ( CargoCarrierHeading + Angle )
+        self:T( { CargoCarrierHeading, CargoDeployHeading } )
+        local CargoDeployCoordinate = Airplane:GetPointVec2():Translate( 150, CargoDeployHeading )
+      
+         Cargo:__UnBoard( UnboardDelay, CargoDeployCoordinate )
+         UnboardDelay = UnboardDelay + UnboardInterval
+         Cargo:SetDeployed( true )
+         self:__Unboard( UnboardDelay, Cargo, AirplaneUnit, DeployZone ) 
       end
     end
   end
   
 end
 
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
-function AI_CARGO_AIRPLANE:onafterBoard( Airplane, From, Event, To )
+
+
+--- On after Deployed event.
+-- @param #AI_CARGO_AIRPLANE self
+-- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
+-- @param #string From From state.
+-- @param #string Event Event.
+-- @param #string To To state.
+-- @param Cargo.Cargo#CARGO Cargo
+function AI_CARGO_AIRPLANE:onafterDeployed( Airplane, From, Event, To, DeployZone )
 
   if Airplane and Airplane:IsAlive() then
-    self:F({ IsLoaded = self.Cargo:IsLoaded() } )
-    if not self.Cargo:IsLoaded() then
-      self:__Board( 10 )
-    else
-      self:__Loaded( 1 )
-    end
+    self.Transporting = false -- This will only be executed when there is no cargo onboard anymore. The dispatcher will then kick-off the pickup cycle!
   end
-  
-end
-
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
-function AI_CARGO_AIRPLANE:onafterLoaded( Airplane, From, Event, To )
-
-  if Airplane and Airplane:IsAlive() then
-  end
-  
 end
 
 
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
-function AI_CARGO_AIRPLANE:onafterUnload( Airplane, From, Event, To )
-
-  if Airplane and Airplane:IsAlive() then
-    self.Cargo:UnBoard()
-    self:__Unboard( 10 ) 
-  end
-  
-end
-
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
-function AI_CARGO_AIRPLANE:onafterUnboard( Airplane, From, Event, To )
-
-  if Airplane and Airplane:IsAlive() then
-    if not self.Cargo:IsUnLoaded() then
-      self:__Unboard( 10 ) 
-    else
-      self:__Unloaded( 1 )
-    end
-  end
-  
-end
-
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
-function AI_CARGO_AIRPLANE:onafterUnloaded( Airplane, From, Event, To )
-
-  if Airplane and Airplane:IsAlive() then
-    self.Airplane = Airplane
-  end
-  
-end
 
 
---- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane
--- @param Wrapper.Airbase#AIRBASE Airbase
--- @param #number Speed
-function AI_CARGO_AIRPLANE:Route( Airplane, Airbase, Speed )
+--- Route the airplane from one airport or it's current position to another airbase.
+-- @param #AI_CARGO_AIRPLANE self
+-- @param Wrapper.Group#GROUP Airplane Airplane group to be routed.
+-- @param Wrapper.Airbase#AIRBASE Airbase Destination airbase.
+-- @param #number Speed Speed in km/h. Default is 80% of max possible speed the group can do.
+-- @param #boolean Uncontrolled If true, spawn group in uncontrolled state.
+function AI_CARGO_AIRPLANE:Route( Airplane, Airbase, Speed, Uncontrolled )
 
-  if Airplane and Airplane:IsAlive() then
+  if Airplane and Airplane:IsAlive()~=nil then
 
-    local PointVec3 = Airplane:GetPointVec3()
-  
-    local Takeoff = SPAWN.Takeoff.Hot
+    -- Set takeoff type.
+    local Takeoff = SPAWN.Takeoff.Cold
     
+    -- Get template of group.
     local Template = Airplane:GetTemplate()
-  
-    if Template then
+    
+    -- Nil check
+    if Template==nil then
+      return
+    end
 
-      local Points = {}
-      
-      if self.Airbase then
-  
-        local FromWaypoint = Template.route.points[1] 
+    -- Waypoints of the route.
+    local Points={}
     
-        -- These are only for ships.
-        FromWaypoint.linkUnit = nil
-        FromWaypoint.helipadId = nil
-        FromWaypoint.airdromeId = nil
+    -- To point.
+    local AirbasePointVec2 = Airbase:GetPointVec2()
+    local ToWaypoint = AirbasePointVec2:WaypointAir(
+      POINT_VEC3.RoutePointAltType.BARO,
+      "Land",
+      "Landing", 
+      Speed or Airplane:GetSpeedMax()*0.8
+    )    
+    ToWaypoint["airdromeId"]   = Airbase:GetID()
+    ToWaypoint["speed_locked"] = true
     
-        local AirbaseID = self.Airbase:GetID()
-        local AirbaseCategory = self.Airbase:GetDesc().category
-        
-        FromWaypoint.airdromeId = AirbaseID
-    
-        FromWaypoint.alt = 0
-                
-        FromWaypoint.type = GROUPTEMPLATE.Takeoff[Takeoff][1] -- type
-        FromWaypoint.action = GROUPTEMPLATE.Takeoff[Takeoff][2] -- action
-        
-    
-        -- Translate the position of the Group Template to the Vec3.
-        for UnitID = 1, #Template.units do
-          self:T( 'Before Translation SpawnTemplate.units['..UnitID..'].x = ' .. Template.units[UnitID].x .. ', SpawnTemplate.units['..UnitID..'].y = ' .. Template.units[UnitID].y )
-    
-          -- These cause a lot of confusion.
-          local UnitTemplate = Template.units[UnitID]
-    
-          UnitTemplate.parking = 15
-          UnitTemplate.parking_id = "1"
-          UnitTemplate.alt = 0
-    
-          local SX = UnitTemplate.x
-          local SY = UnitTemplate.y 
-          local BX = FromWaypoint.x
-          local BY = FromWaypoint.y
-          local TX = PointVec3.x + ( SX - BX )
-          local TY = PointVec3.z + ( SY - BY )
-          
-          UnitTemplate.x = TX
-          UnitTemplate.y = TY
-          
-          self:T( 'After Translation SpawnTemplate.units['..UnitID..'].x = ' .. UnitTemplate.x .. ', SpawnTemplate.units['..UnitID..'].y = ' .. UnitTemplate.y )
-        end
-        
-        FromWaypoint.x = PointVec3.x
-        FromWaypoint.y = PointVec3.z
 
-        Points[#Points+1] = FromWaypoint
-      else
-        
-        local GroupPoint = Airplane:GetVec2()
-        local GroupVelocity = Airplane:GetUnit(1):GetDesc().speedMax
+    -- If self.Airbase~=nil then group is currently at an airbase, where it should be respawned.        
+    if self.Airbase then
     
-        local FromWaypoint = {}
-        FromWaypoint.x = GroupPoint.x
-        FromWaypoint.y = GroupPoint.y
-        FromWaypoint.type = "Turning Point"
-        FromWaypoint.action = "Turning Point"
-        FromWaypoint.speed = GroupVelocity
+      -- Second point of the route. First point is done in RespawnAtCurrentAirbase() routine.
+      Template.route.points[2] = ToWaypoint
+    
+      -- Respawn group at the current airbase.
+      Airplane:RespawnAtCurrentAirbase(Template, Takeoff, Uncontrolled)
+      
+    else
+  
+      -- From point.
+      local GroupPoint = Airplane:GetVec2()
+      local FromWaypoint = {}
+      FromWaypoint.x      = GroupPoint.x
+      FromWaypoint.y      = GroupPoint.y
+      FromWaypoint.type   = "Turning Point"
+      FromWaypoint.action = "Turning Point"
+      FromWaypoint.speed  = Airplane:GetSpeedMax()*0.8
+ 
+      -- The two route points. 
+      Points[1] = FromWaypoint
+      Points[2] = ToWaypoint
 
-        Points[#Points+1] = FromWaypoint
-      end
-      
-      local AirbasePointVec2 = Airbase:GetPointVec2()
-      local ToWaypoint = AirbasePointVec2:WaypointAir(
-        POINT_VEC3.RoutePointAltType.BARO,
-        "Land",
-        "Landing", 
-        Speed or Airplane:GetUnit(1):GetDesc().speedMax
-      )
-      
-      ToWaypoint["airdromeId"] = Airbase:GetID()
-      ToWaypoint["speed_locked"] = true,
-  
-      self:F( ToWaypoint )
-      
-      Points[#Points+1] = ToWaypoint
-  
+      local PointVec3 = Airplane:GetPointVec3()
       Template.x = PointVec3.x
       Template.y = PointVec3.z
-      
-      self:T3( Points )
+ 
       Template.route.points = Points
-
-      --self:Respawn( Template )
-
-      local GroupSpawned = Airplane:Respawn( Template )
-      
-      return GroupSpawned
+            
+      local GroupSpawned = Airplane:Respawn(Template)
+    
     end
-
   end
-  
 end

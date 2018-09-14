@@ -23,7 +23,10 @@ do -- CARGO_UNIT
   -- @extends Cargo.Cargo#CARGO_REPRESENTABLE
   
   --- Defines a cargo that is represented by a UNIT object within the simulator, and can be transported by a carrier.
-  -- Use the event functions as described above to Load, UnLoad, Board, UnBoard the CARGO\_UNIT objects to and from carriers.
+  -- Use the event functions as described above to Load, UnLoad, Board, UnBoard the CARGO_UNIT objects to and from carriers.
+  -- Note that ground forces behave in a group, and thus, act in formation, regardless if one unit is commanded to move.
+  -- 
+  -- This class is used in CARGO_GROUP, and is not meant to be used by mission designers individually.
   -- 
   -- ===
   -- 
@@ -42,9 +45,9 @@ do -- CARGO_UNIT
   -- @param #number LoadRadius (optional)
   -- @param #number NearRadius (optional)
   -- @return #CARGO_UNIT
-  function CARGO_UNIT:New( CargoUnit, Type, Name, Weight, NearRadius )
-    local self = BASE:Inherit( self, CARGO_REPRESENTABLE:New( CargoUnit, Type, Name, Weight, NearRadius ) ) -- #CARGO_UNIT
-    self:I( { Type, Name, Weight, NearRadius } )
+  function CARGO_UNIT:New( CargoUnit, Type, Name, LoadRadius, NearRadius )
+    local self = BASE:Inherit( self, CARGO_REPRESENTABLE:New( CargoUnit, Type, Name, LoadRadius, NearRadius ) ) -- #CARGO_UNIT
+    self:I( { Type, Name, LoadRadius, NearRadius } )
   
     self:T( CargoUnit )
     self.CargoObject = CargoUnit
@@ -62,6 +65,7 @@ do -- CARGO_UNIT
   -- @param #string From
   -- @param #string To
   -- @param Core.Point#POINT_VEC2 ToPointVec2
+  -- @param #number NearRadius (optional) Defaut 25 m.
   function CARGO_UNIT:onenterUnBoarding( From, Event, To, ToPointVec2, NearRadius )
     self:F( { From, Event, To, ToPointVec2, NearRadius } )
   
@@ -131,6 +135,7 @@ do -- CARGO_UNIT
   -- @param #string From
   -- @param #string To
   -- @param Core.Point#POINT_VEC2 ToPointVec2
+  -- @param #number NearRadius (optional) Defaut 100 m.
   function CARGO_UNIT:onleaveUnBoarding( From, Event, To, ToPointVec2, NearRadius )
     self:F( { From, Event, To, ToPointVec2, NearRadius } )
   
@@ -158,6 +163,7 @@ do -- CARGO_UNIT
   -- @param #string From
   -- @param #string To
   -- @param Core.Point#POINT_VEC2 ToPointVec2
+  -- @param #number NearRadius (optional) Defaut 100 m.
   function CARGO_UNIT:onafterUnBoarding( From, Event, To, ToPointVec2, NearRadius )
     self:F( { From, Event, To, ToPointVec2, NearRadius } )
   
@@ -223,8 +229,6 @@ do -- CARGO_UNIT
   function CARGO_UNIT:onafterBoard( From, Event, To, CargoCarrier, NearRadius, ... )
     self:F( { From, Event, To, CargoCarrier, NearRadius } )
   
-    local NearRadius = NearRadius or 25
-    
     self.CargoInAir = self.CargoObject:InAir()
     
     local Desc = self.CargoObject:GetDesc()
@@ -236,6 +240,9 @@ do -- CARGO_UNIT
     -- Only move the group to the carrier when the cargo is not in the air
     -- (eg. cargo can be on a oil derrick, moving the cargo on the oil derrick will drop the cargo on the sea).
     if not self.CargoInAir then
+      -- If NearRadius is given, then use the given NearRadius, otherwise calculate the NearRadius 
+      -- based upon the Carrier bounding radius, which is calculated from the bounding rectangle on the Y axis.
+      local NearRadius = CargoCarrier:GetBoundingRadius( NearRadius ) + 5
       if self:IsNear( CargoCarrier:GetPointVec2(), NearRadius ) then
         self:Load( CargoCarrier, NearRadius, ... )
       else
@@ -247,8 +254,6 @@ do -- CARGO_UNIT
           local Angle = 180
           local Distance = 5
           
-          NearRadius = NearRadius or 25
-        
           local CargoCarrierPointVec2 = CargoCarrier:GetPointVec2()
           local CargoCarrierHeading = CargoCarrier:GetHeading() -- Get Heading of object in degrees.
           local CargoDeployHeading = ( ( CargoCarrierHeading + Angle ) >= 360 ) and ( CargoCarrierHeading + Angle - 360 ) or ( CargoCarrierHeading + Angle )
@@ -281,13 +286,14 @@ do -- CARGO_UNIT
   -- @param #string From
   -- @param #string To
   -- @param Wrapper.Client#CLIENT CargoCarrier
-  -- @param #number NearRadius
+  -- @param #number NearRadius Default 25 m.
   function CARGO_UNIT:onafterBoarding( From, Event, To, CargoCarrier, NearRadius, ... )
-    --self:F( { From, Event, To, CargoCarrier.UnitName, NearRadius } )
+    self:F( { From, Event, To, CargoCarrier:GetName() } )
     
     
     if CargoCarrier and CargoCarrier:IsAlive() and self.CargoObject and self.CargoObject:IsAlive() then 
-      if CargoCarrier:InAir() == false then
+      if (CargoCarrier:IsAir() and not CargoCarrier:InAir()) or true then
+        local NearRadius = CargoCarrier:GetBoundingRadius( NearRadius ) + 5
         if self:IsNear( CargoCarrier:GetPointVec2(), NearRadius ) then
           self:__Load( 1, CargoCarrier, ... )
         else
@@ -299,8 +305,6 @@ do -- CARGO_UNIT
             local Angle = 180
             local Distance = 5
             
-            NearRadius = NearRadius or 25
-          
             local CargoCarrierPointVec2 = CargoCarrier:GetPointVec2()
             local CargoCarrierHeading = CargoCarrier:GetHeading() -- Get Heading of object in degrees.
             local CargoDeployHeading = ( ( CargoCarrierHeading + Angle ) >= 360 ) and ( CargoCarrierHeading + Angle - 360 ) or ( CargoCarrierHeading + Angle )
@@ -338,6 +342,7 @@ do -- CARGO_UNIT
   -- @param #string From
   -- @param #string To
   -- @param Wrapper.Unit#UNIT CargoCarrier
+  -- @param #number NearRadius Default 25 m.
   function CARGO_UNIT:onenterBoarding( From, Event, To, CargoCarrier, NearRadius, ... )
     --self:F( { From, Event, To, CargoCarrier.UnitName, NearRadius } )
     
@@ -345,8 +350,6 @@ do -- CARGO_UNIT
     local Angle = 180
     local Distance = 5
     
-    local NearRadius = NearRadius or 25
-  
     if From == "UnLoaded" or From == "Boarding" then
     
     end

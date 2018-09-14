@@ -57,6 +57,7 @@ Functional/ZoneCaptureCoalition.lua
 Functional/Artillery.lua
 Functional/Suppression.lua
 Functional/PseudoATC.lua
+Functional/Warehouse.lua
 
 AI/AI_Balancer.lua
 AI/AI_A2A.lua
@@ -69,6 +70,7 @@ AI/AI_Cap.lua
 AI/AI_Cas.lua
 AI/AI_Bai.lua
 AI/AI_Formation.lua
+AI/AI_Cargo.lua
 AI/AI_Cargo_APC.lua
 AI/AI_Cargo_Helicopter.lua
 AI/AI_Cargo_Airplane.lua

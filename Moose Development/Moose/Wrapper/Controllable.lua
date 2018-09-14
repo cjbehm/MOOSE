@@ -1937,7 +1937,7 @@ do -- Route methods
   -- @param #CONTROLLABLE self
   -- @return #CONTROLLABLE
   function CONTROLLABLE:RouteStop()
-    self:F("RouteStop")
+    self:F(self:GetName() .. "RouteStop")
     
     local CommandStop = self:CommandStopRoute( true )
     self:SetCommand( CommandStop )
@@ -1948,7 +1948,7 @@ do -- Route methods
   -- @param #CONTROLLABLE self
   -- @return #CONTROLLABLE
   function CONTROLLABLE:RouteResume()
-    self:F("RouteResume")
+    self:F( self:GetName() .. " RouteResume")
     
     local CommandResume = self:CommandStopRoute( false )
     self:SetCommand( CommandResume )
@@ -2062,6 +2062,8 @@ do -- Route methods
         local dist=ToCoordinate:Get2DDistance(PathOnRoad[#PathOnRoad-1])
         if dist>10 then
           table.insert(route, ToCoordinate:WaypointGround(Speed, OffRoadFormation))
+          table.insert(route, ToCoordinate:GetRandomCoordinateInRadius(10,5):WaypointGround(5, OffRoadFormation))
+          table.insert(route, ToCoordinate:GetRandomCoordinateInRadius(10,5):WaypointGround(5, OffRoadFormation))
         end
         
       end

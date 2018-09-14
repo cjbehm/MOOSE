@@ -636,7 +636,7 @@ function SET_BASE:Flush( MasterObject )
   for ObjectName, Object in pairs( self.Set ) do
     ObjectNames = ObjectNames .. ObjectName .. ", "
   end
-  self:I( { MasterObject = MasterObject and MasterObject:GetClassNameAndID(), "Objects in Set:", ObjectNames } )
+  self:F( { MasterObject = MasterObject and MasterObject:GetClassNameAndID(), "Objects in Set:", ObjectNames } )
   
   return ObjectNames
 end
@@ -672,6 +672,7 @@ end
 --    * @{#SET_GROUP.FilterCategories}: Builds the SET_GROUP with the groups belonging to the category(ies).
 --    * @{#SET_GROUP.FilterCountries}: Builds the SET_GROUP with the gruops belonging to the country(ies).
 --    * @{#SET_GROUP.FilterPrefixes}: Builds the SET_GROUP with the groups starting with the same prefix string(s).
+--    * @{#SET_GROUP.FilterActive}: Builds the SET_GROUP with the groups that are only active. Groups that are inactive (late activation) won't be included in the set!
 -- 
 -- For the Category Filter, extra methods have been added:
 -- 
@@ -685,6 +686,7 @@ end
 -- Once the filter criteria have been set for the SET_GROUP, you can start filtering using:
 -- 
 --    * @{#SET_GROUP.FilterStart}: Starts the filtering of the groups within the SET_GROUP and add or remove GROUP objects **dynamically**.
+--    * @{#SET_GROUP.FilterOnce}: Filters of the groups **once**.
 -- 
 -- Planned filter criteria within development are (so these are not yet available):
 -- 
@@ -783,7 +785,9 @@ SET_GROUP = {
 function SET_GROUP:New()
 
   -- Inherits from BASE
-  local self = BASE:Inherit( self, SET_BASE:New( _DATABASE.GROUPS ) )
+  local self = BASE:Inherit( self, SET_BASE:New( _DATABASE.GROUPS ) ) -- #SET_GROUP
+
+  self:FilterActive( false )
 
   return self
 end
@@ -809,6 +813,22 @@ function SET_GROUP:GetAliveSet()
   return AliveSet.Set or {}
 end
 
+--- Add a GROUP to SET_GROUP.
+-- Note that for each unit in the group that is set, a default cargo bay limit is initialized.
+-- @param Core.Set#SET_GROUP self
+-- @param Wrapper.Group#GROUP group The group which should be added to the set.
+-- @return self
+function SET_GROUP:AddGroup( group )
+
+  self:Add( group:GetName(), group )
+  
+  -- I set the default cargo bay weight limit each time a new group is added to the set.
+  for UnitID, UnitData in pairs( group:GetUnits() ) do
+    UnitData:SetCargoBayWeightLimit()
+  end
+    
+  return self
+end
 
 --- Add GROUP(s) to SET_GROUP.
 -- @param Core.Set#SET_GROUP self
@@ -996,6 +1016,32 @@ function SET_GROUP:FilterPrefixes( Prefixes )
   return self
 end
 
+--- Builds a set of groups that are only active.
+-- Only the groups that are active will be included within the set.
+-- @param #SET_GROUP self
+-- @param #boolean Active (optional) Include only active groups to the set.
+-- Include inactive groups if you provide false.
+-- @return #SET_GROUP self
+-- @usage
+-- 
+-- -- Include only active groups to the set.
+-- GroupSet = SET_GROUP:New():FilterActive():FilterStart()
+-- 
+-- -- Include only active groups to the set of the blue coalition, and filter one time.
+-- GroupSet = SET_GROUP:New():FilterActive():FilterCoalition( "blue" ):FilterOnce()
+-- 
+-- -- Include only active groups to the set of the blue coalition, and filter one time.
+-- -- Later, reset to include back inactive groups to the set.
+-- GroupSet = SET_GROUP:New():FilterActive():FilterCoalition( "blue" ):FilterOnce()
+-- ... logic ...
+-- GroupSet = SET_GROUP:New():FilterActive( false ):FilterCoalition( "blue" ):FilterOnce()
+-- 
+function SET_GROUP:FilterActive( Active )
+  Active = Active or not ( Active == false )
+  self.Filter.Active = Active
+  return self
+end
+  
 
 --- Starts the filtering.
 -- @param #SET_GROUP self
@@ -1007,6 +1053,7 @@ function SET_GROUP:FilterStart()
     self:HandleEvent( EVENTS.Birth, self._EventOnBirth )
     self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrash )
     self:HandleEvent( EVENTS.Crash, self._EventOnDeadOrCrash )
+    self:HandleEvent( EVENTS.RemoveUnit, self._EventOnDeadOrCrash )
   end
   
   
@@ -1360,58 +1407,85 @@ end
 
 ---
 -- @param #SET_GROUP self
--- @param Wrapper.Group#GROUP MooseGroup
+-- @param Wrapper.Group#GROUP MGroup The group that is checked for inclusion.
 -- @return #SET_GROUP self
-function SET_GROUP:IsIncludeObject( MooseGroup )
-  self:F2( MooseGroup )
-  local MooseGroupInclude = true
+function SET_GROUP:IsIncludeObject( MGroup )
+  self:F2( MGroup )
+  local MGroupInclude = true
 
+  if self.Filter.Active ~= nil then
+    local MGroupActive = false
+    self:F( { Active = self.Filter.Active } )
+    if self.Filter.Active == false or ( self.Filter.Active == true and MGroup:IsActive() == true ) then
+      MGroupActive = true
+    end
+    MGroupInclude = MGroupInclude and MGroupActive
+  end
+  
   if self.Filter.Coalitions then
-    local MooseGroupCoalition = false
+    local MGroupCoalition = false
     for CoalitionID, CoalitionName in pairs( self.Filter.Coalitions ) do
-      self:T3( { "Coalition:", MooseGroup:GetCoalition(), self.FilterMeta.Coalitions[CoalitionName], CoalitionName } )
-      if self.FilterMeta.Coalitions[CoalitionName] and self.FilterMeta.Coalitions[CoalitionName] == MooseGroup:GetCoalition() then
-        MooseGroupCoalition = true
+      self:T3( { "Coalition:", MGroup:GetCoalition(), self.FilterMeta.Coalitions[CoalitionName], CoalitionName } )
+      if self.FilterMeta.Coalitions[CoalitionName] and self.FilterMeta.Coalitions[CoalitionName] == MGroup:GetCoalition() then
+        MGroupCoalition = true
       end
     end
-    MooseGroupInclude = MooseGroupInclude and MooseGroupCoalition
+    MGroupInclude = MGroupInclude and MGroupCoalition
   end
   
   if self.Filter.Categories then
-    local MooseGroupCategory = false
+    local MGroupCategory = false
     for CategoryID, CategoryName in pairs( self.Filter.Categories ) do
-      self:T3( { "Category:", MooseGroup:GetCategory(), self.FilterMeta.Categories[CategoryName], CategoryName } )
-      if self.FilterMeta.Categories[CategoryName] and self.FilterMeta.Categories[CategoryName] == MooseGroup:GetCategory() then
-        MooseGroupCategory = true
+      self:T3( { "Category:", MGroup:GetCategory(), self.FilterMeta.Categories[CategoryName], CategoryName } )
+      if self.FilterMeta.Categories[CategoryName] and self.FilterMeta.Categories[CategoryName] == MGroup:GetCategory() then
+        MGroupCategory = true
       end
     end
-    MooseGroupInclude = MooseGroupInclude and MooseGroupCategory
+    MGroupInclude = MGroupInclude and MGroupCategory
   end
   
   if self.Filter.Countries then
-    local MooseGroupCountry = false
+    local MGroupCountry = false
     for CountryID, CountryName in pairs( self.Filter.Countries ) do
-      self:T3( { "Country:", MooseGroup:GetCountry(), CountryName } )
-      if country.id[CountryName] == MooseGroup:GetCountry() then
-        MooseGroupCountry = true
+      self:T3( { "Country:", MGroup:GetCountry(), CountryName } )
+      if country.id[CountryName] == MGroup:GetCountry() then
+        MGroupCountry = true
       end
     end
-    MooseGroupInclude = MooseGroupInclude and MooseGroupCountry
+    MGroupInclude = MGroupInclude and MGroupCountry
   end
 
   if self.Filter.GroupPrefixes then
-    local MooseGroupPrefix = false
+    local MGroupPrefix = false
     for GroupPrefixId, GroupPrefix in pairs( self.Filter.GroupPrefixes ) do
-      self:T3( { "Prefix:", string.find( MooseGroup:GetName(), GroupPrefix, 1 ), GroupPrefix } )
-      if string.find( MooseGroup:GetName(), GroupPrefix:gsub ("-", "%%-"), 1 ) then
-        MooseGroupPrefix = true
+      self:T3( { "Prefix:", string.find( MGroup:GetName(), GroupPrefix, 1 ), GroupPrefix } )
+      if string.find( MGroup:GetName(), GroupPrefix:gsub ("-", "%%-"), 1 ) then
+        MGroupPrefix = true
       end
     end
-    MooseGroupInclude = MooseGroupInclude and MooseGroupPrefix
+    MGroupInclude = MGroupInclude and MGroupPrefix
   end
 
-  self:T2( MooseGroupInclude )
-  return MooseGroupInclude
+  self:T2( MGroupInclude )
+  return MGroupInclude
+end
+
+
+--- Iterate the SET_GROUP and set for each unit the default cargo bay weight limit.
+-- Because within a group, the type of carriers can differ, each cargo bay weight limit is set on @{Wrapper.Unit} level.
+-- @param #SET_GROUP self
+-- @usage
+-- -- Set the default cargo bay weight limits of the carrier units.
+-- local MySetGroup = SET_GROUP:New()
+-- MySetGroup:SetCargoBayWeightLimit()
+function SET_GROUP:SetCargoBayWeightLimit()
+  local Set = self:GetSet()
+  for GroupID, GroupData in pairs( Set ) do -- For each GROUP in SET_GROUP
+    for UnitName, UnitData in pairs( GroupData:GetUnits() ) do
+      --local UnitData = UnitData -- Wrapper.Unit#UNIT
+      UnitData:SetCargoBayWeightLimit()
+    end
+  end
 end
 
 
@@ -1428,18 +1502,18 @@ do -- SET_UNIT
   --  * Unit types
   --  * Starting with certain prefix strings.
   --  
-  -- ## SET_UNIT constructor
+  -- ## 1) SET_UNIT constructor
   --
   -- Create a new SET_UNIT object with the @{#SET_UNIT.New} method:
   -- 
   --    * @{#SET_UNIT.New}: Creates a new SET_UNIT object.
   --   
-  -- ## Add or Remove UNIT(s) from SET_UNIT
+  -- ## 2) Add or Remove UNIT(s) from SET_UNIT
   --
   -- UNITs can be added and removed using the @{Core.Set#SET_UNIT.AddUnitsByName} and @{Core.Set#SET_UNIT.RemoveUnitsByName} respectively. 
   -- These methods take a single UNIT name or an array of UNIT names to be added or removed from SET_UNIT.
   -- 
-  -- ## SET_UNIT filter criteria
+  -- ## 3) SET_UNIT filter criteria
   -- 
   -- You can set filter criteria to define the set of units within the SET_UNIT.
   -- Filter criteria are defined by:
@@ -1449,24 +1523,26 @@ do -- SET_UNIT
   --    * @{#SET_UNIT.FilterTypes}: Builds the SET_UNIT with the units belonging to the unit type(s).
   --    * @{#SET_UNIT.FilterCountries}: Builds the SET_UNIT with the units belonging to the country(ies).
   --    * @{#SET_UNIT.FilterPrefixes}: Builds the SET_UNIT with the units starting with the same prefix string(s).
+  --    * @{#SET_UNIT.FilterActive}: Builds the SET_UNIT with the units that are only active. Units that are inactive (late activation) won't be included in the set!
   --   
   -- Once the filter criteria have been set for the SET_UNIT, you can start filtering using:
   -- 
-  --   * @{#SET_UNIT.FilterStart}: Starts the filtering of the units within the SET_UNIT.
+  --   * @{#SET_UNIT.FilterStart}: Starts the filtering of the units **dynamically**.
+  --   * @{#SET_UNIT.FilterOnce}: Filters of the units **once**.
   -- 
   -- Planned filter criteria within development are (so these are not yet available):
   -- 
   --    * @{#SET_UNIT.FilterZones}: Builds the SET_UNIT with the units within a @{Core.Zone#ZONE}.
   -- 
-  -- ## SET_UNIT iterators
+  -- ## 4) SET_UNIT iterators
   -- 
   -- Once the filters have been defined and the SET_UNIT has been built, you can iterate the SET_UNIT with the available iterator methods.
   -- The iterator methods will walk the SET_UNIT set, and call for each element within the set a function that you provide.
   -- The following iterator methods are currently available within the SET_UNIT:
   -- 
   --   * @{#SET_UNIT.ForEachUnit}: Calls a function for each alive unit it finds within the SET_UNIT.
-  --   * @{#SET_GROUP.ForEachGroupCompletelyInZone}: Iterate the SET_GROUP and call an iterator function for each **alive** GROUP presence completely in a @{Zone}, providing the GROUP and optional parameters to the called function.
-  --   * @{#SET_GROUP.ForEachGroupNotInZone}: Iterate the SET_GROUP and call an iterator function for each **alive** GROUP presence not in a @{Zone}, providing the GROUP and optional parameters to the called function.
+  --   * @{#SET_UNIT.ForEachUnitInZone}: Iterate the SET_UNIT and call an iterator function for each **alive** UNIT object presence completely in a @{Zone}, providing the UNIT object and optional parameters to the called function.
+  --   * @{#SET_UNIT.ForEachUnitNotInZone}: Iterate the SET_UNIT and call an iterator function for each **alive** UNIT object presence not in a @{Zone}, providing the UNIT object and optional parameters to the called function.
   --   
   -- Planned iterators methods in development are (so these are not yet available):
   -- 
@@ -1474,27 +1550,17 @@ do -- SET_UNIT
   --   * @{#SET_UNIT.ForEachUnitCompletelyInZone}: Iterate and call an iterator function for each **alive** UNIT presence completely in a @{Zone}, providing the UNIT and optional parameters to the called function.
   --   * @{#SET_UNIT.ForEachUnitNotInZone}: Iterate and call an iterator function for each **alive** UNIT presence not in a @{Zone}, providing the UNIT and optional parameters to the called function.
   -- 
-  -- ## SET_UNIT atomic methods
+  -- ## 5) SET_UNIT atomic methods
   -- 
   -- Various methods exist for a SET_UNIT to perform actions or calculations and retrieve results from the SET_UNIT:
   -- 
   --   * @{#SET_UNIT.GetTypeNames}(): Retrieve the type names of the @{Wrapper.Unit}s in the SET, delimited by a comma.
   -- 
-  -- ## SET_UNIT iterators
-  -- 
-  -- Once the filters have been defined and the SET_UNIT has been built, you can iterate the SET_UNIT with the available iterator methods.
-  -- The iterator methods will walk the SET_UNIT set, and call for each element within the set a function that you provide.
-  -- The following iterator methods are currently available within the SET_UNIT:
-  -- 
-  --   * @{#SET_UNIT.ForEachUnit}: Calls a function for each alive group it finds within the SET_UNIT.
-  --   * @{#SET_UNIT.ForEachUnitInZone}: Iterate the SET_UNIT and call an iterator function for each **alive** UNIT object presence completely in a @{Zone}, providing the UNIT object and optional parameters to the called function.
-  --   * @{#SET_UNIT.ForEachUnitNotInZone}: Iterate the SET_UNIT and call an iterator function for each **alive** UNIT object presence not in a @{Zone}, providing the UNIT object and optional parameters to the called function.
-  --
-  -- ## SET_UNIT trigger events on the UNIT objects.
+  -- ## 6) SET_UNIT trigger events on the UNIT objects.
   -- 
   -- The SET is derived from the FSM class, which provides extra capabilities to track the contents of the UNIT objects in the SET_UNIT.
   -- 
-  -- ### When a UNIT object crashes or is dead, the SET_UNIT will trigger a **Dead** event.
+  -- ### 6.1) When a UNIT object crashes or is dead, the SET_UNIT will trigger a **Dead** event.
   -- 
   -- You can handle the event using the OnBefore and OnAfter event handlers. 
   -- The event handlers need to have the paramters From, Event, To, GroupObject.
@@ -1576,19 +1642,24 @@ do -- SET_UNIT
   function SET_UNIT:New()
   
     -- Inherits from BASE
-    local self = BASE:Inherit( self, SET_BASE:New( _DATABASE.UNITS ) ) -- Core.Set#SET_UNIT
+    local self = BASE:Inherit( self, SET_BASE:New( _DATABASE.UNITS ) ) -- #SET_UNIT
+  
+    self:FilterActive( false )
   
     return self
   end
   
   --- Add UNIT(s) to SET_UNIT.
   -- @param #SET_UNIT self
-  -- @param #string AddUnit A single UNIT.
+  -- @param Wrapper.Unit#UNIT Unit A single UNIT.
   -- @return #SET_UNIT self
-  function SET_UNIT:AddUnit( AddUnit )
-    self:F2( AddUnit:GetName() )
+  function SET_UNIT:AddUnit( Unit )
+    self:F2( Unit:GetName() )
   
-    self:Add( AddUnit:GetName(), AddUnit )
+    self:Add( Unit:GetName(), Unit )
+    
+    -- Set the default cargo bay limit each time a new unit is added to the set.
+    Unit:SetCargoBayWeightLimit()
       
     return self
   end
@@ -1731,6 +1802,32 @@ do -- SET_UNIT
     return self
   end
   
+  --- Builds a set of units that are only active.
+  -- Only the units that are active will be included within the set.
+  -- @param #SET_UNIT self
+  -- @param #boolean Active (optional) Include only active units to the set.
+  -- Include inactive units if you provide false.
+  -- @return #SET_UNIT self
+  -- @usage
+  -- 
+  -- -- Include only active units to the set.
+  -- UnitSet = SET_UNIT:New():FilterActive():FilterStart()
+  -- 
+  -- -- Include only active units to the set of the blue coalition, and filter one time.
+  -- UnitSet = SET_UNIT:New():FilterActive():FilterCoalition( "blue" ):FilterOnce()
+  -- 
+  -- -- Include only active units to the set of the blue coalition, and filter one time.
+  -- -- Later, reset to include back inactive units to the set.
+  -- UnitSet = SET_UNIT:New():FilterActive():FilterCoalition( "blue" ):FilterOnce()
+  -- ... logic ...
+  -- UnitSet = SET_UNIT:New():FilterActive( false ):FilterCoalition( "blue" ):FilterOnce()
+  -- 
+  function SET_UNIT:FilterActive( Active )
+    Active = Active or not ( Active == false )
+    self.Filter.Active = Active
+    return self
+  end
+  
   --- Builds a set of units having a radar of give types.
   -- All the units having a radar of a given type will be included within the set.
   -- @param #SET_UNIT self
@@ -1767,8 +1864,9 @@ do -- SET_UNIT
     if _DATABASE then
       self:_FilterStart()
       self:HandleEvent( EVENTS.Birth, self._EventOnBirth )
-      self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrash )
+      self:HandleEvent( EVENTS.Dead, self._EventOnDeadOrCrashOr )
       self:HandleEvent( EVENTS.Crash, self._EventOnDeadOrCrash )
+      self:HandleEvent( EVENTS.RemoveUnit, self._EventOnDeadOrCrash )
     end
     
     return self
@@ -2304,6 +2402,14 @@ do -- SET_UNIT
     self:F2( MUnit )
     local MUnitInclude = true
   
+    if self.Filter.Active ~= nil then
+      local MUnitActive = false
+      if self.Filter.Active == false or ( self.Filter.Active == true and MUnit:IsActive() == true ) then
+        MUnitActive = true
+      end
+      MUnitInclude = MUnitInclude and MUnitActive
+    end
+  
     if self.Filter.Coalitions then
       local MUnitCoalition = false
       for CoalitionID, CoalitionName in pairs( self.Filter.Coalitions ) do
@@ -2410,6 +2516,22 @@ do -- SET_UNIT
     
     return TypeReport:Text( Delimiter )
   end
+
+  --- Iterate the SET_UNIT and set for each unit the default cargo bay weight limit.
+  -- @param #SET_UNIT self
+  -- @usage
+  -- -- Set the default cargo bay weight limits of the carrier units.
+  -- local MySetUnit = SET_UNIT:New()
+  -- MySetUnit:SetCargoBayWeightLimit()
+  function SET_UNIT:SetCargoBayWeightLimit()
+    local Set = self:GetSet()
+    for UnitID, UnitData in pairs( Set ) do -- For each UNIT in SET_UNIT
+      --local UnitData = UnitData -- Wrapper.Unit#UNIT
+      UnitData:SetCargoBayWeightLimit()
+    end
+  end
+
+
   
 end
 
@@ -3100,18 +3222,18 @@ end
 --  * Client types
 --  * Starting with certain prefix strings.
 --  
--- ## SET_CLIENT constructor
+-- ## 1) SET_CLIENT constructor
 -- 
 -- Create a new SET_CLIENT object with the @{#SET_CLIENT.New} method:
 -- 
 --    * @{#SET_CLIENT.New}: Creates a new SET_CLIENT object.
 --   
--- ## Add or Remove CLIENT(s) from SET_CLIENT 
+-- ## 2) Add or Remove CLIENT(s) from SET_CLIENT 
 -- 
 -- CLIENTs can be added and removed using the @{Core.Set#SET_CLIENT.AddClientsByName} and @{Core.Set#SET_CLIENT.RemoveClientsByName} respectively. 
 -- These methods take a single CLIENT name or an array of CLIENT names to be added or removed from SET_CLIENT.
 -- 
--- ## SET_CLIENT filter criteria
+-- ## 3) SET_CLIENT filter criteria
 -- 
 -- You can set filter criteria to define the set of clients within the SET_CLIENT.
 -- Filter criteria are defined by:
@@ -3121,16 +3243,18 @@ end
 --    * @{#SET_CLIENT.FilterTypes}: Builds the SET_CLIENT with the clients belonging to the client type(s).
 --    * @{#SET_CLIENT.FilterCountries}: Builds the SET_CLIENT with the clients belonging to the country(ies).
 --    * @{#SET_CLIENT.FilterPrefixes}: Builds the SET_CLIENT with the clients starting with the same prefix string(s).
+--    * @{#SET_CLIENT.FilterActive}: Builds the SET_CLIENT with the units that are only active. Units that are inactive (late activation) won't be included in the set!
 --   
 -- Once the filter criteria have been set for the SET_CLIENT, you can start filtering using:
 -- 
---   * @{#SET_CLIENT.FilterStart}: Starts the filtering of the clients within the SET_CLIENT.
+--   * @{#SET_CLIENT.FilterStart}: Starts the filtering of the clients **dynamically**.
+--   * @{#SET_CLIENT.FilterOnce}: Filters the clients **once**.
 -- 
 -- Planned filter criteria within development are (so these are not yet available):
 -- 
 --    * @{#SET_CLIENT.FilterZones}: Builds the SET_CLIENT with the clients within a @{Core.Zone#ZONE}.
 -- 
--- ## SET_CLIENT iterators
+-- ## 4) SET_CLIENT iterators
 -- 
 -- Once the filters have been defined and the SET_CLIENT has been built, you can iterate the SET_CLIENT with the available iterator methods.
 -- The iterator methods will walk the SET_CLIENT set, and call for each element within the set a function that you provide.
@@ -3175,7 +3299,9 @@ SET_CLIENT = {
 -- DBObject = SET_CLIENT:New()
 function SET_CLIENT:New()
   -- Inherits from BASE
-  local self = BASE:Inherit( self, SET_BASE:New( _DATABASE.CLIENTS ) )
+  local self = BASE:Inherit( self, SET_BASE:New( _DATABASE.CLIENTS ) ) -- #SET_CLIENT
+
+  self:FilterActive( false )
 
   return self
 end
@@ -3317,6 +3443,31 @@ function SET_CLIENT:FilterPrefixes( Prefixes )
   return self
 end
 
+--- Builds a set of clients that are only active.
+-- Only the clients that are active will be included within the set.
+-- @param #SET_CLIENT self
+-- @param #boolean Active (optional) Include only active clients to the set.
+-- Include inactive clients if you provide false.
+-- @return #SET_CLIENT self
+-- @usage
+-- 
+-- -- Include only active clients to the set.
+-- ClientSet = SET_CLIENT:New():FilterActive():FilterStart()
+-- 
+-- -- Include only active clients to the set of the blue coalition, and filter one time.
+-- ClientSet = SET_CLIENT:New():FilterActive():FilterCoalition( "blue" ):FilterOnce()
+-- 
+-- -- Include only active clients to the set of the blue coalition, and filter one time.
+-- -- Later, reset to include back inactive clients to the set.
+-- ClientSet = SET_CLIENT:New():FilterActive():FilterCoalition( "blue" ):FilterOnce()
+-- ... logic ...
+-- ClientSet = SET_CLIENT:New():FilterActive( false ):FilterCoalition( "blue" ):FilterOnce()
+-- 
+function SET_CLIENT:FilterActive( Active )
+  Active = Active or not ( Active == false )
+  self.Filter.Active = Active
+  return self
+end
 
 
 
@@ -3426,6 +3577,14 @@ function SET_CLIENT:IsIncludeObject( MClient )
 
   if MClient then
     local MClientName = MClient.UnitName
+  
+    if self.Filter.Active ~= nil then
+      local MClientActive = false
+      if self.Filter.Active == false or ( self.Filter.Active == true and MClient:IsActive() == true ) then
+        MClientActive = true
+      end
+      MClientInclude = MClientInclude and MClientActive
+    end
   
     if self.Filter.Coalitions then
       local MClientCoalition = false
@@ -3968,6 +4127,17 @@ function SET_AIRBASE:New()
   return self
 end
 
+--- Add an AIRBASE object to SET_AIRBASE.
+-- @param Core.Set#SET_AIRBASE self
+-- @param Wrapper.Airbase#AIRBASE airbase Airbase that should be added to the set.
+-- @return self
+function SET_AIRBASE:AddAirbase( airbase )
+
+  self:Add( airbase:GetName(), airbase )
+  
+  return self
+end
+
 --- Add AIRBASEs to SET_AIRBASE.
 -- @param Core.Set#SET_AIRBASE self
 -- @param #string AddAirbaseNames A single name or an array of AIRBASE names.
@@ -4007,6 +4177,45 @@ function SET_AIRBASE:FindAirbase( AirbaseName )
 
   local AirbaseFound = self.Set[AirbaseName]
   return AirbaseFound
+end
+
+
+--- Finds an Airbase in range of a coordinate.
+-- @param #SET_AIRBASE self
+-- @param Core.Point#COORDINATE Coordinate
+-- @param #number Range
+-- @return Wrapper.Airbase#AIRBASE The found Airbase.
+function SET_AIRBASE:FindAirbaseInRange( Coordinate, Range )
+
+  local AirbaseFound = nil
+
+  for AirbaseName, AirbaseObject in pairs( self.Set ) do
+  
+    local AirbaseCoordinate = AirbaseObject:GetCoordinate()
+    local Distance = Coordinate:Get2DDistance( AirbaseCoordinate )
+    
+    self:F({Distance=Distance})
+  
+    if Distance <= Range then
+      AirbaseFound = AirbaseObject
+      break
+    end
+      
+  end
+
+  return AirbaseFound
+end
+
+
+--- Finds a random Airbase in the set.
+-- @param #SET_AIRBASE self
+-- @return Wrapper.Airbase#AIRBASE The found Airbase.
+function SET_AIRBASE:GetRandomAirbase()
+
+  local RandomAirbase = self:GetRandom()
+  self:F( { RandomAirbase = RandomAirbase:GetName() } )
+
+  return RandomAirbase
 end
 
 
@@ -4675,7 +4884,7 @@ function SET_ZONE:New()
   return self
 end
 
---- Add ZONEs to SET_ZONE.
+--- Add ZONEs by a search name to SET_ZONE.
 -- @param Core.Set#SET_ZONE self
 -- @param #string AddZoneNames A single name or an array of ZONE_BASE names.
 -- @return self
@@ -4689,6 +4898,18 @@ function SET_ZONE:AddZonesByName( AddZoneNames )
     
   return self
 end
+
+--- Add ZONEs to SET_ZONE.
+-- @param Core.Set#SET_ZONE self
+-- @param Core.Zone#ZONE_BASE Zone A ZONE_BASE object.
+-- @return self
+function SET_ZONE:AddZone( Zone )
+
+  self:Add( Zone:GetName(), Zone )
+    
+  return self
+end
+
 
 --- Remove ZONEs from SET_ZONE.
 -- @param Core.Set#SET_ZONE self
@@ -4899,4 +5120,23 @@ function SET_ZONE:OnEventDeleteZone( EventData ) --R2.1
       end
     end
   end
+end
+
+--- Validate if a coordinate is in one of the zones in the set.
+-- Returns the ZONE object where the coordiante is located.
+-- If zones overlap, the first zone that validates the test is returned.
+-- @param #SET_ZONE self
+-- @param Core.Point#COORDINATE Coordinate The coordinate to be searched.
+-- @return Core.Zone#ZONE_BASE The zone that validates the coordinate location.
+-- @return #nil No zone has been found.
+function SET_ZONE:IsCoordinateInZone( Coordinate )
+
+  for _, Zone in pairs( self:GetSet() ) do
+    local Zone = Zone -- Core.Zone#ZONE_BASE
+    if Zone:IsCoordinateInZone( Coordinate ) then
+      return Zone
+    end
+  end
+
+  return nil
 end

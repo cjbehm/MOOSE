@@ -25,6 +25,18 @@ do -- CARGO_CRATE
   --- Defines a cargo that is represented by a UNIT object within the simulator, and can be transported by a carrier.
   -- Use the event functions as described above to Load, UnLoad, Board, UnBoard the CARGO\_CRATE objects to and from carriers.
   -- 
+  -- The above cargo classes are used by the following AI_CARGO_ classes to allow AI groups to transport cargo:
+  -- 
+  --   * AI Armoured Personnel Carriers to transport cargo and engage in battles, using the @{AI.AI_Cargo_APC} module.
+  --   * AI Helicopters to transport cargo, using the @{AI.AI_Cargo_Helicopter} module.
+  --   * AI Planes to transport cargo, using the @{AI.AI_Cargo_Airplane} module.
+  --   * AI Ships is planned.
+  -- 
+  -- The above cargo classes are also used by the TASK_CARGO_ classes to allow human players to transport cargo as part of a tasking:
+  -- 
+  --   * @{Tasking.Task_Cargo_Transport#TASK_CARGO_TRANSPORT} to transport cargo by human players.
+  --   * @{Tasking.Task_Cargo_Transport#TASK_CARGO_CSAR} to transport downed pilots by human players.
+  -- 
   -- ===
   -- 
   -- @field #CARGO_CRATE
@@ -51,6 +63,7 @@ do -- CARGO_CRATE
     
     self:HandleEvent( EVENTS.Dead, self.OnEventCargoDead )
     self:HandleEvent( EVENTS.Crash, self.OnEventCargoDead )
+    --self:HandleEvent( EVENTS.RemoveUnit, self.OnEventCargoDead )
     self:HandleEvent( EVENTS.PlayerLeaveUnit, self.OnEventCargoDead )
     
     self:SetEventPriority( 4 )
@@ -156,6 +169,12 @@ do -- CARGO_CRATE
   --- Check if the cargo can be Unboarded.
   -- @param #CARGO_CRATE self
   function CARGO_CRATE:CanUnboard()
+    return false
+  end
+
+  --- Check if the cargo can be sling loaded.
+  -- @param #CARGO_CRATE self
+  function CARGO_CRATE:CanSlingload()
     return false
   end
 

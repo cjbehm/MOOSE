@@ -157,35 +157,7 @@ function UNIT:GetDCSObject()
   return nil
 end
 
---- Destroys the UNIT.
--- @param #UNIT self
--- @param #boolean GenerateEvent (Optional) true if you want to generate a crash or dead event for the unit.
--- @return #nil The DCS Unit is not existing or alive.  
-function UNIT:Destroy( GenerateEvent )
-  self:F2( self.ObjectName )
 
-  local DCSObject = self:GetDCSObject()
-  
-  if DCSObject then
-  
-    local UnitGroup = self:GetGroup()
-    local UnitGroupName = UnitGroup:GetName()
-    self:F( { UnitGroupName = UnitGroupName } )
-    
-    if GenerateEvent and GenerateEvent == true then
-      if self:IsAir() then
-        self:CreateEventCrash( timer.getTime(), DCSObject )
-      else
-        self:CreateEventDead( timer.getTime(), DCSObject )
-      end
-    end
-    
-    USERFLAG:New( UnitGroupName ):Set( 100 )
-    DCSObject:destroy()
-  end
-
-  return nil
-end
 
 
 --- Respawn the @{Wrapper.Unit} using a (tweaked) template of the parent Group.
@@ -854,51 +826,7 @@ end
 
 
 
--- Is methods
 
---- Returns if the unit is of an air category.
--- If the unit is a helicopter or a plane, then this method will return true, otherwise false.
--- @param #UNIT self
--- @return #boolean Air category evaluation result.
-function UNIT:IsAir()
-  self:F2()
-  
-  local DCSUnit = self:GetDCSObject()
-  
-  if DCSUnit then
-    local UnitDescriptor = DCSUnit:getDesc()
-    self:T3( { UnitDescriptor.category, Unit.Category.AIRPLANE, Unit.Category.HELICOPTER } )
-    
-    local IsAirResult = ( UnitDescriptor.category == Unit.Category.AIRPLANE ) or ( UnitDescriptor.category == Unit.Category.HELICOPTER )
-  
-    self:T3( IsAirResult )
-    return IsAirResult
-  end
-  
-  return nil
-end
-
---- Returns if the unit is of an ground category.
--- If the unit is a ground vehicle or infantry, this method will return true, otherwise false.
--- @param #UNIT self
--- @return #boolean Ground category evaluation result.
-function UNIT:IsGround()
-  self:F2()
-  
-  local DCSUnit = self:GetDCSObject()
-  
-  if DCSUnit then
-    local UnitDescriptor = DCSUnit:getDesc()
-    self:T3( { UnitDescriptor.category, Unit.Category.GROUND_UNIT } )
-    
-    local IsGroundResult = ( UnitDescriptor.category == Unit.Category.GROUND_UNIT )
-  
-    self:T3( IsGroundResult )
-    return IsGroundResult
-  end
-  
-  return nil
-end
 
 --- Returns if the unit is a friendly unit.
 -- @param #UNIT self
