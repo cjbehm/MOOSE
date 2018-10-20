@@ -1,8 +1,14 @@
---- **Core** -- Spawn dynamically new STATICs in your missions.
+--- **Core** - Spawn new statics in your running missions.
 --  
 -- ===
 -- 
--- SPAWNSTATIC spawns static structures in your missions dynamically. See below the SPAWNSTATIC class documentation.
+-- ## Features:
+-- 
+--   * Spawn new statics from a static already defined using the mission editor.
+--   * Spawn new statics from a given template.
+--   * Spawn new statics from a given type.
+--   * Spawn with a custom heading and location.
+--   * Spawn within a zone.
 -- 
 -- ===
 -- 
@@ -149,7 +155,6 @@ function SPAWNSTATIC:Spawn( Heading, NewName ) --R2.3
 end
 
 
-
 --- Creates a new @{Static} from a POINT_VEC2.
 -- @param #SPAWNSTATIC self
 -- @param Core.Point#POINT_VEC2 PointVec2 The 2D coordinate where to spawn the static.
@@ -190,11 +195,8 @@ function SPAWNSTATIC:SpawnFromPointVec2( PointVec2, Heading, NewName ) --R2.1
 end
 
 
---- Creates the original @{Static} at a POINT_VEC2.
+--- Respawns the original @{Static}.
 -- @param #SPAWNSTATIC self
--- @param Core.Point#POINT_VEC2 PointVec2 The 2D coordinate where to spawn the static.
--- @param #number Heading The heading of the static, which is a number in degrees from 0 to 360.
--- @param #string (optional) The name of the new static.
 -- @return #SPAWNSTATIC
 function SPAWNSTATIC:ReSpawn()
   
@@ -203,7 +205,6 @@ function SPAWNSTATIC:ReSpawn()
   if StaticTemplate then
 
     local StaticUnitTemplate = StaticTemplate.units[1]
-      
     StaticTemplate.route = nil
     StaticTemplate.groupId = nil
     

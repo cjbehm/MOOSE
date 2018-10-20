@@ -2,18 +2,25 @@
 -- 
 -- ===
 -- 
+-- ## Features:
+-- 
+--   * Detection of targets by recce units.
+--   * Group detected targets per unit, type or area (zone).
+--   * Keep persistency of detected targets, if when detection is lost.
+--   * Provide an indication of detected targets.
+--   * Report detected targets.
+--   * Refresh detection upon specified time intervals.
+-- 
+-- ===
+-- 
+-- ## Missions:
+-- 
+-- [DET - Detection](https://github.com/FlightControl-Master/MOOSE_MISSIONS/tree/master/DET%20-%20Detection)
+-- 
+-- ===
+-- 
 -- Facilitate the detection of enemy units within the battle zone executed by FACs (Forward Air Controllers) or RECCEs (Reconnassance Units).
--- DETECTION uses the in-built detection capabilities of DCS World, but adds new functionalities.
--- 
--- Find the DETECTION classes documentation further in this document in the globals section.
--- 
--- ===
--- 
--- ### [Demo Missions](https://github.com/FlightControl-Master/MOOSE_MISSIONS/tree/master/DET%20-%20Detection)
--- 
--- ===
--- 
--- ### [YouTube Playlist](https://www.youtube.com/playlist?list=PL7ZUrU4zZUl3Cf5jpI6BS0sBOVWK__tji)
+-- It uses the in-built detection capabilities of DCS World, but adds new functionalities.
 -- 
 -- ===
 -- 
@@ -25,13 +32,11 @@
 -- 
 --   * FlightControl : Analysis, Design, Programming, Testing
 -- 
+-- ===
+-- 
 -- @module Functional.Detection
 -- @image Detection.JPG
 
-----BASE:TraceClass("DETECTION_BASE")
-----BASE:TraceClass("DETECTION_AREAS")
-----BASE:TraceClass("DETECTION_UNITS")
-----BASE:TraceClass("DETECTION_TYPES")
 
 do -- DETECTION_BASE
 
@@ -1864,14 +1869,16 @@ end
 
 do -- DETECTION_UNITS
 
+  --- @type DETECTION_UNITS
+  -- @field DCS#Distance DetectionRange The range till which targets are detected.
+  -- @extends Functional.Detection#DETECTION_BASE
+
   --- Will detect units within the battle zone.
   -- 
   -- It will build a DetectedItems list filled with DetectedItems. Each DetectedItem will contain a field Set, which contains a @{Core.Set#SET_UNIT} containing ONE @{UNIT} object reference.
   -- Beware that when the amount of units detected is large, the DetectedItems list will be large also. 
   -- 
-  -- @type DETECTION_UNITS
-  -- @field DCS#Distance DetectionRange The range till which targets are detected.
-  -- @extends #DETECTION_BASE
+  -- @field #DETECTION_UNITS
   DETECTION_UNITS = {
     ClassName = "DETECTION_UNITS",
     DetectionRange = nil,
@@ -1897,7 +1904,7 @@ do -- DETECTION_UNITS
 
   --- Make text documenting the changes of the detected zone.
   -- @param #DETECTION_UNITS self
-  -- @param #DETECTION_UNITS.DetectedItem DetectedItem
+  -- @param #DETECTION_BASE.DetectedItem DetectedItem
   -- @return #string The Changes text
   function DETECTION_UNITS:GetChangeText( DetectedItem )
     self:F( DetectedItem )
@@ -1938,7 +1945,6 @@ do -- DETECTION_UNITS
   -- @param #DETECTION_UNITS self
   -- @return #DETECTION_UNITS self
   function DETECTION_UNITS:CreateDetectionItems()
-    env.info("FF createdetectionitmes")
     -- Loop the current detected items, and check if each object still exists and is detected.
     
     for DetectedItemKey, DetectedItem in pairs( self.DetectedItems ) do
@@ -2117,13 +2123,15 @@ end
 
 do -- DETECTION_TYPES
 
+  --- @type DETECTION_TYPES
+  -- @extends Functional.Detection#DETECTION_BASE
+
   --- Will detect units within the battle zone.
   -- It will build a DetectedItems[] list filled with DetectedItems, grouped by the type of units detected. 
   -- Each DetectedItem will contain a field Set, which contains a @{Core.Set#SET_UNIT} containing ONE @{UNIT} object reference.
   -- Beware that when the amount of different types detected is large, the DetectedItems[] list will be large also. 
   -- 
-  -- @type DETECTION_TYPES
-  -- @extends #DETECTION_BASE
+  -- @field #DETECTION_TYPES
   DETECTION_TYPES = {
     ClassName = "DETECTION_TYPES",
     DetectionRange = nil,
@@ -2149,7 +2157,7 @@ do -- DETECTION_TYPES
 
   --- Make text documenting the changes of the detected zone.
   -- @param #DETECTION_TYPES self
-  -- @param #DETECTION_TYPES.DetectedItem DetectedItem
+  -- @param Functional.Detection#DETECTION_BASE.DetectedItem DetectedItem
   -- @return #string The Changes text
   function DETECTION_TYPES:GetChangeText( DetectedItem )
     self:F( DetectedItem )
@@ -2324,6 +2332,11 @@ end
 
 do -- DETECTION_AREAS
 
+  --- @type DETECTION_AREAS
+  -- @field DCS#Distance DetectionZoneRange The range till which targets are grouped upon the first detected target.
+  -- @field #DETECTION_BASE.DetectedItems DetectedItems A list of areas containing the set of @{Wrapper.Unit}s, @{Zone}s, the center @{Wrapper.Unit} within the zone, and ID of each area that was detected within a DetectionZoneRange.
+  -- @extends Functional.Detection#DETECTION_BASE
+
   --- Detect units within the battle zone for a list of @{Wrapper.Group}s detecting targets following (a) detection method(s), 
   -- and will build a list (table) of @{Core.Set#SET_UNIT}s containing the @{Wrapper.Unit#UNIT}s detected.
   -- The class is group the detected units within zones given a DetectedZoneRange parameter.
@@ -2354,10 +2367,7 @@ do -- DETECTION_AREAS
   --   
   -- the detected zones when a new detection has taken place.
   -- 
-  -- @type DETECTION_AREAS
-  -- @field DCS#Distance DetectionZoneRange The range till which targets are grouped upon the first detected target.
-  -- @field #DETECTION_BASE.DetectedItems DetectedItems A list of areas containing the set of @{Wrapper.Unit}s, @{Zone}s, the center @{Wrapper.Unit} within the zone, and ID of each area that was detected within a DetectionZoneRange.
-  -- @extends #DETECTION_BASE
+  -- @field #DETECTION_AREAS
   DETECTION_AREAS = {
     ClassName = "DETECTION_AREAS",
     DetectionZoneRange = nil,

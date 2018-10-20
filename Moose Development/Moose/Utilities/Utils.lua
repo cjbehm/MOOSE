@@ -592,3 +592,91 @@ function UTILS.DisplayMissionTime(duration)
   local text=string.format("Time: %s - %02d:%02d", local_time, mission_time_minutes, mission_time_seconds)
   MESSAGE:New(text, duration):ToAll()
 end
+
+
+--- Generate a Gaussian pseudo-random number.
+-- @param #number x0 Expectation value of distribution.
+-- @param #number sigma (Optional) Standard deviation. Default 10.
+-- @param #number xmin (Optional) Lower cut-off value.
+-- @param #number xmax (Optional) Upper cut-off value.
+-- @param #number imax (Optional) Max number of tries to get a value between xmin and xmax (if specified). Default 100.
+-- @return #number Gaussian random number.
+function UTILS.RandomGaussian(x0, sigma, xmin, xmax, imax)
+
+  -- Standard deviation. Default 10 if not given.
+  sigma=sigma or 10
+  
+  -- Max attempts.
+  imax=imax or 100
+    
+  local r
+  local gotit=false
+  local i=0
+  while not gotit do
+  
+    -- Uniform numbers in [0,1). We need two.
+    local x1=math.random()
+    local x2=math.random()
+  
+    -- Transform to Gaussian exp(-(x-x0)²/(2*sigma²).
+    r = math.sqrt(-2*sigma*sigma * math.log(x1)) * math.cos(2*math.pi * x2) + x0
+    
+    i=i+1
+    if (r>=xmin and r<=xmax) or i>imax then
+      gotit=true
+    end
+  end
+  
+  return r
+end
+
+--- Randomize a value by a certain amount.
+-- @param #number value The value which should be randomized
+-- @param #number fac Randomization factor.
+-- @param #number lower (Optional) Lower limit of the returned value.
+-- @param #number upper (Optional) Upper limit of the returned value.
+-- @return #number Randomized value.
+-- @usage UTILS.Randomize(100, 0.1) returns a value between 90 and 110, i.e. a plus/minus ten percent variation.
+-- @usage UTILS.Randomize(100, 0.5, nil, 120) returns a value between 50 and 120, i.e. a plus/minus fivty percent variation with upper bound 120.
+function UTILS.Randomize(value, fac, lower, upper)
+  local min
+  if lower then
+    min=math.max(value-value*fac, lower)
+  else
+    min=value-value*fac
+  end
+  local max
+  if upper then
+    max=math.min(value+value*fac, upper)
+  else
+    max=value+value*fac
+  end
+  
+  local r=math.random(min, max)
+  
+  return r
+end
+
+--- Calculate the [dot product](https://en.wikipedia.org/wiki/Dot_product) of two vectors. The result is a number.
+-- @param DCS#Vec3 a Vector in 3D with x, y, z components.
+-- @param DCS#Vec3 b Vector in 3D with x, y, z components.
+-- @return #number Scalar product of the two vectors a*b.
+function UTILS.VecDot(a, b)
+  return a.x*b.x + a.y*b.y + a.z*b.z
+end
+
+--- Calculate the [euclidean norm](https://en.wikipedia.org/wiki/Euclidean_distance) (length) of a 3D vector.
+-- @param DCS#Vec3 a Vector in 3D with x, y, z components.
+-- @return #number Norm of the vector.
+function UTILS.VecNorm(a)
+  return math.sqrt(UTILS.VecDot(a, a))
+end
+
+--- Calculate the [cross product](https://en.wikipedia.org/wiki/Cross_product) of two 3D vectors. The result is a 3D vector.
+-- @param DCS#Vec3 a Vector in 3D with x, y, z components.
+-- @param DCS#Vec3 b Vector in 3D with x, y, z components.
+-- @return DCS#Vec3 Vector
+function UTILS.VecCross(a, b)
+  return {x=a.y*b.z - a.z*b.y, y=a.z*b.x - a.x*b.z, z=a.x*b.y - a.y*b.x}
+end
+

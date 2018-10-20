@@ -1,4 +1,4 @@
---- **Functional** - (R2.3) - Range Practice.
+--- **Functional** - Range Practice.
 --  
 -- ===
 -- 
@@ -9,30 +9,22 @@
 -- 
 -- [476th - Air Weapons Range Objects mod](http://www.476vfightergroup.com/downloads.php?do=file&id=287) is highly recommended for this class.
 -- 
--- ## Features
+-- ## Features:
 --
--- * Impact points of bombs, rockets and missils are recorded and distance to closest range target is measured and reported to the player.
--- * Number of hits on strafing passes are counted and reported. Also the percentage of hits w.r.t fired shots is evaluated. 
--- * Results of all bombing and strafing runs are stored and top 10 results can be displayed. 
--- * Range targets can be marked by smoke.
--- * Range can be illuminated by illumination bombs for night practices.
--- * Bomb, rocket and missile impact points can be marked by smoke.
--- * Direct hits on targets can trigger flares.
--- * Smoke and flare colors can be adjusted for each player via radio menu.
--- * Range information and weather report at the range can be reported via radio menu.
+--   * Impact points of bombs, rockets and missils are recorded and distance to closest range target is measured and reported to the player.
+--   * Number of hits on strafing passes are counted and reported. Also the percentage of hits w.r.t fired shots is evaluated. 
+--   * Results of all bombing and strafing runs are stored and top 10 results can be displayed. 
+--   * Range targets can be marked by smoke.
+--   * Range can be illuminated by illumination bombs for night practices.
+--   * Bomb, rocket and missile impact points can be marked by smoke.
+--   * Direct hits on targets can trigger flares.
+--   * Smoke and flare colors can be adjusted for each player via radio menu.
+--   * Range information and weather report at the range can be reported via radio menu.
 -- 
 -- More information and examples can be found below.
 -- 
 -- ===
 -- 
--- # Demo Missions
---
--- ### [MOOSE - ALL Demo Missions](https://github.com/FlightControl-Master/MOOSE_MISSIONS)
--- 
--- ===
--- 
--- # YouTube Channel
---
 -- ### [MOOSE YouTube Channel](https://www.youtube.com/channel/UCjrA9j5LQoWsG4SpS8i79Qg) 
 -- ### [MOOSE - On the Range - Demonstration Video](https://www.youtube.com/watch?v=kIXcxNB9_3M)
 -- 
@@ -104,7 +96,7 @@
 -- ## Strafe Pits
 -- Each strafe pit can consist of multiple targets. Often one findes two or three strafe targets next to each other.
 -- 
--- A strafe pit can be added to the range by the @{#RANGE.AddStrafepit}(*targetnames, boxlength, boxwidth, heading, inverseheading, goodpass, foulline*) function.
+-- A strafe pit can be added to the range by the @{#RANGE.AddStrafePit}(*targetnames, boxlength, boxwidth, heading, inverseheading, goodpass, foulline*) function.
 -- 
 -- * The first parameter *targetnames* defines the target or targets. This has to be given as a lua table which contains the names of @{Wrapper.Unit} or @{Static} objects defined in the mission editor. 
 -- * In order to perform a valid pass on the strafe pit, the pilot has to begin his run from the correct direction. Therefore, an "approach box" is defined in front

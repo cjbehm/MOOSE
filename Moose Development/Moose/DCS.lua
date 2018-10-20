@@ -208,9 +208,6 @@ do -- country
   -- @type country
   -- @field #country.id id 
   
-  --- [DCS Enum country](https://wiki.hoggitworld.com/view/DCS_enum_country)
-  -- @field #country
-  country = {}
   
   --- [DCS enumerator country](https://wiki.hoggitworld.com/view/DCS_enum_country)
   -- @type country.id
@@ -288,6 +285,8 @@ do -- country
   -- @field QATAR
   -- @field OMAN
   -- @field UNITED_ARAB_EMIRATES
+
+  country = {} --#country
 
 end -- country
 
@@ -983,8 +982,6 @@ do -- Group
   -- @function [parent=#Group] getCategory
   -- @param #Group self 
   -- @return #Group.Category
-  
-  --TODO check coalition.side
   
   --- Returns the coalition of the group.
   -- @function [parent=#Group] getCoalition

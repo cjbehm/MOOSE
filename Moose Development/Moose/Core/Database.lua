@@ -1,4 +1,25 @@
---- **Core** -- DATABASE manages the database of mission objects. 
+--- **Core** - Manages several databases containing templates, mission objects, and mission information. 
+-- 
+-- ===
+-- 
+-- ## Features:
+-- 
+--   * During mission startup, scan the mission environment, and create / instantiate intelligently the different objects as defined within the mission.
+--   * Manage database of DCS Group templates (as modelled using the mission editor).
+--     - Group templates.
+--     - Unit templates.
+--     - Statics templates.
+--   * Manage database of @{Wrapper.Group#GROUP} objects alive in the mission.
+--   * Manage database of @{Wrapper.Unit#UNIT} objects alive in the mission.
+--   * Manage database of @{Wrapper.Static#STATIC} objects alive in the mission.
+--   * Manage database of players.
+--   * Manage database of client slots defined using the mission editor.
+--   * Manage database of airbases on the map, and from FARPs and ships as defined using the mission editor.
+--   * Manage database of countries.
+--   * Manage database of zone names.
+--   * Manage database of hits to units and statics.
+--   * Manage database of destroys of units and statics.
+--   * Manage database of @{Core.Zone#ZONE_BASE} objects.
 -- 
 -- ===
 -- 
@@ -310,9 +331,9 @@ do -- Zones
     end
   
     for ZoneGroupName, ZoneGroup in pairs( self.GROUPS ) do
-      if ZoneGroupName:match("~ZONE_POLYGON") then
-        local ZoneName1 = ZoneGroupName:match("(.*)~ZONE_POLYGON")
-        local ZoneName2 = ZoneGroupName:match(".*~ZONE_POLYGON(.*)")
+      if ZoneGroupName:match("#ZONE_POLYGON") then
+        local ZoneName1 = ZoneGroupName:match("(.*)#ZONE_POLYGON")
+        local ZoneName2 = ZoneGroupName:match(".*#ZONE_POLYGON(.*)")
         local ZoneName = ZoneName1 .. ( ZoneName2 or "" )
         
         self:I( { "Register ZONE_POLYGON:", Name = ZoneName } )
@@ -538,8 +559,8 @@ end
 -- SpawnCountryID, SpawnCategoryID
 -- This method is used by the SPAWN class.
 -- @param #DATABASE self
--- @param #table SpawnTemplate
--- @return #DATABASE self
+-- @param #table SpawnTemplate Template of the group to spawn.
+-- @return Wrapper.Group#GROUP Spawned group.
 function DATABASE:Spawn( SpawnTemplate )
   self:F( SpawnTemplate.name )
 

@@ -145,18 +145,6 @@ function AI_CARGO_AIRPLANE:New( Airplane, CargoSet )
 end
 
 
-function AI_CARGO_AIRPLANE:IsTransporting()
-
-  return self.Transporting == true
-end
-
-function AI_CARGO_AIRPLANE:IsRelocating()
-
-  return self.Relocating == true
-end
-
-
-
 --- Set the Carrier (controllable). Also initializes events for carrier and defines the coalition.
 -- @param #AI_CARGO_AIRPLANE self
 -- @param Wrapper.Group#GROUP Airplane Transport plane.
@@ -251,18 +239,13 @@ function AI_CARGO_AIRPLANE:onafterLanded( Airplane, From, Event, To )
 
     -- Aircraft was sent to this airbase to pickup troops. Initiate loadling.
     if self.RoutePickup == true then
-      env.info("FF load airplane "..Airplane:GetName())
       self:Load( self.PickupZone )
-      self.RoutePickup = false
-      self.Relocating = true
     end
     
     -- Aircraft was send to this airbase to deploy troops. Initiate unloading.
     if self.RouteDeploy == true then
       self:Unload()
       self.RouteDeploy = false
-      self.Transporting = false
-      self.Relocating = false
     end
      
   end
@@ -278,18 +261,16 @@ end
 -- @param #string To To state.
 -- @param Core.Point#COORDINATE Coordinate
 -- @param #number Speed in km/h for travelling to pickup base.
--- @param Core.Zone#ZONE_AIRBASE PickupZone
-function AI_CARGO_AIRPLANE:onafterPickup( Airplane, From, Event, To, Coordinate, Speed, PickupZone )
+-- @param #number Height Height in meters to move to the pickup coordinate.
+-- @param Core.Zone#ZONE_AIRBASE (optional) PickupZone The zone where the cargo will be picked up.
+function AI_CARGO_AIRPLANE:onafterPickup( Airplane, From, Event, To, Coordinate, Speed, Height, PickupZone )
 
-  if Airplane and Airplane:IsAlive()~=nil then
-    env.info("FF onafterpick aircraft alive")
+  if Airplane and Airplane:IsAlive() then
     
     self.PickupZone = PickupZone
   
     -- Get closest airbase of current position.
     local ClosestAirbase, DistToAirbase=Airplane:GetCoordinate():GetClosestAirbase()
-    
-    env.info("FF onafterpickup closest airbase "..ClosestAirbase:GetName())
   
     -- Two cases. Aircraft spawned in air or at an airbase.
     if Airplane:InAir() then
@@ -298,18 +279,17 @@ function AI_CARGO_AIRPLANE:onafterPickup( Airplane, From, Event, To, Coordinate,
       self.Airbase=ClosestAirbase
     end
     
+    -- Set pickup airbase.
     local Airbase = PickupZone:GetAirbase()
     
     -- Distance from closest to pickup airbase ==> we need to know if we are already at the pickup airbase. 
     local Dist = Airbase:GetCoordinate():Get2DDistance(ClosestAirbase:GetCoordinate())
-    env.info("Distance closest to pickup airbase = "..Dist)
+    --env.info("Distance closest to pickup airbase = "..Dist)
     
     if Airplane:InAir() or Dist>500 then
     
-      env.info("FF onafterpickup routing to airbase "..ClosestAirbase:GetName())
-    
       -- Route aircraft to pickup airbase.
-      self:Route( Airplane, Airbase, Speed ) 
+      self:Route( Airplane, Airbase, Speed, Height ) 
           
       -- Set airbase as starting point in the next Route() call.
       self.Airbase = Airbase
@@ -318,7 +298,6 @@ function AI_CARGO_AIRPLANE:onafterPickup( Airplane, From, Event, To, Coordinate,
       self.RoutePickup = true
       
     else
-      env.info("FF onafterpick calling landed")
     
       -- We are already at the right airbase ==> Landed ==> triggers loading of troops. Is usually called at engine shutdown event.
       self.RoutePickup=true
@@ -326,10 +305,8 @@ function AI_CARGO_AIRPLANE:onafterPickup( Airplane, From, Event, To, Coordinate,
       
     end
 
-    self.Transporting = false
-    self.Relocating = true
-  else
-    env.info("FF onafterpick aircraft not alive")
+    self:GetParent( self, AI_CARGO_AIRPLANE ).onafterPickup( self, Airplane, From, Event, To, Coordinate, Speed, Height, PickupZone )
+    
   end
 
   
@@ -343,8 +320,9 @@ end
 -- @param #string To To state.
 -- @param Core.Point#COORDINATE Coordinate
 -- @param #number Speed in km/h for travelling to pickup base.
--- @param Core.Zone#ZONE_AIRBASE DeployZone
-function AI_CARGO_AIRPLANE:onafterDeploy( Airplane, From, Event, To, Coordinate, Speed, DeployZone )
+-- @param #number Height Height in meters to move to the home coordinate.
+-- @param Core.Zone#ZONE_AIRBASE DeployZone The zone where the cargo will be deployed.
+function AI_CARGO_AIRPLANE:onafterDeploy( Airplane, From, Event, To, Coordinate, Speed, Height, DeployZone )
 
   if Airplane and Airplane:IsAlive()~=nil then
     
@@ -356,7 +334,7 @@ function AI_CARGO_AIRPLANE:onafterDeploy( Airplane, From, Event, To, Coordinate,
     end
     
     -- Route to destination airbase.
-    self:Route( Airplane, Airbase, Speed )
+    self:Route( Airplane, Airbase, Speed, Height )
     
     -- Aircraft is on a depoly mission.
     self.RouteDeploy = true
@@ -364,27 +342,9 @@ function AI_CARGO_AIRPLANE:onafterDeploy( Airplane, From, Event, To, Coordinate,
     -- Set destination airbase for next :Route() command.
     self.Airbase = Airbase
     
-    self.Transporting = true
-    self.Relocating = false
+    self:GetParent( self, AI_CARGO_AIRPLANE ).onafterDeploy( self, Airplane, From, Event, To, Coordinate, Speed, Height, DeployZone )
   end
   
-end
-
-
-
---- On after PickedUp event. All cargo is inside the carrier and ready to be transported.
--- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
--- @param #string From From state.
--- @param #string Event Event.
--- @param #string To To state.
--- @param Core.Zone#ZONE PickupZone (optional) The zone where the cargo will be picked up. The PickupZone can be nil, if there wasn't any PickupZoneSet provided.
-function AI_CARGO_AIRPLANE:onafterPickedUp( Airplane, From, Event, To, PickupZone )
-  self:F( { AirplaneGroup, From, Event, To } )
-
-  if Airplane and Airplane:IsAlive() then
-    self.Transporting = true -- This will only be executed when there is no cargo boarded anymore. The dispatcher will then kick-off the deploy cycle!
-  end
 end
 
 
@@ -422,32 +382,17 @@ end
 
 
 
---- On after Deployed event.
--- @param #AI_CARGO_AIRPLANE self
--- @param Wrapper.Group#GROUP Airplane Cargo transport plane.
--- @param #string From From state.
--- @param #string Event Event.
--- @param #string To To state.
--- @param Cargo.Cargo#CARGO Cargo
-function AI_CARGO_AIRPLANE:onafterDeployed( Airplane, From, Event, To, DeployZone )
-
-  if Airplane and Airplane:IsAlive() then
-    self.Transporting = false -- This will only be executed when there is no cargo onboard anymore. The dispatcher will then kick-off the pickup cycle!
-  end
-end
-
-
-
 
 --- Route the airplane from one airport or it's current position to another airbase.
 -- @param #AI_CARGO_AIRPLANE self
 -- @param Wrapper.Group#GROUP Airplane Airplane group to be routed.
 -- @param Wrapper.Airbase#AIRBASE Airbase Destination airbase.
 -- @param #number Speed Speed in km/h. Default is 80% of max possible speed the group can do.
+-- @param #number Height Height in meters to move to the Airbase.
 -- @param #boolean Uncontrolled If true, spawn group in uncontrolled state.
-function AI_CARGO_AIRPLANE:Route( Airplane, Airbase, Speed, Uncontrolled )
+function AI_CARGO_AIRPLANE:Route( Airplane, Airbase, Speed, Height, Uncontrolled )
 
-  if Airplane and Airplane:IsAlive()~=nil then
+  if Airplane and Airplane:IsAlive() then
 
     -- Set takeoff type.
     local Takeoff = SPAWN.Takeoff.Cold
@@ -509,4 +454,31 @@ function AI_CARGO_AIRPLANE:Route( Airplane, Airbase, Speed, Uncontrolled )
     
     end
   end
+end
+
+--- On after Home event. Aircraft will be routed to their home base.
+-- @param #AI_CARGO_AIRPLANE self
+-- @param Wrapper.Group#GROUP Airplane The cargo plane.
+-- @param From From state.
+-- @param Event Event.
+-- @param To To State.
+-- @param Core.Point#COORDINATE Coordinate Home place (not used).
+-- @param #number Speed Speed in km/h to fly to the home airbase (zone). Default is 80% of max possible speed the unit can go.
+-- @param #number Height Height in meters to move to the home coordinate.
+-- @param Core.Zone#ZONE_AIRBASE HomeZone The home airbase (zone) where the plane should return to.
+function AI_CARGO_AIRPLANE:onafterHome(Airplane, From, Event, To, Coordinate, Speed, Height, HomeZone )
+  if Airplane and Airplane:IsAlive() then
+
+    -- We are going home!
+    self.RouteHome = true
+       
+    -- Home Base.
+    local HomeBase=HomeZone:GetAirbase()
+    self.Airbase=HomeBase
+    
+    -- Now route the airplane home
+   self:Route( Airplane, HomeBase, Speed, Height )
+    
+  end
+  
 end

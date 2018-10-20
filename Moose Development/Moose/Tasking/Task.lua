@@ -1200,15 +1200,27 @@ function TASK:MenuMarkToGroup( TaskGroup )
 
   self:UpdateTaskInfo( self.DetectedItem )
   
-  local Report = REPORT:New():SetIndent( 0 )
-
-  self.TaskInfo:Report( Report, "M", TaskGroup )
-
-  local TargetCoordinate = self.TaskInfo:GetData( "Coordinate" ) -- Core.Point#COORDINATE
-  local MarkText = Report:Text( ", " ) 
-  self:F( { Coordinate = TargetCoordinate, MarkText = MarkText } )
-  TargetCoordinate:MarkToGroup( MarkText, TaskGroup )
-  --Coordinate:MarkToAll( Briefing )
+  local TargetCoordinates = self.TaskInfo:GetData( "Coordinates" ) -- Core.Point#COORDINATE
+  if TargetCoordinates then
+    for TargetCoordinateID, TargetCoordinate in pairs( TargetCoordinates ) do
+      local Report = REPORT:New():SetIndent( 0 )
+      self.TaskInfo:Report( Report, "M", TaskGroup, self )
+      local MarkText = Report:Text( ", " ) 
+      self:F( { Coordinate = TargetCoordinate, MarkText = MarkText } )
+      TargetCoordinate:MarkToGroup( MarkText, TaskGroup )
+      --Coordinate:MarkToAll( Briefing )
+    end
+  else
+    local TargetCoordinate = self.TaskInfo:GetData( "Coordinate" ) -- Core.Point#COORDINATE
+    if TargetCoordinate then
+      local Report = REPORT:New():SetIndent( 0 )
+      self.TaskInfo:Report( Report, "M", TaskGroup, self )
+      local MarkText = Report:Text( ", " ) 
+      self:F( { Coordinate = TargetCoordinate, MarkText = MarkText } )
+      TargetCoordinate:MarkToGroup( MarkText, TaskGroup )
+    end
+  end
+  
 end
 
 --- Report the task status.
@@ -1739,7 +1751,7 @@ function TASK:ReportSummary( ReportGroup )
   -- Determine the status of the Task.
   Report:Add( "State: <" .. self:GetState() .. ">" )
   
-  self.TaskInfo:Report( Report, "S", ReportGroup )
+  self.TaskInfo:Report( Report, "S", ReportGroup, self )
   
   return Report:Text( ', ' )
 end
@@ -1756,7 +1768,7 @@ function TASK:ReportOverview( ReportGroup )
   local TaskName = self:GetName()
   local Report = REPORT:New()
   
-  self.TaskInfo:Report( Report, "O", ReportGroup )
+  self.TaskInfo:Report( Report, "O", ReportGroup, self )
   
   return Report:Text()
 end
@@ -1840,7 +1852,7 @@ function TASK:ReportDetails( ReportGroup )
     Report:AddIndent( Players )
   end
   
-  self.TaskInfo:Report( Report, "D", ReportGroup )
+  self.TaskInfo:Report( Report, "D", ReportGroup, self )
   
   return Report:Text()
 end

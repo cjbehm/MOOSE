@@ -119,10 +119,12 @@ end
 -- @param DCS#Unit DCSUnit An existing DCS Unit object reference.
 -- @return #UNIT self
 function UNIT:Find( DCSUnit )
-
-  local UnitName = DCSUnit:getName()
-  local UnitFound = _DATABASE:FindUnit( UnitName )
-  return UnitFound
+  if DCSUnit then
+    local UnitName = DCSUnit:getName()
+    local UnitFound = _DATABASE:FindUnit( UnitName )
+    return UnitFound
+  end
+  return nil
 end
 
 --- Find a UNIT in the _DATABASE using the name of an existing DCS Unit.
@@ -330,12 +332,12 @@ function UNIT:GetPlayerName()
   
     local PlayerName = DCSUnit:getPlayerName()
     -- TODO Workaround DCS-BUG-3 - https://github.com/FlightControl-Master/MOOSE/issues/696
-    if PlayerName == nil or PlayerName == "" then
-      local PlayerCategory = DCSUnit:getDesc().category
-      if PlayerCategory == Unit.Category.GROUND_UNIT or PlayerCategory == Unit.Category.SHIP then
-        PlayerName = "Player" .. DCSUnit:getID()
-      end
-    end
+--    if PlayerName == nil or PlayerName == "" then
+--      local PlayerCategory = DCSUnit:getDesc().category
+--      if PlayerCategory == Unit.Category.GROUND_UNIT or PlayerCategory == Unit.Category.SHIP then
+--        PlayerName = "Player" .. DCSUnit:getID()
+--      end
+--    end
 --    -- Good code
 --    if PlayerName == nil then 
 --      PlayerName = nil
@@ -383,6 +385,28 @@ function UNIT:GetSpeedMax()
   if Desc then
     local SpeedMax = Desc.speedMax
     return SpeedMax*3.6
+  end
+
+  return nil
+end
+
+--- Returns the unit's max range in meters derived from the DCS descriptors.
+-- For ground units it will return a range of 10,000 km as they have no real range.
+-- @param #UNIT self
+-- @return #number Range in meters.
+function UNIT:GetRange()
+  self:F2( self.UnitName )
+
+  local Desc = self:GetDesc()
+  
+  if Desc then
+    local Range = Desc.range --This is in nautical miles for some reason. But should check again!
+    if Range then
+      Range=UTILS.NMToMeters(Range)
+    else
+      Range=10000000 --10.000 km if no range
+    end
+    return Range
   end
 
   return nil
@@ -872,16 +896,35 @@ function UNIT:IsShip()
 end
 
 --- Returns true if the UNIT is in the air.
--- @param Wrapper.Positionable#UNIT self
+-- @param #UNIT self
 -- @return #boolean true if in the air.
 -- @return #nil The UNIT is not existing or alive.  
 function UNIT:InAir()
   self:F2( self.UnitName )
 
-  local DCSUnit = self:GetDCSObject()
+  local DCSUnit = self:GetDCSObject() --DCS#Unit
   
   if DCSUnit then
-    local UnitInAir = DCSUnit:inAir()
+--    Implementation of workaround. The original code is below.
+--    This to simulate the landing on buildings.
+
+    local UnitInAir = true
+
+    local UnitCategory = DCSUnit:getDesc().category
+    if UnitCategory == Unit.Category.HELICOPTER then
+      local VelocityVec3 = DCSUnit:getVelocity()
+      local Velocity = ( VelocityVec3.x ^ 2 + VelocityVec3.y ^ 2 + VelocityVec3.z ^ 2 ) ^ 0.5 -- in meters / sec
+      local Coordinate = DCSUnit:getPoint()
+      local LandHeight = land.getHeight( { x = Coordinate.x, y = Coordinate.z } )
+      local Height = Coordinate.y - LandHeight
+      if Velocity < 1 and Height <= 60   then
+        UnitInAir = false
+      end
+    else
+      UnitInAir = DCSUnit:inAir()
+    end
+
+
     self:T3( UnitInAir )
     return UnitInAir
   end

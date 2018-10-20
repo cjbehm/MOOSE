@@ -166,6 +166,40 @@ function AI_CARGO:IsRelocating()
 end
 
 
+--- On after Pickup event.
+-- @param #AI_CARGO self
+-- @param Wrapper.Group#GROUP APC
+-- @param From
+-- @param Event
+-- @param To
+-- @param Core.Point#COORDINATE Coordinate of the pickup point.
+-- @param #number Speed Speed in km/h to drive to the pickup coordinate. Default is 50% of max possible speed the unit can go.
+-- @param #number Height Height in meters to move to the home coordinate.
+-- @param Core.Zone#ZONE PickupZone (optional) The zone where the cargo will be picked up. The PickupZone can be nil, if there wasn't any PickupZoneSet provided.
+function AI_CARGO:onafterPickup( APC, From, Event, To, Coordinate, Speed, Height, PickupZone )
+
+  self.Transporting = false
+  self.Relocating = true
+  
+end
+
+
+--- On after Deploy event.
+-- @param #AI_CARGO self
+-- @param Wrapper.Group#GROUP APC
+-- @param From
+-- @param Event
+-- @param To
+-- @param Core.Point#COORDINATE Coordinate Deploy place.
+-- @param #number Speed Speed in km/h to drive to the depoly coordinate. Default is 50% of max possible speed the unit can go.
+-- @param #number Height Height in meters to move to the deploy coordinate.
+-- @param Core.Zone#ZONE DeployZone The zone where the cargo will be deployed.
+function AI_CARGO:onafterDeploy( APC, From, Event, To, Coordinate, Speed, Height, DeployZone )
+
+  self.Relocating = false
+  self.Transporting = true
+  
+end
 
 --- On before Load event.
 -- @param #AI_CARGO self
@@ -180,7 +214,7 @@ function AI_CARGO:onbeforeLoad( Carrier, From, Event, To, PickupZone )
   local Boarding = false
 
   local LoadInterval = 2
-  local LoadDelay = 0
+  local LoadDelay = 1
   local Carrier_List = {}
   local Carrier_Weight = {}
 
@@ -199,12 +233,12 @@ function AI_CARGO:onbeforeLoad( Carrier, From, Event, To, PickupZone )
     local Carrier_Count = #Carrier_List
     local Carrier_Index = 1
       
+    local Loaded = false
+
     for _, Cargo in UTILS.spairs( self.CargoSet:GetSet(), function( t, a, b ) return t[a]:GetWeight() > t[b]:GetWeight() end ) do
       local Cargo = Cargo -- Cargo.Cargo#CARGO
 
       self:F( { IsUnLoaded = Cargo:IsUnLoaded(), IsDeployed = Cargo:IsDeployed(), Cargo:GetName(), Carrier:GetName() } )
-
-      local Loaded = false
 
       -- Try all Carriers, but start from the one according the Carrier_Index
       for Carrier_Loop = 1, #Carrier_List do
@@ -217,7 +251,7 @@ function AI_CARGO:onbeforeLoad( Carrier, From, Event, To, PickupZone )
           Carrier_Index = 1
         end
         
-        if Cargo:IsUnLoaded() then -- and not Cargo:IsDeployed() then
+        if Cargo:IsUnLoaded() and not Cargo:IsDeployed() then
           if Cargo:IsInLoadRadius( CarrierUnit:GetCoordinate() ) then
             self:F( { "In radius", CarrierUnit:GetName() } )
             
@@ -227,10 +261,11 @@ function AI_CARGO:onbeforeLoad( Carrier, From, Event, To, PickupZone )
             if Carrier_Weight[CarrierUnit] > CargoWeight then --and CargoBayFreeVolume > CargoVolume then
               Carrier:RouteStop()
               --Cargo:Ungroup()
-              Cargo:__Board( LoadDelay, CarrierUnit, 25 )
-              LoadDelay = LoadDelay + LoadInterval
+              Cargo:__Board( -LoadDelay, CarrierUnit )
               self:__Board( LoadDelay, Cargo, CarrierUnit, PickupZone )
-  
+
+              LoadDelay = LoadDelay + Cargo:GetCount() * LoadInterval
+
               -- So now this CarrierUnit has Cargo that is being loaded.
               -- This will be used further in the logic to follow and to check cargo status.
               self.Carrier_Cargo[Cargo] = CarrierUnit
@@ -245,12 +280,86 @@ function AI_CARGO:onbeforeLoad( Carrier, From, Event, To, PickupZone )
         end
         
       end
+
+    end
+    
+    if not Loaded == true then
+      -- No loading happened, so we need to pickup something else.
+      self.Relocating = false
+    end
+  end
+
+  return Boarding
+  
+end
+
+
+--- On before Reload event.
+-- @param #AI_CARGO self
+-- @param Wrapper.Group#GROUP Carrier
+-- @param #string From From state.
+-- @param #string Event Event.
+-- @param #string To To state.
+-- @param Core.Zone#ZONE PickupZone (optional) The zone where the cargo will be picked up. The PickupZone can be nil, if there wasn't any PickupZoneSet provided.
+function AI_CARGO:onbeforeReload( Carrier, From, Event, To )
+  self:F( { Carrier, From, Event, To } )
+
+  local Boarding = false
+
+  local LoadInterval = 2
+  local LoadDelay = 1
+  local Carrier_List = {}
+  local Carrier_Weight = {}
+
+  if Carrier and Carrier:IsAlive() then
+    for _, CarrierUnit in pairs( Carrier:GetUnits() ) do
+      local CarrierUnit = CarrierUnit -- Wrapper.Unit#UNIT
       
-      if not Loaded then
-        -- No loading happened, so we need to pickup something else.
-        self.Relocating = false
+      Carrier_List[#Carrier_List+1] = CarrierUnit
+    end
+
+    local Carrier_Count = #Carrier_List
+    local Carrier_Index = 1
+      
+    local Loaded = false
+
+    for Cargo, CarrierUnit in pairs( self.Carrier_Cargo ) do
+      local Cargo = Cargo -- Cargo.Cargo#CARGO
+
+      self:F( { IsUnLoaded = Cargo:IsUnLoaded(), IsDeployed = Cargo:IsDeployed(), Cargo:GetName(), Carrier:GetName() } )
+
+      -- Try all Carriers, but start from the one according the Carrier_Index
+      for Carrier_Loop = 1, #Carrier_List do
+
+        local CarrierUnit = Carrier_List[Carrier_Index] -- Wrapper.Unit#UNIT
+
+        -- This counters loop through the available Carriers.
+        Carrier_Index = Carrier_Index + 1
+        if Carrier_Index > Carrier_Count then
+          Carrier_Index = 1
+        end
+        
+        if Cargo:IsUnLoaded() and not Cargo:IsDeployed() then
+          Carrier:RouteStop()
+          Cargo:__Board( -LoadDelay, CarrierUnit )
+          self:__Board( LoadDelay, Cargo, CarrierUnit )
+
+          LoadDelay = LoadDelay + Cargo:GetCount() * LoadInterval
+
+          -- So now this CarrierUnit has Cargo that is being loaded.
+          -- This will be used further in the logic to follow and to check cargo status.
+          self.Carrier_Cargo[Cargo] = CarrierUnit
+          Boarding = true
+          Loaded = true
+        end
+        
       end
-      
+
+    end
+    
+    if not Loaded == true then
+      -- No loading happened, so we need to pickup something else.
+      self.Relocating = false
     end
   end
 
@@ -272,13 +381,13 @@ function AI_CARGO:onafterBoard( Carrier, From, Event, To, Cargo, CarrierUnit, Pi
 
   if Carrier and Carrier:IsAlive() then
     self:F({ IsLoaded = Cargo:IsLoaded(), Cargo:GetName(), Carrier:GetName() } )
-    if not Cargo:IsLoaded() then
-      self:__Board( 10, Cargo, CarrierUnit, PickupZone )
+    if not Cargo:IsLoaded() and not Cargo:IsDestroyed() then
+      self:__Board( -10, Cargo, CarrierUnit, PickupZone )
       return
     end
   end
 
-  self:__Loaded( 10, Cargo, CarrierUnit, PickupZone )
+  self:__Loaded( 0.1, Cargo, CarrierUnit, PickupZone )
   
 end
 
@@ -306,7 +415,7 @@ function AI_CARGO:onafterLoaded( Carrier, From, Event, To, Cargo, PickupZone )
   end
   
   if Loaded then
-    self:PickedUp( PickupZone )
+    self:__PickedUp( 0.1, PickupZone )
   end
   
 end
@@ -322,6 +431,20 @@ function AI_CARGO:onafterPickedUp( Carrier, From, Event, To, PickupZone )
   self:F( { Carrier, From, Event, To } )
 
   Carrier:RouteResume()
+
+  local HasCargo = false
+  if Carrier and Carrier:IsAlive() then
+    for Cargo, CarrierUnit in pairs( self.Carrier_Cargo ) do
+      HasCargo = true
+      break
+    end
+  end
+
+  self.Relocating = false
+  if HasCargo then
+    self:F( "Transporting" )
+    self.Transporting = true
+  end
   
 end
 
@@ -335,11 +458,11 @@ end
 -- @param #string Event Event.
 -- @param #string To To state.
 -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-function AI_CARGO:onafterUnload( Carrier, From, Event, To, DeployZone )
-  self:F( { Carrier, From, Event, To, DeployZone } )
+function AI_CARGO:onafterUnload( Carrier, From, Event, To, DeployZone, Defend )
+  self:F( { Carrier, From, Event, To, DeployZone, Defend = Defend } )
 
-  local UnboardInterval = 10
-  local UnboardDelay = 10
+  local UnboardInterval = 5
+  local UnboardDelay = 5
 
   if Carrier and Carrier:IsAlive() then
     for _, CarrierUnit in pairs( Carrier:GetUnits() ) do
@@ -349,9 +472,11 @@ function AI_CARGO:onafterUnload( Carrier, From, Event, To, DeployZone )
         self:F( { Cargo = Cargo:GetName(), Isloaded = Cargo:IsLoaded() } )
         if Cargo:IsLoaded() then
           Cargo:__UnBoard( UnboardDelay )
-          UnboardDelay = UnboardDelay + UnboardInterval
-          Cargo:SetDeployed( true )
-          self:__Unboard( UnboardDelay, Cargo, CarrierUnit, DeployZone )
+          UnboardDelay = UnboardDelay + Cargo:GetCount() * UnboardInterval
+          self:__Unboard( UnboardDelay, Cargo, CarrierUnit, DeployZone, Defend )
+          if not Defend == true then
+            Cargo:SetDeployed( true )
+          end
         end 
       end
     end
@@ -367,17 +492,17 @@ end
 -- @param #string To To state.
 -- @param #string Cargo.Cargo#CARGO Cargo Cargo object.
 -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-function AI_CARGO:onafterUnboard( Carrier, From, Event, To, Cargo, CarrierUnit, DeployZone )
-  self:F( { Carrier, From, Event, To, Cargo:GetName() } )
+function AI_CARGO:onafterUnboard( Carrier, From, Event, To, Cargo, CarrierUnit, DeployZone, Defend )
+  self:F( { Carrier, From, Event, To, Cargo:GetName(), DeployZone = DeployZone, Defend = Defend } )
 
   if Carrier and Carrier:IsAlive() then
     if not Cargo:IsUnLoaded() then
-      self:__Unboard( 10, Cargo, CarrierUnit, DeployZone ) 
+      self:__Unboard( 10, Cargo, CarrierUnit, DeployZone, Defend ) 
       return
     end
   end
 
-  self:Unloaded( Cargo, CarrierUnit, DeployZone )
+  self:Unloaded( Cargo, CarrierUnit, DeployZone, Defend )
   
 end
 
@@ -390,8 +515,8 @@ end
 -- @param #string Cargo.Cargo#CARGO Cargo Cargo object.
 -- @param #boolean Deployed Cargo is deployed.
 -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-function AI_CARGO:onafterUnloaded( Carrier, From, Event, To, Cargo, CarrierUnit, DeployZone )
-  self:F( { Carrier, From, Event, To, Cargo:GetName(), DeployZone = DeployZone } )
+function AI_CARGO:onafterUnloaded( Carrier, From, Event, To, Cargo, CarrierUnit, DeployZone, Defend )
+  self:F( { Carrier, From, Event, To, Cargo:GetName(), DeployZone = DeployZone, Defend = Defend } )
 
   local AllUnloaded = true
 
@@ -417,7 +542,7 @@ function AI_CARGO:onafterUnloaded( Carrier, From, Event, To, Cargo, CarrierUnit,
   end
 
   if AllUnloaded == true then
-    self:__Deployed( 5, DeployZone )
+    self:__Deployed( 5, DeployZone, Defend )
   end
   
 end
@@ -429,10 +554,15 @@ end
 -- @param #string Event Event.
 -- @param #string To To state.
 -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-function AI_CARGO:onafterDeployed( Carrier, From, Event, To, DeployZone )
-  self:F( { Carrier, From, Event, To, DeployZone = DeployZone } )
+function AI_CARGO:onafterDeployed( Carrier, From, Event, To, DeployZone, Defend )
+  self:F( { Carrier, From, Event, To, DeployZone = DeployZone, Defend = Defend } )
 
-    self:__Guard( 0.1 )
+  if not Defend == true then
+    self.Transporting = false
+  else
+    self:F( "Defending" )
+    
+  end
 
 end
 

@@ -1,8 +1,10 @@
---- **Core (WIP)** -- Manage user flags.
+--- **Core** - Manage user flags to interact with the mission editor trigger system and server side scripts.
 --
 -- ===
 -- 
--- Management of DCS User Flags.
+-- ## Features:
+-- 
+--   * Set or get DCS user flags within running missions.
 -- 
 -- ===
 -- 
@@ -22,7 +24,7 @@ do -- UserFlag
 
   --- Management of DCS User Flags.
   -- 
-  -- ## USERFLAG constructor
+  -- # 1. USERFLAG constructor
   --   
   --   * @{#USERFLAG.New}(): Creates a new USERFLAG object.
   -- 
@@ -55,8 +57,6 @@ do -- UserFlag
   --   
   function USERFLAG:Set( Number ) --R2.3
   
-    self:F( { Number = Number } )
-    
     trigger.action.setUserFlag( self.UserFlagName, Number )
     
     return self

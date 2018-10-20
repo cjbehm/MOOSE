@@ -1,33 +1,31 @@
---- **Functional** - (R2.2) - Create random airtraffic in your missions.
+--- **Functional** - Create random airtraffic in your missions.
 -- 
 -- ===
 -- 
--- The aim of the RAT class is to fill the empty DCS world with randomized air traffic and bring more life to your airports.
--- 
--- In particular, it is designed to spawn AI air units at random airports. These units will be assigned a random flight path to another random airport on the map.
--- 
+-- The aim of the RAT class is to fill the empty DCS world with randomized air traffic and bring more life to your airports.  
+-- In particular, it is designed to spawn AI air units at random airports. These units will be assigned a random flight path to another random airport on the map.  
 -- Even the mission designer will not know where aircraft will be spawned and which route they follow.
 -- 
--- ## Features
+-- ## Features:
 -- 
---  * Very simple interface. Just one unit and two lines of Lua code needed to fill your map.
---  * High degree of randomization. Aircraft will spawn at random airports, have random routes and random destinations.
---  * Specific departure and/or destination airports can be chosen.
---  * Departure and destination airports can be restricted by coalition.
---  * Planes and helicopters supported. Helicopters can also be send to FARPs and ships.
---  * Units can also be spawned in air within pre-defined zones of the map.
---  * Aircraft will be removed when they arrive at their destination (or get stuck on the ground).
---  * When a unit is removed a new unit with a different flight plan is respawned.
---  * Aircraft can report their status during the route.
---  * All of the above can be customized by the user if necessary.
---  * All current (Caucasus, Nevada, Normandy, Persian Gulf) and future maps are supported.
+--   * Very simple interface. Just one unit and two lines of Lua code needed to fill your map.
+--   * High degree of randomization. Aircraft will spawn at random airports, have random routes and random destinations.
+--   * Specific departure and/or destination airports can be chosen.
+--   * Departure and destination airports can be restricted by coalition.
+--   * Planes and helicopters supported. Helicopters can also be send to FARPs and ships.
+--   * Units can also be spawned in air within pre-defined zones of the map.
+--   * Aircraft will be removed when they arrive at their destination (or get stuck on the ground).
+--   * When a unit is removed a new unit with a different flight plan is respawned.
+--   * Aircraft can report their status during the route.
+--   * All of the above can be customized by the user if necessary.
+--   * All current (Caucasus, Nevada, Normandy, Persian Gulf) and future maps are supported.
 --  
---  The RAT class creates an entry in the F10 radio menu which allows to
+-- The RAT class creates an entry in the F10 radio menu which allows to:
 --  
---  * Create new groups on-the-fly, i.e. at run time within the mission,
---  * Destroy specific groups (e.g. if they get stuck or damaged and block a runway),
---  * Request the status of all RAT aircraft or individual groups,
---  * Place markers at waypoints on the F10 map for each group.
+--   * Create new groups on-the-fly, i.e. at run time within the mission,
+--   * Destroy specific groups (e.g. if they get stuck or damaged and block a runway),
+--   * Request the status of all RAT aircraft or individual groups,
+--   * Place markers at waypoints on the F10 map for each group.
 -- 
 -- Note that by its very nature, this class is suited best for civil or transport aircraft. However, it also works perfectly fine for military aircraft of any kind.
 -- 
@@ -35,10 +33,9 @@
 -- 
 -- ===
 -- 
--- # Demo Missions
+-- ## Missions:
 --
--- ### [MOOSE - ALL Demo Missions](https://github.com/FlightControl-Master/MOOSE_MISSIONS)
--- ### [MOOSE - RAT Demo Missions](https://github.com/FlightControl-Master/MOOSE_MISSIONS/tree/master/RAT%20-%20Random%20Air%20Traffic)
+-- ### [RAT - Random Air Traffic](https://github.com/FlightControl-Master/MOOSE_MISSIONS/tree/master/RAT%20-%20Random%20Air%20Traffic)
 -- 
 -- ===
 -- 
@@ -549,7 +546,7 @@ RAT.id="RAT | "
 --- RAT version.
 -- @list version
 RAT.version={
-  version = "2.3.3",
+  version = "2.3.4",
   print = true,
 }
 
@@ -2064,8 +2061,9 @@ end
 -- @param #table _waypoint First waypoint to be used (for continue journey, commute, etc).
 -- @param Core.Point#COORDINATE _lastpos (Optional) Position where the aircraft will be spawned.
 -- @param #number _nrespawn Number of already performed respawn attempts (e.g. spawning on runway bug).
+-- @param #table parkingdata Explicitly specify the parking spots when spawning at an airport.
 -- @return #number Spawn index.
-function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _livery, _waypoint, _lastpos, _nrespawn)
+function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _livery, _waypoint, _lastpos, _nrespawn, parkingdata)
   self:F({rat=RAT.id, departure=_departure, destination=_destination, takeoff=_takeoff, landing=_landing, livery=_livery, waypoint=_waypoint, lastpos=_lastpos, nrespawn=_nrespawn})
 
   -- Set takeoff type.
@@ -2115,7 +2113,7 @@ function RAT:_SpawnWithRoute(_departure, _destination, _takeoff, _landing, _live
   end
   
   -- Modify the spawn template to follow the flight plan.
-  local successful=self:_ModifySpawnTemplate(waypoints, livery, _lastpos, departure, takeoff)
+  local successful=self:_ModifySpawnTemplate(waypoints, livery, _lastpos, departure, takeoff, parkingdata)
   if not successful then
     return nil
   end
@@ -2458,7 +2456,7 @@ function RAT:_SetRoute(takeoff, landing, _departure, _destination, _waypoint)
   local VxCruiseMin = math.min(VxCruiseMax*0.70, 166)
   
   -- Cruise speed (randomized). Expectation value at midpoint between min and max.
-  local VxCruise = self:_Random_Gaussian((VxCruiseMax-VxCruiseMin)/2+VxCruiseMin, (VxCruiseMax-VxCruiseMax)/4, VxCruiseMin, VxCruiseMax)
+  local VxCruise = UTILS.RandomGaussian((VxCruiseMax-VxCruiseMin)/2+VxCruiseMin, (VxCruiseMax-VxCruiseMax)/4, VxCruiseMin, VxCruiseMax)
   
   -- Climb speed 90% ov Vmax but max 720 km/h.
   local VxClimb = math.min(self.aircraft.Vmax*0.90, 200)
@@ -2816,7 +2814,7 @@ function RAT:_SetRoute(takeoff, landing, _departure, _destination, _waypoint)
   end
     
   -- Set cruise altitude. Selected from Gaussian distribution but limited to FLmin and FLmax.
-  local FLcruise=self:_Random_Gaussian(FLcruise_expect, math.abs(FLmax-FLmin)/4, FLmin, FLmax)
+  local FLcruise=UTILS.RandomGaussian(FLcruise_expect, math.abs(FLmax-FLmin)/4, FLmin, FLmax)
     
   -- Overrule setting if user specified a flight level explicitly.
   if self.FLuser then
@@ -5013,38 +5011,6 @@ function RAT:_Randomize(value, fac, lower, upper)
   return r
 end
 
---- Generate Gaussian pseudo-random numbers.
--- @param #number x0 Expectation value of distribution.
--- @param #number sigma (Optional) Standard deviation. Default 10.
--- @param #number xmin (Optional) Lower cut-off value.
--- @param #number xmax (Optional) Upper cut-off value.
--- @return #number Gaussian random number.
-function RAT:_Random_Gaussian(x0, sigma, xmin, xmax)
-
-  -- Standard deviation. Default 10 if not given.
-  sigma=sigma or 10
-    
-  local r
-  local gotit=false
-  local i=0
-  while not gotit do
-  
-    -- Uniform numbers in [0,1). We need two.
-    local x1=math.random()
-    local x2=math.random()
-  
-    -- Transform to Gaussian exp(-(x-x0)²/(2*sigma²).
-    r = math.sqrt(-2*sigma*sigma * math.log(x1)) * math.cos(2*math.pi * x2) + x0
-    
-    i=i+1
-    if (r>=xmin and r<=xmax) or i>100 then
-      gotit=true
-    end
-  end
-  
-  return r
-
-end
 
 --- Place markers of the waypoints. Note we assume a very specific number and type of waypoints here.
 -- @param #RAT self
@@ -5103,9 +5069,10 @@ end
 -- @param Core.Point#COORDINATE spawnplace (Optional) Place where spawning should happen. If not present, first waypoint is taken.
 -- @param Wrapper.Airbase#AIRBASE departure Departure airbase or zone.
 -- @param #number takeoff Takeoff type.
+-- @param #table parkingdata Parking data, i.e. parking spot coordinates and terminal ids for all units of the group.
 -- @return #boolean True if modification was successful or nil if not, e.g. when no parking space was found and spawn in air is disabled.
-function RAT:_ModifySpawnTemplate(waypoints, livery, spawnplace, departure, takeoff)
-  self:F2({waypoints=waypoints, livery=livery, spawnplace=spawnplace, departure=departure, takeoff=takeoff})
+function RAT:_ModifySpawnTemplate(waypoints, livery, spawnplace, departure, takeoff, parkingdata)
+  self:F2({waypoints=waypoints, livery=livery, spawnplace=spawnplace, departure=departure, takeoff=takeoff, parking=parkingdata})
 
   -- The 3D vector of the first waypoint, i.e. where we actually spawn the template group.
   local PointVec3 = COORDINATE:New(waypoints[1].x, waypoints[1].alt, waypoints[1].y)
@@ -5193,6 +5160,10 @@ function RAT:_ModifySpawnTemplate(waypoints, livery, spawnplace, departure, take
           self:T(RAT.id..string.format("Group %s is spawned on farp/ship/runway %s.", self.alias, departure:GetName()))
           nfree=departure:GetFreeParkingSpotsNumber(termtype, true)
           spots=departure:GetFreeParkingSpotsTable(termtype, true)
+        elseif parkingdata~=nil then
+          -- Parking data explicitly set by user as input parameter.
+          nfree=#parkingdata
+          spots=parkingdata
         else
           -- Helo is spawned.
           if self.category==RAT.cat.heli then

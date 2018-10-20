@@ -376,8 +376,8 @@ end
 -- @param #CLIENT self
 -- @return Wrapper.Unit#UNIT
 function CLIENT:GetClientGroupUnit()
-	self:F2()
-
+  self:F2()
+  
 	local ClientDCSUnit = Unit.getByName( self.ClientName )
 
   self:T( self.ClientDCSUnit )
@@ -433,11 +433,7 @@ function CLIENT:ShowCargo()
 
 end
 
--- TODO (1) I urgently need to revise this.
---- A local function called by the DCS World Menu system to switch off messages.
-function CLIENT.SwitchMessages( PrmTable )
-	PrmTable[1].MessageSwitch = PrmTable[2]
-end
+
 
 --- The main message driver for the CLIENT.
 -- This function displays various messages to the Player logged into the CLIENT through the DCS World Messaging system.

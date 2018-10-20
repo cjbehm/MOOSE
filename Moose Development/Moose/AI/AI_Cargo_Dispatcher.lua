@@ -1,5 +1,106 @@
 --- **AI** -- (R2.4) - Models the intelligent transportation of infantry and other cargo.
 --
+-- ## Features:
+-- 
+--   * AI_CARGO_DISPATCHER is the **base class** for:
+--   
+--     * @{AI.AI_Cargo_Dispatcher_APC#AI_CARGO_DISPATCHER_APC}
+--     * @{AI.AI_Cargo_Dispatcher_Helicopter#AI_CARGO_DISPATCHER_HELICOPTER}
+--     * @{AI.AI_Cargo_Dispatcher_Airplane#AI_CARGO_DISPATCHER_AIRPLANE}
+--     
+--   * Provides the facilities to transport cargo over the battle field for the above classes.
+--   * Dispatches transport tasks to a common set of cargo transporting groups.
+--   * Different options can be setup to tweak the cargo transporation behaviour.
+-- 
+-- ===
+-- 
+-- ## Test Missions:
+-- 
+-- Test missions can be located on the main GITHUB site.
+-- 
+-- [FlightControl-Master/MOOSE_MISSIONS/AID - AI Dispatching/AID-CGO - AI Cargo Dispatching/](https://github.com/FlightControl-Master/MOOSE_MISSIONS/tree/develop/AID%20-%20AI%20Dispatching/AID-CGO%20-%20AI%20Cargo%20Dispatching)
+-- 
+-- ===
+-- 
+-- # The dispatcher concept.
+-- 
+-- Carrier equipment can be mobilized to intelligently transport infantry and other cargo within the simulation.
+-- The AI_CARGO_DISPATCHER module uses the @{Cargo.Cargo} capabilities within the MOOSE framework, to enable Carrier GROUP objects 
+-- to transport @{Cargo.Cargo} towards several deploy zones.
+-- @{Cargo.Cargo} must be declared within the mission to make the AI_CARGO_DISPATCHER object recognize the cargo.
+-- Please consult the @{Cargo.Cargo} module for more information. 
+-- 
+-- 
+-- ## Why cargo dispatching?
+-- 
+-- It provides a realistic way of distributing your army forces around the battlefield, and to provide a quick means of cargo transportation.
+-- Instead of having troops or cargo to "appear" suddenly at certain locations, the dispatchers will pickup the cargo and transport it.
+-- It also allows to enforce or retreat your army from certain zones when needed, using helicopters or APCs.
+-- Airplanes can transport cargo over larger distances between the airfields.
+-- 
+-- 
+-- ## What is a cargo object then?
+-- 
+-- In order to make use of the MOOSE cargo system, you need to **declare** the DCS objects as MOOSE cargo objects!
+-- This sounds complicated, but it is actually quite simple.
+-- 
+-- See here an example:
+-- 
+--     local EngineerCargoGroup = CARGO_GROUP:New( GROUP:FindByName( "Engineers" ), "Workmaterials", "Engineers", 250 )
+--     
+-- The above code declares a MOOSE cargo object called `EngineerCargoGroup`.
+-- It actually just refers to an infantry group created within the sim called `"Engineers"`.
+-- The infantry group now becomes controlled by the MOOSE cargo object `EngineerCargoGroup`.
+-- A MOOSE cargo object also has properties, like the type of cargo, the logical name, and the reporting range.
+-- 
+-- For more information, please consult the @{Cargo.Cargo} module documentation. Please read through it, because it will explain how to setup the cargo objects for use
+-- within your dispatchers.
+-- 
+-- 
+-- ## Do I need to do a lot of coding to setup a dispatcher?
+-- 
+-- No! It requires a bit of studying to set it up, but once you understand the different components that use the cargo dispatcher, it becomes very easy.
+-- Also, the dispatchers work in a true dynamic environment. The carriers and cargo, pickup and deploy zones can be created dynamically in your mission,
+-- and will automatically be recognized by the dispatcher.
+-- 
+-- 
+-- ## Is the dispatcher causing a lot of CPU overhead?
+-- 
+-- A little yes, but once the cargo is properly loaded into the carrier, the CPU consumption is very little.
+-- When infantry or vehicles board into a carrier, or unboard from a carrier, you may perceive certain performance lags.
+-- We are working to minimize the impact of those.
+-- That being said, the DCS simulator is limited. It is just impossible to deploy hundreds of cargo over the battlefield, hundreds of helicopters transporting, 
+-- without any performance impact. The amount of helicopters that are active and flying in your simulation influences more the performance than the dispatchers.
+-- It really comes down to trying it out and getting experienced with what is possible and what is not (or too much).
+-- 
+-- 
+-- ## Are the dispatchers a "black box" in terms of the logic?
+-- 
+-- No. You can tailor the dispatcher mechanisms using event handlers, and create additional logic to enhance the behaviour and dynamism in your own mission.
+-- The events are listed below, and so are the options, but here are a couple of examples of what is possible:
+-- 
+--    * You could handle the **Deployed** event, when all the cargo is unloaded from a carrier in the dispatcher.
+--      Adding your own code to the event handler, you could move the deployed cargo (infantry) to specific points to engage in the battlefield.
+--    
+--    * When a carrier is picking up cargo, the *Pickup** event is triggered, and you can inform the coalition of this event, 
+--      because it is an indication that troops are planned to join.
+-- 
+--    
+-- ## Are there options that you can set to modify the behaviour of the carries?
+-- 
+-- Yes, there are options to configure:
+-- 
+--    * the location where carriers will park or land near the cargo for pickup. 
+--    * the location where carriers will park or land in the deploy zone for cargo deployment.
+--    * the height for airborne carriers when they fly to and from pickup and deploy zones.
+--    * the speed of the carriers. This is an important parameter, because depending on the tactication situation, speed will influence the detection by radars.
+-- 
+-- 
+-- ## Can the zones be of any zone type?
+-- 
+-- Yes, please ensure that the zones are declared using the @{Core.Zone} classes.
+-- Possible zones that function at the moment are ZONE, ZONE_GROUP, ZONE_UNIT, ZONE_POLYGON.
+-- 
 -- ===
 -- 
 -- ### Author: **FlightControl**
@@ -9,11 +110,32 @@
 -- @module AI.AI_Cargo_Dispatcher
 -- @image AI_Cargo_Dispatcher.JPG
 
+
 --- @type AI_CARGO_DISPATCHER
+-- @field Core.Set#SET_GROUP CarrierSet The set of @{Wrapper.Group#GROUP} objects of carriers that will transport the cargo. 
+-- @field Core.Set#SET_CARGO CargoSet The set of @{Cargo.Cargo#CARGO} objects, which can be CARGO_GROUP, CARGO_CRATE, CARGO_SLINGLOAD objects.
+-- @field Core.Zone#SET_ZONE PickupZoneSet The set of pickup zones, which are used to where the cargo can be picked up by the carriers. If nil, then cargo can be picked up everywhere. 
+-- @field Core.Zone#SET_ZONE DeployZoneSet The set of deploy zones, which are used to where the cargo will be deployed by the carriers. 
+-- @field #number PickupMaxSpeed The maximum speed to move to the cargo pickup location.
+-- @field #number PickupMinSpeed The minimum speed to move to the cargo pickup location.
+-- @field #number DeployMaxSpeed The maximum speed to move to the cargo deploy location.
+-- @field #number DeployMinSpeed The minimum speed to move to the cargo deploy location.
+-- @field #number PickupMaxHeight The maximum height to fly to the cargo pickup location.
+-- @field #number PickupMinHeight The minimum height to fly to the cargo pickup location.
+-- @field #number DeployMaxHeight The maximum height to fly to the cargo deploy location.
+-- @field #number DeployMinHeight The minimum height to fly to the cargo deploy location.
+-- @field #number PickupOuterRadius The outer radius in meters around the cargo coordinate to pickup the cargo.
+-- @field #number PickupInnerRadius The inner radius in meters around the cargo coordinate to pickup the cargo.
+-- @field #number DeployOuterRadius The outer radius in meters around the cargo coordinate to deploy the cargo.
+-- @field #number DeployInnerRadius The inner radius in meters around the cargo coordinate to deploy the cargo.
+-- @field Core.Zone#ZONE_BASE HomeZone The home zone where the carriers will return when there is no more cargo to pickup.
+-- @field #number MonitorTimeInterval The interval in seconds when the cargo dispatcher will search for new cargo to be picked up.
 -- @extends Core.Fsm#FSM
 
 
 --- A dynamic cargo handling capability for AI groups.
+-- 
+-- ---   
 -- 
 -- Carrier equipment can be mobilized to intelligently transport infantry and other cargo within the simulation.
 -- The AI_CARGO_DISPATCHER module uses the @{Cargo.Cargo} capabilities within the MOOSE framework, to enable Carrier GROUP objects 
@@ -21,18 +143,57 @@
 -- @{Cargo.Cargo} must be declared within the mission to make the AI_CARGO_DISPATCHER object recognize the cargo.
 -- Please consult the @{Cargo.Cargo} module for more information. 
 -- 
--- # 1) AI_CARGO_DISPATCHER constructor
+-- # 1) AI_CARGO_DISPATCHER constructor.
 --   
---   * @{#AI_CARGO_DISPATCHER.New}(): Creates a new AI\_CARGO\_DISPATCHER object.
+--   * @{#AI_CARGO_DISPATCHER.New}(): Creates a new AI_CARGO_DISPATCHER object.
 -- 
--- # 2) AI_CARGO_DISPATCHER is a FSM
+-- Find below some examples of AI cargo dispatcher objects created.
+-- 
+-- ### An AI dispatcher object for a helicopter squadron, moving infantry from pickup zones to deploy zones.
+-- 
+--        local SetCargoInfantry = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
+--        local SetHelicopter = SET_GROUP:New():FilterPrefixes( "Helicopter" ):FilterStart()
+--        local SetPickupZones = SET_ZONE:New():FilterPrefixes( "Pickup" ):FilterStart()
+--        local SetDeployZones = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
+--      
+--        AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
+--        AICargoDispatcherHelicopter:SetHomeZone( ZONE:FindByName( "Home" ) )
+-- 
+-- ### An AI dispatcher object for a vehicle squadron, moving infantry from pickup zones to deploy zones.
+-- 
+--        local SetCargoInfantry = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
+--        local SetAPC = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
+--        local SetDeployZones = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
+--      
+--        AICargoDispatcherAPC = AI_CARGO_DISPATCHER_APC:New( SetAPC, SetCargoInfantry, nil, SetDeployZones ) 
+--        AICargoDispatcherAPC:Start()
+-- 
+-- ### An AI dispatcher object for an airplane squadron, moving infantry and vehicles from pickup airbases to deploy airbases.
+--   
+--        local CargoInfantrySet = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
+--        local AirplanesSet = SET_GROUP:New():FilterPrefixes( "Airplane" ):FilterStart()
+--        local PickupZoneSet = SET_ZONE:New()
+--        local DeployZoneSet = SET_ZONE:New()
+--      
+--        PickupZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Gudauta ) )
+--        DeployZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Sochi_Adler ) )
+--        DeployZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Maykop_Khanskaya ) )
+--        DeployZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Mineralnye_Vody ) )
+--        DeployZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Vaziani ) )
+--      
+--        AICargoDispatcherAirplanes = AI_CARGO_DISPATCHER_AIRPLANE:New( AirplanesSet, CargoInfantrySet, PickupZoneSet, DeployZoneSet ) 
+--        AICargoDispatcherAirplanes:SetHomeZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Kobuleti ) )
+-- 
+-- ---
+-- 
+-- # 2) AI_CARGO_DISPATCHER is a Finite State Machine.
 -- 
 -- This section must be read as follows. Each of the rows indicate a state transition, triggered through an event, and with an ending state of the event was executed.
 -- The first column is the **From** state, the second column the **Event**, and the third column the **To** state.
 -- 
 -- So, each of the rows have the following structure.
 -- 
---  * **From** => **Event** => **To**
+--   * **From** => **Event** => **To**
 -- 
 -- Important to know is that an event can only be executed if the **current state** is the **From** state.
 -- This, when an **Event** that is being triggered has a **From** state that is equal to the **Current** state of the state machine, the event will be executed,
@@ -40,28 +201,27 @@
 -- 
 -- These are the different possible state transitions of this state machine implementation: 
 -- 
---  * Idle => Start => Monitoring
---  * Monitoring => Monitor => Monitoring
---  * Monitoring => Stop => Idle
+--   * Idle => Start => Monitoring
+--   * Monitoring => Monitor => Monitoring
+--   * Monitoring => Stop => Idle
 --      
---  * Monitoring => Pickup => Monitoring
---  * Monitoring => Load => Monitoring
---  * Monitoring => Loading => Monitoring
---  * Monitoring => Loaded => Monitoring
---  * Monitoring => PickedUp => Monitoring
---  * Monitoring => Deploy => Monitoring
---  * Monitoring => Unload => Monitoring
---  * Monitoring => Unloaded => Monitoring
---  * Monitoring => Deployed => Monitoring
---  * Monitoring => Home => Monitoring
--- 
---      
--- ## 2.1) AI_CARGO_DISPATCHER States
+--   * Monitoring => Pickup => Monitoring
+--   * Monitoring => Load => Monitoring
+--   * Monitoring => Loading => Monitoring
+--   * Monitoring => Loaded => Monitoring
+--   * Monitoring => PickedUp => Monitoring
+--   * Monitoring => Deploy => Monitoring
+--   * Monitoring => Unload => Monitoring
+--   * Monitoring => Unloaded => Monitoring
+--   * Monitoring => Deployed => Monitoring
+--   * Monitoring => Home => Monitoring
+--
+-- ## 2.1) AI_CARGO_DISPATCHER States.
 -- 
 --   * **Monitoring**: The process is dispatching.
 --   * **Idle**: The process is idle.
 -- 
--- ## 2.2) AI_CARGO_DISPATCHER Events
+-- ## 2.2) AI_CARGO_DISPATCHER Events.
 -- 
 --   * **Start**: Start the transport process.
 --   * **Stop**: Stop the transport process.
@@ -78,6 +238,8 @@
 --   * **Deployed**: All cargo is unloaded from the carriers in the group.
 --   * **Home**: A Carrier is going home.
 -- 
+-- ---
+-- 
 -- # 3) Enhance your mission scripts with **Tailored** Event Handling!
 -- 
 -- Use these methods to capture the events and tailor the events with your own code!
@@ -92,6 +254,27 @@
 --     but you need to declare them as they are automatically provided by the event handling system of MOOSE.
 -- 
 -- You can send messages or fire off any other events within the code section. The sky is the limit!
+-- 
+-- Mission AID-CGO-140, AID-CGO-240 and AID-CGO-340 contain examples how these events can be tailored.
+-- 
+-- For those who don't have the time to check the test missions, find the underlying example of a Deployed event that is tailored.
+-- 
+--      --- Deployed Handler OnAfter for AI_CARGO_DISPATCHER.
+--      -- Use this event handler to tailor the event when a carrier has deployed all cargo objects from the CarrierGroup.
+--      -- You can use this event handler to post messages to players, or provide status updates etc.
+--      -- @function OnAfterDeployed
+--      -- @param #AICargoDispatcherHelicopter self
+--      -- @param #string From A string that contains the "*from state name*" when the event was fired.
+--      -- @param #string Event A string that contains the "*event name*" when the event was fired.
+--      -- @param #string To A string that contains the "*to state name*" when the event was fired.
+--      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+--      -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
+--      function AICargoDispatcherHelicopter:OnAfterDeployed( From, Event, To, CarrierGroup, DeployZone )
+--      
+--        MESSAGE:NewType( "Group " .. CarrierGroup:GetName() .. " deployed all cargo in zone " .. DeployZone:GetName(), MESSAGE.Type.Information ):ToAll()
+--      
+--      end 
+-- 
 -- 
 -- ## 3.1) Tailor the **Pickup** event
 -- 
@@ -109,8 +292,9 @@
 --      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
 --      -- @param Core.Point#COORDINATE Coordinate The coordinate of the pickup location.
 --      -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the pickup Coordinate.
+--      -- @param #number Height Height in meters to move to the pickup coordinate.
 --      -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
---      function CLASS:OnAfterPickup( From, Event, To, CarrierGroup, Coordinate, Speed, PickupZone )
+--      function CLASS:OnAfterPickup( From, Event, To, CarrierGroup, Coordinate, Speed, Height, PickupZone )
 --      
 --        -- Write here your own code.
 --      
@@ -232,8 +416,9 @@
 --      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
 --      -- @param Core.Point#COORDINATE Coordinate The deploy coordinate.
 --      -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the deploy Coordinate.
+--      -- @param #number Height Height in meters to move to the deploy coordinate.
 --      -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
---      function CLASS:OnAfterDeploy( From, Event, To, CarrierGroup, Coordinate, Speed, DeployZone )
+--      function CLASS:OnAfterDeploy( From, Event, To, CarrierGroup, Coordinate, Speed, Height, DeployZone )
 --      
 --        -- Write here your own code.
 --      
@@ -347,29 +532,37 @@
 --      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
 --      -- @param Core.Point#COORDINATE Coordinate The home coordinate the Carrier will arrive and stop it's activities.
 --      -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the home Coordinate.
+--      -- @param #number Height Height in meters to move to the home coordinate.
 --      -- @param Core.Zone#ZONE HomeZone The zone wherein the carrier will return when all cargo has been transported. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
---      function CLASS:OnAfterHome( From, Event, To, CarrierGroup, Coordinate, Speed, HomeZone )
+--      function CLASS:OnAfterHome( From, Event, To, CarrierGroup, Coordinate, Speed, Height, HomeZone )
 --
 --        -- Write here your own code.
 --      
 --      end      
 -- 
+-- ---
 -- 
--- # 3) Set the pickup parameters.
+-- # 4) Set the pickup parameters.
 -- 
 -- Several parameters can be set to pickup cargo:
 -- 
 --    * @{#AI_CARGO_DISPATCHER.SetPickupRadius}(): Sets or randomizes the pickup location for the carrier around the cargo coordinate in a radius defined an outer and optional inner radius. 
 --    * @{#AI_CARGO_DISPATCHER.SetPickupSpeed}(): Set the speed or randomizes the speed in km/h to pickup the cargo.
+--    * @{#AI_CARGO_DISPATCHER.SetPickupHeight}(): Set the height or randomizes the height in meters to pickup the cargo.
 --    
--- # 4) Set the deploy parameters.
+-- ---   
+--    
+-- # 5) Set the deploy parameters.
 -- 
 -- Several parameters can be set to deploy cargo:
 -- 
 --    * @{#AI_CARGO_DISPATCHER.SetDeployRadius}(): Sets or randomizes the deploy location for the carrier around the cargo coordinate in a radius defined an outer and an optional inner radius. 
 --    * @{#AI_CARGO_DISPATCHER.SetDeploySpeed}(): Set the speed or randomizes the speed in km/h to deploy the cargo.
+--    * @{#AI_CARGO_DISPATCHER.SetDeployHeight}(): Set the height or randomizes the height in meters to deploy the cargo.
 -- 
--- # 5) Set the home zone when there isn't any more cargo to pickup.
+-- ---
+-- 
+-- # 6) Set the home zone when there isn't any more cargo to pickup.
 -- 
 -- A home zone can be specified to where the Carriers will move when there isn't any cargo left for pickup.
 -- Use @{#AI_CARGO_DISPATCHER.SetHomeZone}() to specify the home zone.
@@ -381,38 +574,75 @@
 -- @field #AI_CARGO_DISPATCHER
 AI_CARGO_DISPATCHER = {
   ClassName = "AI_CARGO_DISPATCHER",
-  SetCarrier = nil,
-  DeployZoneSet = nil,
   AI_Cargo = {},
   PickupCargo = {}
 }
 
---- @field #AI_CARGO_DISPATCHER.AI_Cargo 
+--- @field #list 
 AI_CARGO_DISPATCHER.AI_Cargo = {}
 
---- @field #AI_CARGO_DISPATCHER.PickupCargo
+--- @field #list
 AI_CARGO_DISPATCHER.PickupCargo = {}
 
 
 --- Creates a new AI_CARGO_DISPATCHER object.
 -- @param #AI_CARGO_DISPATCHER self
--- @param Core.Set#SET_GROUP SetCarrier
--- @param Core.Set#SET_CARGO SetCargo
+-- @param Core.Set#SET_GROUP CarrierSet The set of @{Wrapper.Group#GROUP} objects of carriers that will transport the cargo. 
+-- @param Core.Set#SET_CARGO CargoSet The set of @{Cargo.Cargo#CARGO} objects, which can be CARGO_GROUP, CARGO_CRATE, CARGO_SLINGLOAD objects.
+-- @param Core.Set#SET_ZONE PickupZoneSet (optional) The set of pickup zones, which are used to where the cargo can be picked up by the carriers. If nil, then cargo can be picked up everywhere. 
+-- @param Core.Set#SET_ZONE DeployZoneSet The set of deploy zones, which are used to where the cargo will be deployed by the carriers. 
 -- @return #AI_CARGO_DISPATCHER
 -- @usage
 -- 
--- -- Create a new cargo dispatcher
--- SetCarriers = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
--- SetCargos = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
--- SetDeployZone = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo )
+--      -- An AI dispatcher object for a helicopter squadron, moving infantry from pickup zones to deploy zones.
 -- 
-function AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo )
+--      local SetCargoInfantry = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
+--      local SetHelicopter = SET_GROUP:New():FilterPrefixes( "Helicopter" ):FilterStart()
+--      local SetPickupZones = SET_ZONE:New():FilterPrefixes( "Pickup" ):FilterStart()
+--      local SetDeployZones = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
+--      
+--      AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
+--      AICargoDispatcherHelicopter:Start()
+-- 
+-- @usage
+-- 
+--      -- An AI dispatcher object for a vehicle squadron, moving infantry from pickup zones to deploy zones.
+-- 
+--      local SetCargoInfantry = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
+--      local SetAPC = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
+--      local SetDeployZones = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
+--      
+--      AICargoDispatcherAPC = AI_CARGO_DISPATCHER_APC:New( SetAPC, SetCargoInfantry, nil, SetDeployZones ) 
+--      AICargoDispatcherAPC:Start()
+-- 
+-- @usage
+-- 
+--      -- An AI dispatcher object for an airplane squadron, moving infantry and vehicles from pickup airbases to deploy airbases.
+--   
+--      local CargoInfantrySet = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
+--      local AirplanesSet = SET_GROUP:New():FilterPrefixes( "Airplane" ):FilterStart()
+--      local PickupZoneSet = SET_ZONE:New()
+--      local DeployZoneSet = SET_ZONE:New()
+--      
+--      PickupZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Gudauta ) )
+--      DeployZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Sochi_Adler ) )
+--      DeployZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Maykop_Khanskaya ) )
+--      DeployZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Mineralnye_Vody ) )
+--      DeployZoneSet:AddZone( ZONE_AIRBASE:New( AIRBASE.Caucasus.Vaziani ) )
+--      
+--      AICargoDispatcherAirplanes = AI_CARGO_DISPATCHER_AIRPLANE:New( AirplanesSet, CargoInfantrySet, PickupZoneSet, DeployZoneSet ) 
+--      AICargoDispatcherAirplanes:Start()
+-- 
+function AI_CARGO_DISPATCHER:New( CarrierSet, CargoSet, PickupZoneSet, DeployZoneSet )
 
   local self = BASE:Inherit( self, FSM:New() ) -- #AI_CARGO_DISPATCHER
 
-  self.SetCarrier = SetCarrier -- Core.Set#SET_GROUP
-  self.SetCargo = SetCargo -- Core.Set#SET_CARGO
+  self.SetCarrier = CarrierSet -- Core.Set#SET_GROUP
+  self.SetCargo = CargoSet -- Core.Set#SET_CARGO
+  
+
+  self.PickupZoneSet=PickupZoneSet
+  self.DeployZoneSet=DeployZoneSet
 
   self:SetStartState( "Idle" ) 
   
@@ -438,15 +668,15 @@ function AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo )
   
   self:AddTransition( "Monitoring", "Home", "Monitoring" )
   
-  self.MonitorTimeInterval = 30
-  self.DeployRadiusInner = 200
-  self.DeployRadiusOuter = 500
+  self:SetMonitorTimeInterval( 30 )
+  
+  self:SetDeployRadius( 500, 200 )
   
   self.PickupCargo = {}
   self.CarrierHome = {}
   
   -- Put a Dead event handler on SetCarrier, to ensure that when a carrier is destroyed, that all internal parameters are reset.
-  function SetCarrier.OnAfterRemoved( SetCarrier, From, Event, To, CarrierName, Carrier )
+  function self.SetCarrier.OnAfterRemoved( SetCarrier, From, Event, To, CarrierName, Carrier )
     self:F( { Carrier = Carrier:GetName() } )
     self.PickupCargo[Carrier] = nil
     self.CarrierHome[Carrier] = nil
@@ -456,103 +686,36 @@ function AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo )
 end
 
 
---- Creates a new AI_CARGO_DISPATCHER object.
+--- Set the monitor time interval.
 -- @param #AI_CARGO_DISPATCHER self
--- @param Core.Set#SET_GROUP SetCarrier
--- @param Core.Set#SET_CARGO SetCargo
--- @param Core.Set#SET_ZONE PickupZoneSet
--- @param Core.Set#SET_ZONE DeployZoneSet
+-- @param #number MonitorTimeInterval The interval in seconds when the cargo dispatcher will search for new cargo to be picked up.
 -- @return #AI_CARGO_DISPATCHER
--- @usage
--- 
--- -- Create a new cargo dispatcher
--- SetCarriers = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
--- SetCargos = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
--- DeployZoneSet = SET_ZONE:New():FilterPrefixes( "Deploy" ):FilterStart()
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
--- 
-function AI_CARGO_DISPATCHER:NewWithZones( SetCarriers, SetCargos, PickupZoneSet, DeployZoneSet )
+function AI_CARGO_DISPATCHER:SetMonitorTimeInterval( MonitorTimeInterval )
 
-  local self = AI_CARGO_DISPATCHER:New( SetCarriers, SetCargos ) -- #AI_CARGO_DISPATCHER
-  
-  self.PickupZoneSet = PickupZoneSet
-  self.DeployZoneSet = DeployZoneSet
+  self.MonitorTimeInterval = MonitorTimeInterval
   
   return self
 end
-
-
---- Creates a new AI_CARGO_DISPATCHER object.
--- @param #AI_CARGO_DISPATCHER self
--- @param Core.Set#SET_GROUP SetCarrier
--- @param Core.Set#SET_CARGO SetCargo
--- @param Core.Set#SET_AIRBASE PickupAirbasesSet
--- @param Core.Set#SET_AIRBASE DeployAirbasesSet
--- @return #AI_CARGO_DISPATCHER
--- @usage
--- 
--- -- Create a new cargo dispatcher
--- SetCarriers = SET_GROUP:New():FilterPrefixes( "APC" ):FilterStart()
--- SetCargos = SET_CARGO:New():FilterTypes( "Infantry" ):FilterStart()
--- PickupAirbasesSet = SET_AIRBASES:New()
--- DeployAirbasesSet = SET_AIRBASES:New()
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, PickupAirbasesSet, DeployAirbasesSet )
--- 
-function AI_CARGO_DISPATCHER:NewWithAirbases( SetCarriers, SetCargos, PickupAirbasesSet, DeployAirbasesSet )
-
-  local self = AI_CARGO_DISPATCHER:New( SetCarriers, SetCargos ) -- #AI_CARGO_DISPATCHER
-  
-  self.DeployAirbasesSet = DeployAirbasesSet
-  self.PickupAirbasesSet = PickupAirbasesSet
-  
-  return self
-end
-
 
 
 --- Set the home zone.
 -- When there is nothing anymore to pickup, the carriers will go to a random coordinate in this zone.
 -- They will await here new orders.
 -- @param #AI_CARGO_DISPATCHER self
--- @param Core.Zone#ZONE_BASE HomeZone
+-- @param Core.Zone#ZONE_BASE HomeZone The home zone where the carriers will return when there is no more cargo to pickup.
 -- @return #AI_CARGO_DISPATCHER
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
+-- AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
 -- 
 -- -- Set the home coordinate
 -- local HomeZone = ZONE:New( "Home" )
--- AICargoDispatcher:SetHomeZone( HomeZone )
+-- AICargoDispatcherHelicopter:SetHomeZone( HomeZone )
 -- 
 function AI_CARGO_DISPATCHER:SetHomeZone( HomeZone )
 
   self.HomeZone = HomeZone
-  
-  return self
-end
-
---- Set the home airbase. This is for air units, i.e. helicopters and airplanes.
--- When there is nothing anymore to pickup, the carriers will go back to their home base. They will await here new orders.
--- @param #AI_CARGO_DISPATCHER self
--- @param Wrapper.Airbase#AIRBASE HomeBase Airbase where the carriers will go after all pickup assignments are done.
--- @return #AI_CARGO_DISPATCHER self
-function AI_CARGO_DISPATCHER:SetHomeBase( HomeBase )
-
-  self.HomeBase = HomeBase
-  
-  return self
-end
-
-
---- Set the home base.
--- When there is nothing anymore to pickup, the carriers will return to their home airbase. There they will await new orders.
--- @param #AI_CARGO_DISPATCHER self
--- @param Wrapper.Airbase#AIRBASE HomeBase The airbase where the carrier will go to, once they completed all pending assignments.
--- @return #AI_CARGO_DISPATCHER self
-function AI_CARGO_DISPATCHER:SetHomeBase( HomeBase )
-
-  self.HomeBase = HomeBase
   
   return self
 end
@@ -577,10 +740,10 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
+-- AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
 -- 
 -- -- Set the carrier to land within a band around the cargo coordinate between 500 and 300 meters!
--- AICargoDispatcher:SetPickupRadius( 500, 300 )
+-- AICargoDispatcherHelicopter:SetPickupRadius( 500, 300 )
 -- 
 function AI_CARGO_DISPATCHER:SetPickupRadius( OuterRadius, InnerRadius )
 
@@ -602,10 +765,10 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
+-- AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
 -- 
 -- -- Set the minimum pickup speed to be 100 km/h and the maximum speed to be 200 km/h.
--- AICargoDispatcher:SetPickupSpeed( 200, 100 )
+-- AICargoDispatcherHelicopter:SetPickupSpeed( 200, 100 )
 -- 
 function AI_CARGO_DISPATCHER:SetPickupSpeed( MaxSpeed, MinSpeed )
 
@@ -635,10 +798,10 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
+-- AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
 -- 
 -- -- Set the carrier to land within a band around the cargo coordinate between 500 and 300 meters!
--- AICargoDispatcher:SetDeployRadius( 500, 300 )
+-- AICargoDispatcherHelicopter:SetDeployRadius( 500, 300 )
 -- 
 function AI_CARGO_DISPATCHER:SetDeployRadius( OuterRadius, InnerRadius )
 
@@ -660,10 +823,10 @@ end
 -- @usage
 -- 
 -- -- Create a new cargo dispatcher
--- AICargoDispatcher = AI_CARGO_DISPATCHER:New( SetCarrier, SetCargo, SetDeployZone )
+-- AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
 -- 
 -- -- Set the minimum deploy speed to be 100 km/h and the maximum speed to be 200 km/h.
--- AICargoDispatcher:SetDeploySpeed( 200, 100 )
+-- AICargoDispatcherHelicopter:SetDeploySpeed( 200, 100 )
 -- 
 function AI_CARGO_DISPATCHER:SetDeploySpeed( MaxSpeed, MinSpeed )
 
@@ -677,274 +840,334 @@ function AI_CARGO_DISPATCHER:SetDeploySpeed( MaxSpeed, MinSpeed )
 end
 
 
+--- Set the height or randomizes the height in meters to fly and pickup the cargo. The default height is 200 meters.
+-- @param #AI_CARGO_DISPATCHER self
+-- @param #number MaxHeight (optional) The maximum height to fly to the cargo pickup location.
+-- @param #number MinHeight (optional) The minimum height to fly to the cargo pickup location.
+-- @return #AI_CARGO_DISPATCHER
+-- @usage
+-- 
+-- -- Create a new cargo dispatcher
+-- AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
+-- 
+-- -- Set the minimum pickup fly height to be 50 meters and the maximum height to be 200 meters.
+-- AICargoDispatcherHelicopter:SetPickupHeight( 200, 50 )
+-- 
+function AI_CARGO_DISPATCHER:SetPickupHeight( MaxHeight, MinHeight )
+
+  MaxHeight = MaxHeight or 200
+  MinHeight = MinHeight or MaxHeight
+
+  self.PickupMinHeight = MinHeight
+  self.PickupMaxHeight = MaxHeight
+  
+  return self
+end
+
+
+--- Set the height or randomizes the height in meters to fly and deploy the cargo.  The default height is 200 meters.
+-- @param #AI_CARGO_DISPATCHER self
+-- @param #number MaxHeight (optional) The maximum height to fly to the cargo deploy location.
+-- @param #number MinHeight (optional) The minimum height to fly to the cargo deploy location.
+-- @return #AI_CARGO_DISPATCHER
+-- @usage
+-- 
+-- -- Create a new cargo dispatcher
+-- AICargoDispatcherHelicopter = AI_CARGO_DISPATCHER_HELICOPTER:New( SetHelicopter, SetCargoInfantry, SetPickupZones, SetDeployZones ) 
+-- 
+-- -- Set the minimum deploy fly height to be 50 meters and the maximum height to be 200 meters.
+-- AICargoDispatcherHelicopter:SetDeployHeight( 200, 50 )
+-- 
+function AI_CARGO_DISPATCHER:SetDeployHeight( MaxHeight, MinHeight )
+
+  MaxHeight = MaxHeight or 200
+  MinHeight = MinHeight or MaxHeight
+
+  self.DeployMinHeight = MinHeight
+  self.DeployMaxHeight = MaxHeight
+  
+  return self
+end
+
 
 --- The Start trigger event, which actually takes action at the specified time interval.
 -- @param #AI_CARGO_DISPATCHER self
 function AI_CARGO_DISPATCHER:onafterMonitor()
 
+  self:F("Carriers")
+  self.SetCarrier:Flush()
+  
   for CarrierGroupName, Carrier in pairs( self.SetCarrier:GetSet() ) do
     local Carrier = Carrier -- Wrapper.Group#GROUP
-    local AI_Cargo = self.AI_Cargo[Carrier]
-    if not AI_Cargo then
-    
-      -- ok, so this Carrier does not have yet an AI_CARGO handling object...
-      -- let's create one and also declare the Loaded and UnLoaded handlers.
-      self.AI_Cargo[Carrier] = self:AICargo( Carrier, self.SetCargo, self.CombatRadius )
-      AI_Cargo = self.AI_Cargo[Carrier]
+    if Carrier:IsAlive() == true then
+      local AI_Cargo = self.AI_Cargo[Carrier]
+      if not AI_Cargo then
       
-      --- Pickup event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierGroup is routed towards a new pickup Coordinate and a specified Speed.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterPickup
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Core.Point#COORDINATE Coordinate The coordinate of the pickup location.
-      -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the pickup Coordinate.
-      -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
-      function AI_Cargo.OnAfterPickup( AI_Cargo, CarrierGroup, From, Event, To, Coordinate, Speed, PickupZone )
-        self:Pickup( CarrierGroup, Coordinate, Speed, PickupZone )
+        -- ok, so this Carrier does not have yet an AI_CARGO handling object...
+        -- let's create one and also declare the Loaded and UnLoaded handlers.
+        self.AI_Cargo[Carrier] = self:AICargo( Carrier, self.SetCargo, self.CombatRadius )
+        AI_Cargo = self.AI_Cargo[Carrier]
+        
+        --- Pickup event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierGroup is routed towards a new pickup Coordinate and a specified Speed.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterPickup
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Core.Point#COORDINATE Coordinate The coordinate of the pickup location.
+        -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the pickup Coordinate.
+        -- @param #number Height Height in meters to move to the pickup coordinate.
+        -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
+        function AI_Cargo.OnAfterPickup( AI_Cargo, CarrierGroup, From, Event, To, Coordinate, Speed, Height, PickupZone )
+          self:Pickup( CarrierGroup, Coordinate, Speed, Height, PickupZone )
+        end
+        
+        --- Load event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierGroup has initiated the loading or boarding of cargo within reporting or near range.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterLoad
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
+        
+        function AI_Cargo.OnAfterLoad( AI_Cargo, CarrierGroup, From, Event, To, PickupZone )
+          self:Load( CarrierGroup, PickupZone )
+        end
+  
+        --- Loading event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierUnit of a CarrierGroup is in the process of loading or boarding of a cargo object.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- Note that this event is triggered repeatedly until all cargo (units) have been boarded into the carrier.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterLoading
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Cargo.Cargo#CARGO Cargo The cargo object.
+        -- @param Wrapper.Unit#UNIT CarrierUnit The carrier unit that is executing the cargo loading operation.
+        -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
+        
+        function AI_Cargo.OnAfterBoard( AI_Cargo, CarrierGroup, From, Event, To, Cargo, CarrierUnit, PickupZone )
+          self:Loading( CarrierGroup, Cargo, CarrierUnit, PickupZone )
+        end
+  
+        --- Loaded event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierUnit of a CarrierGroup has loaded a cargo object.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- Note that if more cargo objects were loading or boarding into the CarrierUnit, then this event can be triggered multiple times for each different Cargo/CarrierUnit.
+        -- A CarrierUnit can be part of the larger CarrierGroup.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterLoaded
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Cargo.Cargo#CARGO Cargo The cargo object.
+        -- @param Wrapper.Unit#UNIT CarrierUnit The carrier unit that is executing the cargo loading operation.
+        -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
+        
+        function AI_Cargo.OnAfterLoaded( AI_Cargo, CarrierGroup, From, Event, To, Cargo, CarrierUnit, PickupZone )
+          self:Loaded( CarrierGroup, Cargo, CarrierUnit, PickupZone )
+        end
+  
+        --- PickedUp event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a carrier has picked up all cargo objects into the CarrierGroup.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterPickedUp
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
+        
+        function AI_Cargo.OnAfterPickedUp( AI_Cargo, CarrierGroup, From, Event, To, PickupZone )
+          self:PickedUp( CarrierGroup, PickupZone )
+          self:Transport( CarrierGroup )
+        end
+  
+  
+        --- Deploy event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierGroup is routed to a deploy coordinate, to Unload all cargo objects in each CarrierUnit.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterDeploy
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Core.Point#COORDINATE Coordinate The deploy coordinate.
+        -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the deploy Coordinate.
+        -- @param #number Height Height in meters to move to the deploy coordinate.
+        -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
+        
+        function AI_Cargo.OnAfterDeploy( AI_Cargo, CarrierGroup, From, Event, To, Coordinate, Speed, Height, DeployZone )
+          self:Deploy( CarrierGroup, Coordinate, Speed, Height, DeployZone )
+        end      
+  
+  
+        --- Unload event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierGroup has initiated the unloading or unboarding of cargo.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterUnload
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
+        
+        function AI_Cargo.OnAfterUnload( AI_Cargo, Carrier, From, Event, To, Cargo, CarrierUnit, DeployZone )
+          self:Unloading( Carrier, Cargo, CarrierUnit, DeployZone )
+        end      
+  
+        --- UnLoading event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierUnit of a CarrierGroup is in the process of unloading or unboarding of a cargo object.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- Note that this event is triggered repeatedly until all cargo (units) have been unboarded from the CarrierUnit.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterUnloading
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Cargo.Cargo#CARGO Cargo The cargo object.
+        -- @param Wrapper.Unit#UNIT CarrierUnit The carrier unit that is executing the cargo unloading operation.
+        -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
+        
+        function AI_Cargo.OnAfterUnboard( AI_Cargo, CarrierGroup, From, Event, To, Cargo, CarrierUnit, DeployZone )
+          self:Unloading( CarrierGroup, Cargo, CarrierUnit, DeployZone )
+        end
+  
+  
+        --- Unloaded event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierUnit of a CarrierGroup has unloaded a cargo object.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- Note that if more cargo objects were unloading or unboarding from the CarrierUnit, then this event can be triggered multiple times for each different Cargo/CarrierUnit.
+        -- A CarrierUnit can be part of the larger CarrierGroup.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterUnloaded
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Cargo.Cargo#CARGO Cargo The cargo object.
+        -- @param Wrapper.Unit#UNIT CarrierUnit The carrier unit that is executing the cargo unloading operation.
+        -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
+        
+        function AI_Cargo.OnAfterUnloaded( AI_Cargo, Carrier, From, Event, To, Cargo, CarrierUnit, DeployZone )
+          self:Unloaded( Carrier, Cargo, CarrierUnit, DeployZone )
+        end      
+  
+        --- Deployed event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a carrier has deployed all cargo objects from the CarrierGroup.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterDeployed
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
+        
+        function AI_Cargo.OnAfterDeployed( AI_Cargo, Carrier, From, Event, To, DeployZone )
+          self:Deployed( Carrier, DeployZone )
+        end      
+  
+        --- Home event handler OnAfter for AI_CARGO_DISPATCHER.
+        -- Use this event handler to tailor the event when a CarrierGroup is returning to the HomeZone, after it has deployed all cargo objects from the CarrierGroup.
+        -- You can use this event handler to post messages to players, or provide status updates etc.
+        -- If there is no HomeZone is specified, the CarrierGroup will stay at the current location after having deployed all cargo.
+        -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterHome
+        -- @param #AI_CARGO_DISPATCHER self
+        -- @param #string From A string that contains the "*from state name*" when the event was triggered.
+        -- @param #string Event A string that contains the "*event name*" when the event was triggered.
+        -- @param #string To A string that contains the "*to state name*" when the event was triggered.
+        -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
+        -- @param Core.Point#COORDINATE Coordinate The home coordinate the Carrier will arrive and stop it's activities.
+        -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the home Coordinate.
+        -- @param #number Height Height in meters to move to the home coordinate.
+        -- @param Core.Zone#ZONE HomeZone The zone wherein the carrier will return when all cargo has been transported. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
+        
+        function AI_Cargo.OnAfterHome( AI_Cargo, Carrier, From, Event, To, Coordinate, Speed, Height, HomeZone )
+          self:Home( Carrier, Coordinate, Speed, Height, HomeZone )
+        end      
       end
-      
-      --- Load event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierGroup has initiated the loading or boarding of cargo within reporting or near range.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterLoad
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
-      
-      function AI_Cargo.OnAfterLoad( AI_Cargo, CarrierGroup, From, Event, To, PickupZone )
-        self:Load( CarrierGroup, PickupZone )
-      end
-
-      --- Loading event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierUnit of a CarrierGroup is in the process of loading or boarding of a cargo object.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- Note that this event is triggered repeatedly until all cargo (units) have been boarded into the carrier.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterLoading
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Cargo.Cargo#CARGO Cargo The cargo object.
-      -- @param Wrapper.Unit#UNIT CarrierUnit The carrier unit that is executing the cargo loading operation.
-      -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
-      
-      function AI_Cargo.OnAfterBoard( AI_Cargo, CarrierGroup, From, Event, To, Cargo, CarrierUnit, PickupZone )
-        self:Loading( CarrierGroup, Cargo, CarrierUnit, PickupZone )
-      end
-
-      --- Loaded event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierUnit of a CarrierGroup has loaded a cargo object.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- Note that if more cargo objects were loading or boarding into the CarrierUnit, then this event can be triggered multiple times for each different Cargo/CarrierUnit.
-      -- A CarrierUnit can be part of the larger CarrierGroup.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterLoaded
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Cargo.Cargo#CARGO Cargo The cargo object.
-      -- @param Wrapper.Unit#UNIT CarrierUnit The carrier unit that is executing the cargo loading operation.
-      -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
-      
-      function AI_Cargo.OnAfterLoaded( AI_Cargo, CarrierGroup, From, Event, To, Cargo, CarrierUnit, PickupZone )
-        self:Loaded( CarrierGroup, Cargo, CarrierUnit, PickupZone )
-      end
-
-      --- PickedUp event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a carrier has picked up all cargo objects into the CarrierGroup.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterPickedUp
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Core.Zone#ZONE_AIRBASE PickupZone (optional) The zone from where the cargo is picked up. Note that the zone is optional and may not be provided, but for AI_CARGO_DISPATCHER_AIRBASE there will always be a PickupZone, as the pickup location is an airbase zone.
-      
-      function AI_Cargo.OnAfterPickedUp( AI_Cargo, CarrierGroup, From, Event, To, PickupZone )
-        self:PickedUp( CarrierGroup, PickupZone )
-        self:Transport( CarrierGroup )
-      end
-
-
-      --- Deploy event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierGroup is routed to a deploy coordinate, to Unload all cargo objects in each CarrierUnit.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterDeploy
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Core.Point#COORDINATE Coordinate The deploy coordinate.
-      -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the deploy Coordinate.
-      -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-      
-      function AI_Cargo.OnAfterDeploy( AI_Cargo, CarrierGroup, From, Event, To, Coordinate, Speed, DeployZone )
-        self:Deploy( CarrierGroup, Coordinate, Speed, DeployZone )
-      end      
-
-
-      --- Unload event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierGroup has initiated the unloading or unboarding of cargo.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterUnload
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-      
-      function AI_Cargo.OnAfterUnload( AI_Cargo, Carrier, From, Event, To, Cargo, CarrierUnit, DeployZone )
-        self:Unloading( Carrier, Cargo, CarrierUnit, DeployZone )
-      end      
-
-      --- UnLoading event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierUnit of a CarrierGroup is in the process of unloading or unboarding of a cargo object.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- Note that this event is triggered repeatedly until all cargo (units) have been unboarded from the CarrierUnit.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterUnloading
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Cargo.Cargo#CARGO Cargo The cargo object.
-      -- @param Wrapper.Unit#UNIT CarrierUnit The carrier unit that is executing the cargo unloading operation.
-      -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-      
-      function AI_Cargo.OnAfterUnboard( AI_Cargo, CarrierGroup, From, Event, To, Cargo, CarrierUnit, DeployZone )
-        self:Unloading( CarrierGroup, Cargo, CarrierUnit, DeployZone )
-      end
-
-
-      --- Unloaded event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierUnit of a CarrierGroup has unloaded a cargo object.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- Note that if more cargo objects were unloading or unboarding from the CarrierUnit, then this event can be triggered multiple times for each different Cargo/CarrierUnit.
-      -- A CarrierUnit can be part of the larger CarrierGroup.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterUnloaded
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Cargo.Cargo#CARGO Cargo The cargo object.
-      -- @param Wrapper.Unit#UNIT CarrierUnit The carrier unit that is executing the cargo unloading operation.
-      -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-      
-      function AI_Cargo.OnAfterUnloaded( AI_Cargo, Carrier, From, Event, To, Cargo, CarrierUnit, DeployZone )
-        self:Unloaded( Carrier, Cargo, CarrierUnit, DeployZone )
-      end      
-
-      --- Deployed event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a carrier has deployed all cargo objects from the CarrierGroup.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterDeployed
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Core.Zone#ZONE DeployZone The zone wherein the cargo is deployed. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-      
-      function AI_Cargo.OnAfterDeployed( AI_Cargo, Carrier, From, Event, To, DeployZone )
-        self:Deployed( Carrier, DeployZone )
-      end      
-
-      --- Home event handler OnAfter for AI_CARGO_DISPATCHER.
-      -- Use this event handler to tailor the event when a CarrierGroup is returning to the HomeZone, after it has deployed all cargo objects from the CarrierGroup.
-      -- You can use this event handler to post messages to players, or provide status updates etc.
-      -- If there is no HomeZone is specified, the CarrierGroup will stay at the current location after having deployed all cargo.
-      -- @function [parent=#AI_CARGO_DISPATCHER] OnAfterHome
-      -- @param #AI_CARGO_DISPATCHER self
-      -- @param #string From A string that contains the "*from state name*" when the event was triggered.
-      -- @param #string Event A string that contains the "*event name*" when the event was triggered.
-      -- @param #string To A string that contains the "*to state name*" when the event was triggered.
-      -- @param Wrapper.Group#GROUP CarrierGroup The group object that contains the CarrierUnits.
-      -- @param Core.Point#COORDINATE Coordinate The home coordinate the Carrier will arrive and stop it's activities.
-      -- @param #number Speed The velocity in meters per second on which the CarrierGroup is routed towards the home Coordinate.
-      -- @param Core.Zone#ZONE HomeZone The zone wherein the carrier will return when all cargo has been transported. This can be any zone type, like a ZONE, ZONE_GROUP, ZONE_AIRBASE.
-      
-      function AI_Cargo.OnAfterHome( AI_Cargo, Carrier, From, Event, To, Coordinate, Speed, HomeZone )
-        self:Home( Carrier, Coordinate, Speed, HomeZone )
-      end      
-    end
-
-    -- The Pickup sequence ...
-    -- Check if this Carrier need to go and Pickup something...
-    -- So, if the cargo bay is not full yet with cargo to be loaded ...
-    self:I( { Carrier = CarrierGroupName, IsRelocating = AI_Cargo:IsRelocating(), IsTransporting = AI_Cargo:IsTransporting() } )
-    if AI_Cargo:IsRelocating() == false and AI_Cargo:IsTransporting() == false then
-      -- ok, so there is a free Carrier
-      -- now find the first cargo that is Unloaded
-      
-      local PickupCargo = nil
-      local PickupZone = nil
-      
-      for CargoName, Cargo in UTILS.spairs( self.SetCargo:GetSet(), function( t, a, b ) return t[a]:GetWeight() < t[b]:GetWeight() end ) do
-        local Cargo = Cargo -- Cargo.Cargo#CARGO
-        self:F( { Cargo = Cargo:GetName(), UnLoaded = Cargo:IsUnLoaded(), Deployed = Cargo:IsDeployed(), PickupCargo = self.PickupCargo[Carrier] ~= nil } )
-        if Cargo:IsUnLoaded() == true and Cargo:IsDeployed() == false then
-          local CargoCoordinate = Cargo:GetCoordinate()
-          local CoordinateFree = true
-          PickupZone = self.PickupZoneSet and self.PickupZoneSet:IsCoordinateInZone( CargoCoordinate )
-          if not self.PickupZoneSet or PickupZone then
-            for CarrierPickup, Coordinate in pairs( self.PickupCargo ) do
-              if CarrierPickup:IsAlive() == true then
-                if CargoCoordinate:Get2DDistance( Coordinate ) <= 25 then
-                  self:F( { "Coordinate not free for ", Cargo = Cargo:GetName(), Carrier:GetName(), PickupCargo = self.PickupCargo[Carrier] ~= nil } )
-                  CoordinateFree = false
+  
+      -- The Pickup sequence ...
+      -- Check if this Carrier need to go and Pickup something...
+      -- So, if the cargo bay is not full yet with cargo to be loaded ...
+      self:I( { Carrier = CarrierGroupName, IsRelocating = AI_Cargo:IsRelocating(), IsTransporting = AI_Cargo:IsTransporting() } )
+      if AI_Cargo:IsRelocating() == false and AI_Cargo:IsTransporting() == false then
+        -- ok, so there is a free Carrier
+        -- now find the first cargo that is Unloaded
+        
+        local PickupCargo = nil
+        local PickupZone = nil
+        
+        self.SetCargo:Flush()
+        for CargoName, Cargo in UTILS.spairs( self.SetCargo:GetSet(), function( t, a, b ) return t[a]:GetWeight() < t[b]:GetWeight() end ) do
+          local Cargo = Cargo -- Cargo.Cargo#CARGO
+          self:F( { Cargo = Cargo:GetName(), UnLoaded = Cargo:IsUnLoaded(), Deployed = Cargo:IsDeployed(), PickupCargo = self.PickupCargo[Carrier] ~= nil } )
+          if Cargo:IsUnLoaded() == true and Cargo:IsDeployed() == false then
+            local CargoCoordinate = Cargo:GetCoordinate()
+            local CoordinateFree = true
+            --self.PickupZoneSet:Flush()
+            --PickupZone = self.PickupZoneSet:GetRandomZone()
+            PickupZone = self.PickupZoneSet and self.PickupZoneSet:IsCoordinateInZone( CargoCoordinate )
+            if not self.PickupZoneSet or PickupZone then
+              for CarrierPickup, Coordinate in pairs( self.PickupCargo ) do
+                if CarrierPickup:IsAlive() == true then
+                  if CargoCoordinate:Get2DDistance( Coordinate ) <= 25 then
+                    self:F( { "Coordinate not free for ", Cargo = Cargo:GetName(), Carrier:GetName(), PickupCargo = self.PickupCargo[Carrier] ~= nil } )
+                    CoordinateFree = false
+                    break
+                  end
+                else
+                  self.PickupCargo[CarrierPickup] = nil
+                end
+              end
+              if CoordinateFree == true then
+                -- Check if this cargo can be picked-up by at least one carrier unit of AI_Cargo.
+                local LargestLoadCapacity = 0
+                for _, Carrier in pairs( Carrier:GetUnits() ) do
+                  local LoadCapacity = Carrier:GetCargoBayFreeWeight()
+                  if LargestLoadCapacity < LoadCapacity then
+                    LargestLoadCapacity = LoadCapacity
+                  end
+                end
+                -- So if there is a carrier that has the required load capacity to load the total weight of the cargo, dispatch the carrier.
+                -- Otherwise break and go to the next carrier.
+                -- This will skip cargo which is too large to be able to be loaded by carriers
+                -- and will secure an efficient dispatching scheme.
+                if LargestLoadCapacity >= Cargo:GetWeight() then
+                  self.PickupCargo[Carrier] = CargoCoordinate
+                  PickupCargo = Cargo
                   break
                 end
-              else
-                self.PickupCargo[CarrierPickup] = nil
-              end
-            end
-            if CoordinateFree == true then
-              -- Check if this cargo can be picked-up by at least one carrier unit of AI_Cargo.
-              local LargestLoadCapacity = 0
-              for _, Carrier in pairs( Carrier:GetUnits() ) do
-                local LoadCapacity = Carrier:GetCargoBayFreeWeight()
-                if LargestLoadCapacity < LoadCapacity then
-                  LargestLoadCapacity = LoadCapacity
-                end
-              end
-              -- So if there is aa carrier that has the required load capacity to load the total weight of the cargo, dispatch the carrier.
-              -- Otherwise break and go to the next carrier.
-              -- This will skip cargo which is too large to be able to be loaded by carriers
-              -- and will secure an efficient dispatching scheme.
-              if LargestLoadCapacity >= Cargo:GetWeight() then
-                self.PickupCargo[Carrier] = CargoCoordinate
-                PickupCargo = Cargo
-                break
               end
             end
           end
         end
-      end
-      
-      if PickupCargo then
-        self.CarrierHome[Carrier] = nil
-        local PickupCoordinate = PickupCargo:GetCoordinate():GetRandomCoordinateInRadius( self.PickupOuterRadius, self.PickupInnerRadius )
-        AI_Cargo:Pickup( PickupCoordinate, math.random( self.PickupMinSpeed, self.PickupMaxSpeed ), PickupZone )
-        break
-      else
-        if self.HomeZone then
-          if not self.CarrierHome[Carrier] then
-            self.CarrierHome[Carrier] = true
-            AI_Cargo:Home( self.HomeZone:GetRandomPointVec2(), math.random( self.PickupMinSpeed, self.PickupMaxSpeed ), self.HomeZone )
+        
+        if PickupCargo then
+          self.CarrierHome[Carrier] = nil
+          local PickupCoordinate = PickupCargo:GetCoordinate():GetRandomCoordinateInRadius( self.PickupOuterRadius, self.PickupInnerRadius )
+          AI_Cargo:Pickup( PickupCoordinate, math.random( self.PickupMinSpeed, self.PickupMaxSpeed ), math.random( self.PickupMinHeight, self.PickupMaxHeight ), PickupZone )
+          break
+        else
+          if self.HomeZone then
+            if not self.CarrierHome[Carrier] then
+              self.CarrierHome[Carrier] = true
+              AI_Cargo:Home( self.HomeZone:GetRandomPointVec2(), math.random( self.PickupMinSpeed, self.PickupMaxSpeed ), math.random( self.PickupMinHeight, self.PickupMaxHeight ), self.HomeZone )
+            end
           end
         end
       end
@@ -954,20 +1177,6 @@ function AI_CARGO_DISPATCHER:onafterMonitor()
   self:__Monitor( self.MonitorTimeInterval )
 end
 
---- Start event handler OnBefore for AI_CARGO_DISPATCHER
--- @function [parent=#AI_CARGO_DISPATCHER] OnBeforeStart
--- @param #AI_CARGO_DISPATCHER self
--- @param #string From
--- @param #string Event
--- @param #string To
--- @return #boolean
-
---- Start event handler OnAfter for AI_CARGO_DISPATCHER
--- @function [parent=#AI_CARGO_DISPATCHER] OnAfterStart
--- @param #AI_CARGO_DISPATCHER self
--- @param #string From
--- @param #string Event
--- @param #string To
 
 --- Start Trigger for AI_CARGO_DISPATCHER
 -- @function [parent=#AI_CARGO_DISPATCHER] Start
@@ -982,20 +1191,6 @@ function AI_CARGO_DISPATCHER:onafterStart( From, Event, To )
   self:__Monitor( -1 )
 end
 
---- Stop event handler OnBefore for AI_CARGO_DISPATCHER
--- @function [parent=#AI_CARGO_DISPATCHER] OnBeforeStop
--- @param #AI_CARGO_DISPATCHER self
--- @param #string From
--- @param #string Event
--- @param #string To
--- @return #boolean
-
---- Stop event handler OnAfter for AI_CARGO_DISPATCHER
--- @function [parent=#AI_CARGO_DISPATCHER] OnAfterStop
--- @param #AI_CARGO_DISPATCHER self
--- @param #string From
--- @param #string Event
--- @param #string To
 
 --- Stop Trigger for AI_CARGO_DISPATCHER
 -- @function [parent=#AI_CARGO_DISPATCHER] Stop
@@ -1022,7 +1217,7 @@ function AI_CARGO_DISPATCHER:onafterTransport( From, Event, To, Carrier, Cargo )
       local DeployZone = self.DeployZoneSet:GetRandomZone()
       
       local DeployCoordinate = DeployZone:GetCoordinate():GetRandomCoordinateInRadius( self.DeployOuterRadius, self.DeployInnerRadius )
-      self.AI_Cargo[Carrier]:Deploy( DeployCoordinate, math.random( self.DeployMinSpeed, self.DeployMaxSpeed ), DeployZone )
+      self.AI_Cargo[Carrier]:__Deploy( 0.1, DeployCoordinate, math.random( self.DeployMinSpeed, self.DeployMaxSpeed ), math.random( self.DeployMinHeight, self.DeployMaxHeight ), DeployZone )
     end
   end
   

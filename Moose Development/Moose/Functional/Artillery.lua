@@ -1,4 +1,4 @@
---- **Functional** - (R2.4) Control artillery units.
+--- **Functional** - Control artillery units.
 -- 
 -- ===
 -- 
@@ -6,30 +6,22 @@
 -- 
 -- ## Features:
 -- 
--- * Multiple targets can be assigned. No restriction on number of targets.
--- * Targets can be given a priority. Engagement of targets is executed a according to their priority.
--- * Engagements can be scheduled, i.e. will be executed at a certain time of the day.
--- * Multiple relocations of the group can be assigned and scheduled via queueing system. 
--- * Special weapon types can be selected for each attack, e.g. cruise missiles for Naval units.
--- * Automatic rearming once the artillery is out of ammo (optional).
--- * Automatic relocation after each firing engagement to prevent counter strikes (optional).
--- * Automatic relocation movements to get the battery within firing range (optional).
--- * Simulation of tactical nuclear shells as well as illumination and smoke shells.
--- * New targets can be added during the mission, e.g. when they are detected by recon units.
--- * Targets and relocations can be assigned by placing markers on the F10 map.
--- * Finite state machine implementation. Mission designer can interact when certain events occur.
+--   * Multiple targets can be assigned. No restriction on number of targets.
+--   * Targets can be given a priority. Engagement of targets is executed a according to their priority.
+--   * Engagements can be scheduled, i.e. will be executed at a certain time of the day.
+--   * Multiple relocations of the group can be assigned and scheduled via queueing system. 
+--   * Special weapon types can be selected for each attack, e.g. cruise missiles for Naval units.
+--   * Automatic rearming once the artillery is out of ammo (optional).
+--   * Automatic relocation after each firing engagement to prevent counter strikes (optional).
+--   * Automatic relocation movements to get the battery within firing range (optional).
+--   * Simulation of tactical nuclear shells as well as illumination and smoke shells.
+--   * New targets can be added during the mission, e.g. when they are detected by recon units.
+--   * Targets and relocations can be assigned by placing markers on the F10 map.
+--   * Finite state machine implementation. Mission designer can interact when certain events occur.
 -- 
 -- ====
 -- 
--- # Demo Missions
---
--- ### [MOOSE - ALL Demo Missions](https://github.com/FlightControl-Master/MOOSE_MISSIONS)
--- 
--- ====
--- 
--- # YouTube Channel
--- 
--- ### [MOOSE YouTube Channel](https://www.youtube.com/channel/UCjrA9j5LQoWsG4SpS8i79Qg)
+-- ## [MOOSE YouTube Channel](https://www.youtube.com/channel/UCjrA9j5LQoWsG4SpS8i79Qg)
 -- 
 -- ===
 -- 
@@ -597,8 +589,15 @@ ARTY={
   autorelocateonroad=false,
 }
 
---- Weapong type ID. http://wiki.hoggit.us/view/DCS_enum_weapon_flag
--- @list WeaponType
+--- Weapong type ID. See [here](http://wiki.hoggit.us/view/DCS_enum_weapon_flag).
+-- @type ARTY.WeaponType
+-- @field #number Auto Automatic selection of weapon type.
+-- @field #number Cannon Cannons using conventional shells.
+-- @field #number Rockets Unguided rockets.
+-- @field #number CruiseMissile Cruise missiles.
+-- @field #number TacticalNukes Tactical nuclear shells (simulated).
+-- @field #number IlluminationShells Illumination shells (simulated).
+-- @field #number SmokeShells Smoke shells (simulated).
 ARTY.WeaponType={
   Auto=1073741822,
   Cannon=805306368,
@@ -610,7 +609,7 @@ ARTY.WeaponType={
 }
 
 --- Database of common artillery unit properties.
--- @list db
+-- @type ARTY.db
 ARTY.db={
   ["2B11 mortar"] = {  -- type "2B11 mortar"
     minrange   = 500,  -- correct?
@@ -675,7 +674,7 @@ ARTY.id="ARTY | "
 
 --- Arty script version.
 -- @field #string version
-ARTY.version="1.0.5"
+ARTY.version="1.0.6"
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1189,7 +1188,14 @@ function ARTY:AssignTargetCoord(coord, prio, radius, nshells, maxengage, time, w
   end
   
   -- Time in seconds.
-  local _time=self:_ClockToSeconds(time)
+  local _time
+  if type(time)=="string" then
+    _time=self:_ClockToSeconds(time)
+  elseif type(time)=="number" then
+    _time=timer.getAbsTime()+time
+  else
+    _time=timer.getAbsTime()
+  end
   
   -- Prepare target array.
   local _target={name=_name, coord=coord, radius=radius, nshells=nshells, engaged=0, underfire=false, prio=prio, maxengage=maxengage, time=_time, weapontype=weapontype}
@@ -1240,9 +1246,6 @@ function ARTY:AssignMoveCoord(coord, time, speed, onroad, cancel, name, unique)
     return nil
   end
       
-  -- Default is current time if no time was specified.
-  time=time or self:_SecondsToClock(timer.getAbsTime())
-    
   -- Set speed.
   if speed then
     -- Make sure, given speed is less than max physiaclly possible speed of group.
@@ -1264,7 +1267,14 @@ function ARTY:AssignMoveCoord(coord, time, speed, onroad, cancel, name, unique)
   end
   
   -- Time in seconds.
-  local _time=self:_ClockToSeconds(time)
+  local _time
+  if type(time)=="string" then
+    _time=self:_ClockToSeconds(time)
+  elseif type(time)=="number" then
+    _time=timer.getAbsTime()+time
+  else
+    _time=timer.getAbsTime()
+  end
   
   -- Prepare move array.
   local _move={name=_name, coord=coord, time=_time, speed=speed, onroad=onroad, cancel=cancel}

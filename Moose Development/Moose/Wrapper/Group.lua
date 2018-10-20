@@ -2,7 +2,9 @@
 -- 
 -- ===
 -- 
--- The @{#GROUP} class is a wrapper class to handle the DCS Group objects:
+-- The @{#GROUP} class is a wrapper class to handle the DCS Group objects.
+-- 
+-- ## Features:
 --
 --  * Support all DCS Group APIs.
 --  * Enhance with Group specific APIs not in the DCS Group API set.
@@ -11,7 +13,16 @@
 --
 -- **IMPORTANT: ONE SHOULD NEVER SANATIZE these GROUP OBJECT REFERENCES! (make the GROUP object references nil).**
 --
--- See the detailed documentation on the GROUP class.
+-- ===
+-- 
+-- For each DCS Group object alive within a running mission, a GROUP wrapper object (instance) will be created within the _@{DATABASE} object.
+-- This is done at the beginning of the mission (when the mission starts), and dynamically when new DCS Group objects are spawned (using the @{SPAWN} class).
+-- 
+-- The GROUP class does not contain a :New() method, rather it provides :Find() methods to retrieve the object reference
+-- using the DCS Group or the DCS GroupName.
+--
+-- The GROUP methods will reference the DCS Group object by name when it is needed during API execution.
+-- If the DCS Group object does not exist or is nil, the GROUP methods will return nil and may log an exception in the DCS.log file.
 -- 
 -- ===
 -- 
@@ -34,24 +45,76 @@
 
 --- Wrapper class of the DCS world Group object.
 -- 
--- For each DCS Group object alive within a running mission, a GROUP wrapper object (instance) will be created within the _@{DATABASE} object.
--- This is done at the beginning of the mission (when the mission starts), and dynamically when new DCS Group objects are spawned (using the @{SPAWN} class).
---
--- The GROUP class does not contain a :New() method, rather it provides :Find() methods to retrieve the object reference
--- using the DCS Group or the DCS GroupName.
---
--- Another thing to know is that GROUP objects do not "contain" the DCS Group object.
--- The GROUP methods will reference the DCS Group object by name when it is needed during API execution.
--- If the DCS Group object does not exist or is nil, the GROUP methods will return nil and log an exception in the DCS.log file.
---
 -- The GROUP class provides the following functions to retrieve quickly the relevant GROUP instance:
 --
 --  * @{#GROUP.Find}(): Find a GROUP instance from the _DATABASE object using a DCS Group object.
 --  * @{#GROUP.FindByName}(): Find a GROUP instance from the _DATABASE object using a DCS Group name.
 --
--- ## GROUP task methods
+-- # 1. Tasking of groups
 --
--- A GROUP is a @{Wrapper.Controllable}. See the @{Wrapper.Controllable} task methods section for a description of the task methods.
+-- A GROUP is derived from the wrapper class CONTROLLABLE (@{Wrapper.Controllable#CONTROLLABLE}). 
+-- See the @{Wrapper.Controllable} task methods section for a description of the task methods.
+--
+-- But here is an example how a group can be assigned a task.
+-- 
+-- This test demonstrates the use(s) of the SwitchWayPoint method of the GROUP class.
+-- 
+-- First we look up the objects. We create a GROUP object `HeliGroup`, using the @{#GROUP:FindByName}() method, looking up the `"Helicopter"` group object.
+-- Same for the `"AttackGroup"`.
+--          
+--          local HeliGroup = GROUP:FindByName( "Helicopter" )
+--          local AttackGroup = GROUP:FindByName( "AttackGroup" )
+-- 
+-- Now we retrieve the @{Wrapper.Unit#UNIT} objects of the `AttackGroup` object, using the method `:GetUnits()`.   
+--       
+--          local AttackUnits = AttackGroup:GetUnits()
+--          
+-- Tasks are actually text strings that we build using methods of GROUP.
+-- So first, we declare an list of `Tasks`.  
+--        
+--          local Tasks = {}
+-- 
+-- Now we loop over the `AttackUnits` using a for loop.
+-- We retrieve the `AttackUnit` using the `AttackGroup:GetUnit()` method.
+-- Each `AttackUnit` found, will be attacked by `HeliGroup`, using the method `HeliGroup:TaskAttackUnit()`.
+-- This method returns a string containing a command line to execute the task to the `HeliGroup`.
+-- The code will assign the task string command to the next element in the `Task` list, using `Tasks[#Tasks+1]`.
+-- This little code will take the count of `Task` using `#` operator, and will add `1` to the count.
+-- This result will be the index of the `Task` element.
+--          
+--          for i = 1, #AttackUnits do
+--            local AttackUnit = AttackGroup:GetUnit( i )
+--            Tasks[#Tasks+1] = HeliGroup:TaskAttackUnit( AttackUnit )
+--          end
+--          
+-- Once these tasks have been executed, a function `_Resume` will be called ...
+--          
+--          Tasks[#Tasks+1] = HeliGroup:TaskFunction( "_Resume", { "''" } )
+--          
+--          --- @param Wrapper.Group#GROUP HeliGroup
+--          function _Resume( HeliGroup )
+--            env.info( '_Resume' )
+--          
+--            HeliGroup:MessageToAll( "Resuming",10,"Info")
+--          end
+-- 
+-- Now here is where the task gets assigned!
+-- Using `HeliGroup:PushTask`, the task is pushed onto the task queue of the group `HeliGroup`.
+-- Since `Tasks` is an array of tasks, we use the `HeliGroup:TaskCombo` method to execute the tasks.
+-- The `HeliGroup:PushTask` method can receive a delay parameter in seconds.
+-- In the example, `30` is given as a delay.
+-- 
+-- 
+--          HeliGroup:PushTask( 
+--            HeliGroup:TaskCombo(
+--            Tasks
+--            ), 30 
+--          ) 
+-- 
+-- That's it!
+-- But again, please refer to the @{Wrapper.Controllable} task methods section for a description of the different task methods that are available.
+-- 
+-- 
 --
 -- ### Obtain the mission from group templates
 -- 
@@ -445,6 +508,38 @@ function GROUP:GetSpeedMax()
   return nil
 end
 
+--- Returns the maximum range of the group.
+-- If the group is heterogenious and consists of different units, the smallest range of all units is returned.
+-- @param #GROUP self
+-- @return #number Range in meters.
+function GROUP:GetRange()
+  self:F2( self.GroupName )
+
+  local DCSGroup = self:GetDCSObject()
+  if DCSGroup then
+  
+    local Units=self:GetUnits()
+    
+    local Rangemin=nil
+    
+    for _,unit in pairs(Units) do
+      local unit=unit --Wrapper.Unit#UNIT
+      local range=unit:GetRange()
+      if range then
+        if Rangemin==nil then
+          Rangemin=range
+        elseif range<Rangemin then
+          Rangemin=range
+        end
+      end
+    end
+    
+    return Rangemin
+  end
+  
+  return nil
+end
+
 
 --- Returns a list of @{Wrapper.Unit} objects of the @{Wrapper.Group}.
 -- @param #GROUP self
@@ -659,8 +754,9 @@ function GROUP:GetDCSUnits()
 end
 
 
---- Activates a GROUP.
+--- Activates a late activated GROUP.
 -- @param #GROUP self
+-- @return #GROUP self
 function GROUP:Activate()
   self:F2( { self.GroupName } )
   trigger.action.activateGroup( self:GetDCSObject() )
@@ -975,6 +1071,23 @@ function GROUP:IsNotInZone( Zone )
   return true
 end
 
+--- Returns true if any units of the group are within a @{Core.Zone}.
+-- @param #GROUP self
+-- @param Core.Zone#ZONE_BASE Zone The zone to test.
+-- @return #boolean Returns true if any unit of the Group is within the @{Core.Zone#ZONE_BASE}
+function GROUP:IsAnyInZone( Zone )
+
+  if not self:IsAlive() then return false end
+
+  for UnitID, UnitData in pairs( self:GetUnits() ) do
+    local Unit = UnitData -- Wrapper.Unit#UNIT
+    if Zone:IsVec3InZone( Unit:GetVec3() ) then
+      return true
+    end
+  end
+  return false
+end
+
 --- Returns the number of UNITs that are in the @{Zone}
 -- @param #GROUP self
 -- @param Core.Zone#ZONE_BASE Zone The zone to test.
@@ -1184,6 +1297,25 @@ end
 function GROUP:GetMinHeight()
   self:F2()
 
+  local DCSGroup = self:GetDCSObject()
+
+  if DCSGroup then
+    local GroupHeightMin = 999999999
+
+    for Index, UnitData in pairs( DCSGroup:getUnits() ) do
+      local UnitData = UnitData -- DCS#Unit
+
+      local UnitHeight = UnitData:getPoint()
+
+      if UnitHeight < GroupHeightMin then
+        GroupHeightMin = UnitHeight
+      end
+    end
+
+    return GroupHeightMin
+  end
+
+  return nil
 end
 
 --- Returns the current maximum height of the group.
@@ -1193,6 +1325,25 @@ end
 function GROUP:GetMaxHeight()
   self:F2()
 
+  local DCSGroup = self:GetDCSObject()
+
+  if DCSGroup then
+    local GroupHeightMax = -999999999
+
+    for Index, UnitData in pairs( DCSGroup:getUnits() ) do
+      local UnitData = UnitData -- DCS#Unit
+
+      local UnitHeight = UnitData:getPoint()
+
+      if UnitHeight > GroupHeightMax then
+        GroupHeightMax = UnitHeight
+      end
+    end
+
+    return GroupHeightMax
+  end
+
+  return nil
 end
 
 -- RESPAWNING
@@ -1453,16 +1604,18 @@ function GROUP:RespawnAtCurrentAirbase(SpawnTemplate, Takeoff, Uncontrolled) -- 
       SpawnPoint.airdromeId = AirbaseID
     end
 
-    SpawnPoint.alt    = AirbaseCoord:GetLandHeight()           
+    
     SpawnPoint.type   = GROUPTEMPLATE.Takeoff[Takeoff][1] -- type
     SpawnPoint.action = GROUPTEMPLATE.Takeoff[Takeoff][2] -- action
     
     -- Get the units of the group.
     local units=self:GetUnits()
 
-    for UnitID,_unit in pairs(units) do
+    local x
+    local y
+    for UnitID=1,#units do
         
-      local unit=_unit --Wrapper.Unit#UNIT
+      local unit=units[UnitID] --Wrapper.Unit#UNIT
 
       -- Get closest parking spot of current unit. Note that we look for occupied spots since the unit is currently sitting on it!
       local Parkingspot, TermialID, Distance=unit:GetCoordinate():GetClosestParkingSpot(airbase)
@@ -1472,26 +1625,33 @@ function GROUP:RespawnAtCurrentAirbase(SpawnTemplate, Takeoff, Uncontrolled) -- 
 
       -- Get unit coordinates for respawning position.
       local uc=unit:GetCoordinate()
-      SpawnTemplate.units[UnitID].x   = Parkingspot.x
-      SpawnTemplate.units[UnitID].y   = Parkingspot.z
-      SpawnTemplate.units[UnitID].alt = Parkingspot.y
+      --uc:MarkToAll(string.format("re-spawnplace %s terminal %d", unit:GetName(), TermialID))
+      
+      SpawnTemplate.units[UnitID].x   = uc.x --Parkingspot.x
+      SpawnTemplate.units[UnitID].y   = uc.z --Parkingspot.z
+      SpawnTemplate.units[UnitID].alt = uc.y --Parkingspot.y
 
       SpawnTemplate.units[UnitID].parking    = TermialID
       SpawnTemplate.units[UnitID].parking_id = nil
-                  
+      
+      --SpawnTemplate.units[UnitID].unitId=nil
     end
     
-    SpawnPoint.x = AirbaseCoord.x
-    SpawnPoint.y = AirbaseCoord.z
+    --SpawnTemplate.groupId=nil
     
-    SpawnTemplate.x = AirbaseCoord.x
-    SpawnTemplate.y = AirbaseCoord.z
+    SpawnPoint.x   = SpawnTemplate.units[1].x   --x --AirbaseCoord.x
+    SpawnPoint.y   = SpawnTemplate.units[1].y   --y --AirbaseCoord.z
+    SpawnPoint.alt = SpawnTemplate.units[1].alt --AirbaseCoord:GetLandHeight()
+               
+    SpawnTemplate.x = SpawnTemplate.units[1].x  --x --AirbaseCoord.x
+    SpawnTemplate.y = SpawnTemplate.units[1].y  --y --AirbaseCoord.z
     
     -- Set uncontrolled state.
     SpawnTemplate.uncontrolled=Uncontrolled
+
+    -- Destroy old group.
+    self:Destroy(false)
     
-    -- Destroy and respawn.
-    self:Destroy( false )
     _DATABASE:Spawn( SpawnTemplate )
   
     -- Reset events.
@@ -1592,8 +1752,7 @@ end
 
 --- Returns true if the first unit of the GROUP is in the air.
 -- @param Wrapper.Group#GROUP self
--- @return #boolean true if in the first unit of the group is in the air.
--- @return #nil The GROUP is not existing or not alive.  
+-- @return #boolean true if in the first unit of the group is in the air or #nil if the GROUP is not existing or not alive.   
 function GROUP:InAir()
   self:F2( self.GroupName )
 
@@ -1606,6 +1765,23 @@ function GROUP:InAir()
       self:T3( GroupInAir )
       return GroupInAir
     end
+  end
+  
+  return nil
+end
+
+--- Returns the DCS descriptor table of the nth unit of the group.
+-- @param #GROUP self
+-- @param #number n (Optional) The number of the unit for which the dscriptor is returned.
+-- @return DCS#Object.Desc The descriptor of the first unit of the group or #nil if the group does not exist any more.   
+function GROUP:GetDCSDesc(n)
+  -- Default.
+  n=n or 1
+  
+  local unit=self:GetUnit(n)
+  if unit and unit:IsAlive()~=nil then
+    local desc=unit:GetDesc()
+    return desc
   end
   
   return nil

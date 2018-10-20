@@ -1,8 +1,32 @@
---- **Core** --Spawn dynamically new GROUPs of UNITs in your missions.
+--- **Core** - Spawn dynamically new groups of units in running missions.
 --  
 -- ===
 -- 
--- The documentation of the SPAWN class can be found further in this document.
+-- ## Features:
+-- 
+--   * Spawn new groups in running missions.
+--   * Schedule spawning of new groups.
+--   * Put limits on the amount of groups that can be spawned, and the amount of units that can be alive at the same time.
+--   * Randomize the spawning location between different zones.
+--   * Randomize the intial positions within the zones.
+--   * Spawn in array formation.
+--   * Spawn uncontrolled (for planes or helos only).
+--   * Clean up inactive helicopters that "crashed".
+--   * Place a hook to capture a spawn event, and tailor with customer code.
+--   * Spawn late activated.
+--   * Spawn with or without an initial delay.
+--   * Respawn after landing, on the runway or at the ramp after engine shutdown.
+--   * Spawn with custom heading.
+--   * Spawn with different skills.
+--   * Spawn with different liveries.
+--   * Spawn with an inner and outer radius to set the initial position.
+--   * Spawn with a randomize route.
+--   * Spawn with a randomized template.
+--   * Spawn with a randomized start points on a route.
+--   * Spawn with an alternative name.
+--   * Spawn and keep the unit names.
+--   * Spawn with a different coalition and country.
+--   * Enquiry methods to check on spawn status.
 -- 
 -- ===
 -- 
@@ -496,7 +520,12 @@ end
 
 --- Sets the coalition of the spawned group. Note that it might be necessary to also set the country explicitly!
 -- @param #SPAWN self 
--- @param #DCS.coalition Coaliton Coaliton of the group as number of enumerator, i.e. 0=coaliton.side.NEUTRAL, 1=coaliton.side.RED, 2=coalition.side.BLUE.
+-- @param DCS#coalition.side Coalition Coalition of the group as number of enumerator:
+-- 
+--   * @{DCS#coaliton.side.NEUTRAL}
+--   * @{DCS#coaliton.side.RED}
+--   * @{DCS#coalition.side.BLUE}
+--   
 -- @return #SPAWN self
 function SPAWN:InitCoalition( Coalition )
   self:F({coalition=Coalition})
@@ -507,9 +536,12 @@ function SPAWN:InitCoalition( Coalition )
 end
 
 --- Sets the country of the spawn group. Note that the country determins the coalition of the group depending on which country is defined to be on which side for each specific mission!
--- See https://wiki.hoggitworld.com/view/DCS_enum_country for country enumerators.
 -- @param #SPAWN self 
--- @param #DCS.country Country Country id as number or enumerator, e.g. country.id.RUSSIA=0, county.id.USA=2 etc.
+-- @param #DCS.country Country Country id as number or enumerator:
+-- 
+--   * @{DCS#country.id.RUSSIA}
+--   * @{DCS#county.id.USA}
+--   
 -- @return #SPAWN self
 function SPAWN:InitCountry( Country )
   self:F( )
@@ -757,14 +789,20 @@ end
 
 
 
---TODO: Add example.
 --- This method provides the functionality to randomize the spawning of the Groups at a given list of zones of different types.
 -- @param #SPAWN self
 -- @param #table SpawnZoneTable A table with @{Zone} objects. If this table is given, then each spawn will be executed within the given list of @{Zone}s objects. 
 -- @return #SPAWN
 -- @usage
--- -- NATO Tank Platoons invading Gori.
--- -- Choose between 3 different zones for each new SPAWN the Group to be executed, regardless of the zone type. 
+--  -- Create a zone table of the 2 zones.
+--  ZoneTable = { ZONE:New( "Zone1" ), ZONE:New( "Zone2" ) }
+--  
+--  Spawn_Vehicle_1 = SPAWN:New( "Spawn Vehicle 1" )
+--    :InitLimit( 10, 10 )
+--    :InitRandomizeRoute( 1, 1, 200 ) 
+--    :InitRandomizeZones( ZoneTable )
+--    :SpawnScheduled( 5, .5 )
+--    
 function SPAWN:InitRandomizeZones( SpawnZoneTable )
   self:F( { self.SpawnTemplatePrefix, SpawnZoneTable } )
 
@@ -883,10 +921,10 @@ end
 --- Makes the groups visible before start (like a batallion).
 -- The method will take the position of the group as the first position in the array.
 -- @param #SPAWN self
--- @param #number SpawnAngle         The angle in degrees how the groups and each unit of the group will be positioned.
--- @param #number SpawnWidth		     The amount of Groups that will be positioned on the X axis.
--- @param #number SpawnDeltaX        The space between each Group on the X-axis.
--- @param #number SpawnDeltaY		     The space between each Group on the Y-axis.
+-- @param #number SpawnAngle The angle in degrees how the groups and each unit of the group will be positioned.
+-- @param #number SpawnWidth The amount of Groups that will be positioned on the X axis.
+-- @param #number SpawnDeltaX The space between each Group on the X-axis.
+-- @param #number SpawnDeltaY The space between each Group on the Y-axis.
 -- @return #SPAWN self
 -- @usage
 -- -- Define an array of Groups.
@@ -1253,16 +1291,17 @@ end
 -- @param SpawnFunctionArguments A random amount of arguments to be provided to the function when the group spawns.
 -- @return #SPAWN
 -- @usage
--- -- Declare SpawnObject and call a function when a new Group is spawned.
--- local SpawnObject = SPAWN
---   :New( "SpawnObject" )
---   :InitLimit( 2, 10 )
---   :OnSpawnGroup(
---     function( SpawnGroup )
---       SpawnGroup:E( "I am spawned" )
---     end 
---     )
---   :SpawnScheduled( 300, 0.3 )
+--  -- Declare SpawnObject and call a function when a new Group is spawned.
+--  local SpawnObject = SPAWN
+--    :New( "SpawnObject" )
+--    :InitLimit( 2, 10 )
+--    :OnSpawnGroup(
+--      function( SpawnGroup )
+--        SpawnGroup:E( "I am spawned" )
+--      end 
+--      )
+--    :SpawnScheduled( 300, 0.3 )
+--    
 function SPAWN:OnSpawnGroup( SpawnCallBackFunction, ... )
   self:F( "OnSpawnGroup" )
 
@@ -1301,6 +1340,7 @@ end
 -- @param #number TakeoffAltitude (optional) The altitude above the ground.
 -- @param Wrapper.Airbase#AIRBASE.TerminalType TerminalType (optional) The terminal type the aircraft should be spawned at. See @{Wrapper.Airbase#AIRBASE.TerminalType}.
 -- @param #boolean EmergencyAirSpawn (optional) If true (default), groups are spawned in air if there is no parking spot at the airbase. If false, nothing is spawned if no parking spot is available.
+-- @param #table Parkingdata (optional) Table holding the coordinates and terminal ids for all units of the group. Spawning will be forced to happen at exactily these spots!
 -- @return Wrapper.Group#GROUP that was spawned or nil when nothing was spawned.
 -- @usage
 --   Spawn_Plane = SPAWN:New( "Plane" )
@@ -1321,7 +1361,7 @@ end
 --   
 --   Spawn_Plane:SpawnAtAirbase( AIRBASE:FindByName( AIRBASE.Caucasus.Krymsk ), SPAWN.Takeoff.Cold, nil, AIRBASE.TerminalType.OpenBig )
 -- 
-function SPAWN:SpawnAtAirbase( SpawnAirbase, Takeoff, TakeoffAltitude, TerminalType, EmergencyAirSpawn ) -- R2.2, R2.4
+function SPAWN:SpawnAtAirbase( SpawnAirbase, Takeoff, TakeoffAltitude, TerminalType, EmergencyAirSpawn, Parkingdata ) -- R2.2, R2.4
   self:F( { self.SpawnTemplatePrefix, SpawnAirbase, Takeoff, TakeoffAltitude, TerminalType } )
 
   -- Get position of airbase.
@@ -1436,6 +1476,10 @@ function SPAWN:SpawnAtAirbase( SpawnAirbase, Takeoff, TakeoffAltitude, TerminalT
           self:T(string.format("Group %s is spawned on farp/ship/runway %s.", self.SpawnTemplatePrefix, SpawnAirbase:GetName()))
           nfree=SpawnAirbase:GetFreeParkingSpotsNumber(termtype, true)
           spots=SpawnAirbase:GetFreeParkingSpotsTable(termtype, true)
+        elseif Parkingdata~=nil then
+          -- Parking data explicitly set by user as input parameter.
+          nfree=#Parkingdata
+          spots=Parkingdata
         else
           if ishelo then
             if termtype==nil then
@@ -1513,7 +1557,7 @@ function SPAWN:SpawnAtAirbase( SpawnAirbase, Takeoff, TakeoffAltitude, TerminalT
             PointVec3=spots[1].Coordinate
             
           else
-            -- If there is absolutely not spot ==> air start!
+            -- If there is absolutely no spot ==> air start!
             _notenough=true
           end
         
@@ -1617,6 +1661,7 @@ function SPAWN:SpawnAtAirbase( SpawnAirbase, Takeoff, TakeoffAltitude, TerminalT
             SpawnTemplate.units[UnitID].y   = parkingspots[UnitID].z
             SpawnTemplate.units[UnitID].alt = parkingspots[UnitID].y
             
+            --parkingspots[UnitID]:MarkToAll(string.format("Group %s spawning at airbase %s on parking spot id %d", self.SpawnTemplatePrefix, SpawnAirbase:GetName(), parkingindex[UnitID]))
           end
                  
         else

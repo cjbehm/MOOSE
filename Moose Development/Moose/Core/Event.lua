@@ -1,8 +1,15 @@
---- **Core** -- EVENT models DCS **event dispatching** using a **publish-subscribe** model.
+--- **Core** - Models DCS event dispatching using a publish-subscribe model.
 -- 
 -- ===
 -- 
--- # 1) Event Handling Overview
+-- ## Features:
+-- 
+--   * Capture DCS events and dispatch them to the subscribed objects.
+--   * Generate DCS events to the subscribed objects from within the code.
+-- 
+-- ===
+-- 
+-- # Event Handling Overview
 -- 
 -- ![Objects](..\Presentations\EVENT\Dia2.JPG)
 -- 
@@ -14,7 +21,7 @@
 -- Objects can subscribe to different events. The Event dispatcher will publish the received DCS events to the subscribed MOOSE objects, in a specified order.
 -- In this way, the subscribed MOOSE objects are kept in sync with your evolving running mission.
 -- 
--- ## 1.1) Event Dispatching
+-- ## 1. Event Dispatching
 -- 
 -- ![Objects](..\Presentations\EVENT\Dia4.JPG)
 -- 
@@ -41,7 +48,7 @@
 -- 
 -- But for some DCS events, the publishing order is reversed. This is due to the fact that objects need to be **erased** instead of added.
 -- 
--- ## 1.2) Event Handling
+-- # 2. Event Handling
 -- 
 -- ![Objects](..\Presentations\EVENT\Dia8.JPG)
 -- 
@@ -53,7 +60,7 @@
 -- The BASE class provides methods to catch DCS Events. These are events that are triggered from within the DCS simulator, 
 -- and handled through lua scripting. MOOSE provides an encapsulation to handle these events more efficiently.
 -- 
--- ### 1.2.1 Subscribe / Unsubscribe to DCS Events
+-- ## 2.1. Subscribe to / Unsubscribe from DCS Events.
 -- 
 -- At first, the mission designer will need to **Subscribe** to a specific DCS event for the class.
 -- So, when the DCS event occurs, the class will be notified of that event.
@@ -69,7 +76,7 @@
 -- So if a UNIT within the mission has the subscribed event for that object, 
 -- then the object event handler will receive the event for that UNIT!
 -- 
--- ### 1.3.2 Event Handling of DCS Events
+-- ## 2.2 Event Handling of DCS Events
 -- 
 -- Once the class is subscribed to the event, an **Event Handling** method on the object or class needs to be written that will be called
 -- when the DCS event occurs. The Event Handling method receives an @{Core.Event#EVENTDATA} structure, which contains a lot of information
@@ -100,19 +107,19 @@
 --        self:SmokeBlue()
 --      end
 -- 
--- ### 1.3.3 Event Handling methods that are automatically called upon subscribed DCS events
+-- ## 2.3 Event Handling methods that are automatically called upon subscribed DCS events.
 -- 
 -- ![Objects](..\Presentations\EVENT\Dia10.JPG)
 -- 
 -- The following list outlines which EVENTS item in the structure corresponds to which Event Handling method.
 -- Always ensure that your event handling methods align with the events being subscribed to, or nothing will be executed.
 -- 
--- # 2) EVENTS type
+-- # 3. EVENTS type
 -- 
 -- The EVENTS structure contains names for all the different DCS events that objects can subscribe to using the 
 -- @{Core.Base#BASE.HandleEvent}() method.
 -- 
--- # 3) EVENTDATA type
+-- # 4. EVENTDATA type
 -- 
 -- The @{Core.Event#EVENTDATA} structure contains all the fields that are populated with event information before 
 -- an Event Handler method is being called by the event dispatcher.
@@ -166,11 +173,12 @@
 -- @image Core_Event.JPG
 
 
---- The EVENT structure
--- 
--- @type EVENT
+--- @type EVENT
 -- @field #EVENT.Events Events
 -- @extends Core.Base#BASE
+
+--- The EVENT class
+-- @field #EVENT
 EVENT = {
   ClassName = "EVENT",
   ClassID = 0,
@@ -259,6 +267,10 @@ EVENTS = {
 -- @field DCS#coalition.side TgtCoalition (UNIT) The coalition of the target.
 -- @field DCS#Unit.Category TgtCategory (UNIT) The category of the target.
 -- @field #string TgtTypeName (UNIT) The type name of the target.
+-- 
+-- @field DCS#Airbase place The @{DCS#Airbase}
+-- @field Wrapper.Airbase#AIRBASE Place The MOOSE airbase object.
+-- @field #string PlaceName The name of the airbase.
 -- 
 -- @field weapon The weapon used during the event.
 -- @field Weapon
@@ -503,7 +515,6 @@ function EVENT:RemoveEvent( EventClass, EventID  )
   self.Events = self.Events or {}
   self.Events[EventID] = self.Events[EventID] or {}
   self.Events[EventID][EventPriority] = self.Events[EventID][EventPriority] or {}  
-  self.Events[EventID][EventPriority][EventClass] = self.Events[EventID][EventPriority][EventClass]
     
   self.Events[EventID][EventPriority][EventClass] = nil
   
@@ -941,6 +952,12 @@ function EVENT:onEvent( Event )
       Event.WeaponTypeName = Event.WeaponUNIT and Event.Weapon:getTypeName()
       --Event.WeaponTgtDCSUnit = Event.Weapon:getTarget()
     end
+    
+    -- Place should be given for takeoff and landing events as well as base captured. It should be a DCS airbase. 
+    if Event.place then      
+      Event.Place=AIRBASE:Find(Event.place)
+      Event.PlaceName=Event.Place:GetName()
+    end
 
 --  @FC: something like this should be added.
 --[[    
@@ -969,7 +986,7 @@ function EVENT:onEvent( Event )
     local PriorityEnd = PriorityOrder == -1 and 1 or 5
 
     if Event.IniObjectCategory ~= Object.Category.STATIC then
-      self:E( { EventMeta.Text, Event, Event.IniDCSUnitName, Event.TgtDCSUnitName, PriorityOrder } )
+      self:T( { EventMeta.Text, Event, Event.IniDCSUnitName, Event.TgtDCSUnitName, PriorityOrder } )
     end
     
     for EventPriority = PriorityBegin, PriorityEnd, PriorityOrder do
